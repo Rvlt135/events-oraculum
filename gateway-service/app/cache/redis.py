@@ -10,24 +10,23 @@ logger = structlog.get_logger()
 
 class RedisCache:
     def __init__(self):
-        self.url = settings.redis_url
         self.ttl = settings.cache_ttl_seconds
         self.client: Optional[redis.Redis] = None
 
-    async def connect(self) -> None:
+    async def initialize(self) -> None:
         if not self.client:
-            self.client = await redis.from_url(self.url, decode_responses=True)
-            logger.info("redis_cache_connected")
+            self.client = await redis.from_url(settings.redis_url, decode_responses=True)
+            logger.info("redis_cache_initialized")
 
-    async def disconnect(self) -> None:
+    async def dispose(self) -> None:
         if self.client:
             await self.client.close()
             self.client = None
-            logger.info("redis_cache_disconnected")
+            logger.info("redis_cache_disposed")
 
     async def get(self, key: str) -> Optional[dict]:
         if not self.client:
-            await self.connect()
+            raise RuntimeError("Redis not initialized")
 
         try:
             value = await self.client.get(key)
@@ -42,7 +41,7 @@ class RedisCache:
 
     async def set(self, key: str, value: dict, ttl: Optional[int] = None) -> None:
         if not self.client:
-            await self.connect()
+            raise RuntimeError("Redis not initialized")
 
         try:
             ttl_value = ttl if ttl is not None else self.ttl
@@ -53,7 +52,7 @@ class RedisCache:
 
     async def delete(self, key: str) -> None:
         if not self.client:
-            await self.connect()
+            raise RuntimeError("Redis not initialized")
 
         try:
             await self.client.delete(key)
@@ -62,4 +61,8 @@ class RedisCache:
             logger.error("cache_delete_error", key=key, error=str(e))
 
 
-redis_cache = RedisCache()
+redis_cache_manager = RedisCache()
+
+
+async def get_redis_cache() -> RedisCache:
+    return redis_cache_manager

@@ -7,44 +7,49 @@ from starlette.responses import Response
 import structlog
 
 from app.config.settings import settings
-from app.cache.redis import redis_cache_manager
-from app.db.pg import engine
-from app.routes import insights, stats
-from app.observability.logging import configure_logging
+from app.infra.db import db_manager
+from app.infra.redis_client import redis_manager
 
-configure_logging()
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ]
+)
 
 logger = structlog.get_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    logger.info("starting_gateway_service")
-    await redis_cache_manager.initialize()
+    logger.info("starting_odds_service")
+
+    await db_manager.initialize()
+    await redis_manager.initialize()
+
     yield
-    await redis_cache_manager.dispose()
-    await engine.dispose()
-    logger.info("shutting_down_gateway_service")
+
+    await redis_manager.dispose()
+    await db_manager.dispose()
+
+    logger.info("shutting_down_odds_service")
 
 
-def create_app(env: str = "production") -> FastAPI:
+def create_app(env: str = "development") -> FastAPI:
     app = FastAPI(
-        title="Gateway Service",
-        description="Public API for betting insights and recommendations",
+        title="Odds Service",
+        description="Sports odds collection and normalization service",
         version="0.1.0",
         lifespan=lifespan,
     )
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    app.include_router(insights.router)
-    app.include_router(stats.router)
 
     @app.get("/")
     async def root() -> dict:
@@ -74,8 +79,8 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "app.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
+        host="0.0.0.0",
+        port=8083,
         log_level=settings.log_level.lower(),
-        reload=False,
+        reload=True,
     )
