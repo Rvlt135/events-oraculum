@@ -6,7 +6,8 @@ import structlog
 
 from app.services.features import FeatureBuilder
 from app.services.agents.base import Agent
-from app.services.agents.llm_openrouter import OpenRouterLLMAgent
+from app.services.agents.llm_agent import LLMAgent
+from app.services.clients.factory import create_llm_client
 from app.db.repositories import RecommendationRepository
 from app.models.recommendation import RecommendationCreate
 from app.config.settings import settings
@@ -15,11 +16,18 @@ logger = structlog.get_logger()
 
 
 class AgentRunner:
-    def __init__(self, repository: RecommendationRepository, prompt_template: str = "betting_analysis"):
+    def __init__(
+        self,
+        repository: RecommendationRepository,
+        prompt_template: str = "betting_analysis",
+        model_name: Optional[str] = None
+    ):
         self.repository = repository
         self.feature_builder = FeatureBuilder(settings.postgres_url)
         self.prompt_template = prompt_template
-        self.agent: Agent = OpenRouterLLMAgent(prompt_template=prompt_template)
+
+        llm_client = create_llm_client(model_name)
+        self.agent: Agent = LLMAgent(llm_client=llm_client, prompt_template=prompt_template)
 
     async def run_batch(
         self,

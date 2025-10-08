@@ -1,4 +1,5 @@
 from typing import List, Literal
+from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,13 +27,17 @@ class Settings(BaseSettings):
     postgres_password: str = Field(default="postgres")
     postgres_db: str = Field(default="layerbit")
 
-    llm_provider: Literal["openrouter", "litellm", "langchain"] = Field(default="openrouter")
+    llm_client: Literal["instructor", "langchain", "litellm"] = Field(default="instructor")
+
     openrouter_api_key: str = Field(default="")
     openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1")
-    openrouter_model: str = Field(default="openai/gpt-4o-mini")
+    openrouter_max_retries: int = Field(default=3)
+    openrouter_referer: str = Field(default="https://layerbit-oraculum.ai")
+    openrouter_app_title: str = Field(default="Layerbit Oraculum AI")
 
-    llm_temperature: float = Field(default=0.7)
-    llm_max_tokens: int = Field(default=500)
+    models_config_path: str = Field(default="app/config/models.yaml")
+    active_model_name: str = Field(default="gpt-4o-mini")
+
     llm_timeout: int = Field(default=30)
 
     default_leagues: List[str] = Field(default=["soccer_uefa_champs_league"])
@@ -44,6 +49,10 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def models_config_full_path(self) -> Path:
+        return Path(self.models_config_path)
 
 
 settings = Settings()

@@ -1,0 +1,42 @@
+models:
+  - name: gpt-4o-mini
+    provider: openrouter
+    model_id: openai/gpt-4o-mini
+    supports_json_mode: true
+    max_context: 128000
+    temperature_default: 0.7
+    max_tokens_default: 500
+    tags: [fast, cheap, reliable]
+    description: "Fast and cost-effective model for betting analysis"
+
+  - name: gpt-4o
+    provider: openrouter
+    model_id: openai/gpt-4o
+    supports_json_mode: true
+    max_context: 128000
+    temperature_default: 0.7
+    max_tokens_default: 800
+    tags: [advanced, accurate]
+    description: "More capable model for complex analysis"
+
+  - name: claude-3-5-sonnet
+    provider: openrouter
+    model_id: anthropic/claude-3.5-sonnet
+    supports_json_mode: false
+    max_context: 200000
+    temperature_default: 0.7
+    max_tokens_default: 600
+    tags: [advanced, reasoning]
+    description: "Claude Sonnet with strong reasoning"
+
+  - name: llama-3-70b
+    provider: openrouter
+    model_id: meta-llama/llama-3-70b-instruct
+    supports_json_mode: false
+    max_context: 8192
+    temperature_default: 0.7
+    max_tokens_default: 500
+    tags: [open-source, fast]
+    description: "Open source Llama 3 model"
+
+default_model: gpt-4o-mini

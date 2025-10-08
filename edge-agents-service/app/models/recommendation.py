@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID, uuid4
 from sqlalchemy import Column, String, Float, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -31,6 +31,30 @@ class RecommendationCreate(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     short_explanation: str
     model_version: str
+
+
+class RecommendationSchema(BaseModel):
+    pick: Literal["home", "draw", "away"] = Field(
+        description="Recommended outcome: home win, draw, or away win"
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence level between 0.0 and 1.0"
+    )
+    short_explanation: str = Field(
+        max_length=200,
+        description="Brief reasoning for the recommendation (max 200 characters)"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "pick": "home",
+                "confidence": 0.75,
+                "short_explanation": "Strong home advantage with favorable odds"
+            }
+        }
 
 
 class RecommendationResponse(BaseModel):

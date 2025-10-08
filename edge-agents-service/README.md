@@ -1,6 +1,6 @@
 # Edge Agents Service
 
-AI-агенты для анализа нормализованных беттинговых данных. Сервис использует LLM (через OpenRouter API) для генерации рекомендаций по футбольным событиям.
+AI-агенты для анализа нормализованных беттинговых данных. Сервис использует LLM через AsyncOpenAI + instructor для генерации строго типизированных рекомендаций по футбольным событиям.
 
 ## Структура проекта
 
@@ -17,12 +17,18 @@ edge-agents-service/
 │   ├── services/
 │   │   ├── features.py       # Feature builder (h2h)
 │   │   ├── runner.py         # Оркестрация анализа
+│   │   ├── clients/          # LLM клиенты
+│   │   │   ├── base.py       # Интерфейс BaseLLMClient
+│   │   │   ├── factory.py    # Фабрика клиентов
+│   │   │   ├── openai_instructor.py  # AsyncOpenAI + instructor
+│   │   │   ├── langchain_client.py   # LangChain адаптер
+│   │   │   └── litellm_client.py     # LiteLLM адаптер
 │   │   ├── prompts/          # Система промптов
 │   │   │   ├── loader.py     # Загрузчик YAML промптов
 │   │   │   └── processor.py  # Обработчик промптов
 │   │   └── agents/
 │   │       ├── base.py       # Интерфейс Agent
-│   │       └── llm_openrouter.py  # Реализация через OpenRouter
+│   │       └── llm_agent.py  # LLM Agent с DI клиента
 │   ├── routes/
 │   │   └── internal.py       # FastAPI роуты /_agents/*
 │   └── main.py               # FastAPI приложение
@@ -37,12 +43,14 @@ edge-agents-service/
 
 ## Возможности
 
-- Анализ нормализованных данных из odds-service
-- Генерация рекомендаций через LLM (pick, confidence, explanation)
-- Сохранение рекомендаций в PostgreSQL
+- **AsyncOpenAI + instructor** - строгая Pydantic-валидация ответов LLM
+- **Выбор клиента** - instructor (default), LangChain, LiteLLM через настройки
+- **YAML-конфигурация моделей** - models.yaml с параметрами моделей
 - **Система YAML-промптов** - гибкое управление промптами через файлы
 - Множественные стратегии анализа (betting_analysis, conservative_analysis, value_hunting)
 - Extensible архитектура агентов (готовность к voting/ensembling)
+- Анализ нормализованных данных из odds-service
+- Сохранение рекомендаций в PostgreSQL
 - Внутреннее API для запуска анализа
 
 ## API Endpoints
@@ -113,6 +121,87 @@ curl http://localhost:8082/_agents/prompts
 ```bash
 curl -X POST http://localhost:8082/_agents/prompts/reload
 ```
+
+## Архитектура LLM-клиентов
+
+### AsyncOpenAI + instructor (Рекомендуется)
+
+Сервис использует официальный AsyncOpenAI SDK, обёрнутый в instructor для строгой Pydantic-валидации:
+
+```python
+# Инициализация
+client = AsyncOpenAI(
+    api_key=settings.openrouter_api_key,
+    base_url=settings.openrouter_base_url,
+    max_retries=settings.openrouter_max_retries,
+    default_headers={
+        "HTTP-Referer": settings.openrouter_referer,
+        "X-Title": settings.openrouter_app_title,
+    }
+)
+instructor_client = instructor.from_openai(client)
+
+# Генерация с Pydantic-схемой
+response = await instructor_client.chat.completions.create(
+    model="openai/gpt-4o-mini",
+    messages=[...],
+    response_model=RecommendationSchema  # Pydantic model
+)
+```
+
+**Преимущества:**
+- Строгая типизация ответов LLM
+- Автоматическая валидация через Pydantic
+- Поддержка JSON mode для совместимых моделей
+- Retry логика из AsyncOpenAI
+- Нет прямых httpx вызовов
+
+### Выбор клиента
+
+Сервис поддерживает переключение между клиентами через `LLM_CLIENT` в .env:
+
+**instructor** (default):
+```bash
+LLM_CLIENT=instructor
+```
+
+**LangChain** (adapter stub):
+```bash
+LLM_CLIENT=langchain
+```
+
+**LiteLLM** (adapter stub):
+```bash
+LLM_CLIENT=litellm
+```
+
+### Конфигурация моделей
+
+Модели настраиваются через `app/config/models.yaml`:
+
+```yaml
+models:
+  - name: gpt-4o-mini
+    provider: openrouter
+    model_id: openai/gpt-4o-mini
+    supports_json_mode: true
+    max_context: 128000
+    temperature_default: 0.7
+    max_tokens_default: 500
+
+default_model: gpt-4o-mini
+```
+
+**Выбор модели через настройки:**
+```bash
+ACTIVE_MODEL_NAME=gpt-4o-mini  # или gpt-4o, claude-3-5-sonnet, etc.
+```
+
+**Ключевые параметры:**
+- `supports_json_mode` - использовать JSON mode если доступен
+- `max_context` - максимальный размер контекста
+- `temperature_default` - температура по умолчанию
+- `max_tokens_default` - макс токенов по умолчанию
 
 ## Система YAML-промптов
 
