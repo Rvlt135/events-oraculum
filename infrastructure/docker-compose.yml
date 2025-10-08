@@ -101,6 +101,29 @@ services:
       - layerbit-network
     restart: unless-stopped
 
+  edge-agents:
+    build:
+      context: ../edge-agents-service
+      dockerfile: Dockerfile
+    container_name: layerbit-edge-agents
+    command: python -m app.main
+    ports:
+      - "8082:8082"
+    env_file:
+      - ../edge-agents-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - layerbit-network
+    restart: unless-stopped
+
 volumes:
   pg-data:
   redis-data:

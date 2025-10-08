@@ -8,11 +8,11 @@ AI-система "оракулов" для анализа беттинговы�
 
 ### Этапы разработки
 
-**Этап 1 (Текущий):**
+**Этап 1 (Завершён):**
 1. ✅ **odds-service** - Сбор, нормализация и хранение данных
 
-**Этап 2 (Ожидает аппрува):**
-2. **edge-agents-service** - AI-агенты для анализа и рекомендаций
+**Этап 2 (Текущий):**
+2. ✅ **edge-agents-service** - AI-агенты для анализа и рекомендаций
 
 **Этап 3 (Ожидает аппрува):**
 3. **gateway-service** - Публичное API для выдачи инсайтов
@@ -35,7 +35,17 @@ layerbit-oraculs-bet/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── .env.example
-├── edge-agents-service/      # Этап 2 (не создан)
+├── edge-agents-service/      # Этап 2 - AI-агенты
+│   ├── app/
+│   │   ├── config/           # settings.py
+│   │   ├── models/           # recommendation.py (SQLAlchemy)
+│   │   ├── db/               # pg.py, repositories.py
+│   │   ├── services/         # features.py, runner.py, agents/
+│   │   ├── routes/           # internal.py (/_agents/*)
+│   │   └── main.py
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── .env.example
 ├── gateway-service/          # Этап 3 (не создан)
 └── infrastructure/           # Docker Compose
     ├── docker-compose.yml
@@ -102,6 +112,7 @@ curl http://localhost:8081/_admin/data/snapshots?limit=10
 - **odds-admin-api**: http://localhost:8081
 - **odds-worker**: Обработчик фоновых задач
 - **odds-scheduler**: Планировщик (cron: 9:00, 19:00)
+- **edge-agents**: http://localhost:8082 (AI-агенты)
 - **postgres**: localhost:5432
 - **redis**: localhost:6379
 
@@ -117,6 +128,7 @@ curl http://localhost:8081/_admin/data/snapshots?limit=10
 - `bookmakers` - Справочник букмекеров
 - `odds_snapshots` - Сырые данные с ts_src, ts_ingest
 - `normalized_odds` - Агрегированная статистика
+- `recommendations` - Рекомендации от AI-агентов
 
 ## Поток данных
 
@@ -139,13 +151,39 @@ curl http://localhost:8081/_admin/data/snapshots?limit=10
 - **Prometheus** - Метрики
 - **structlog** - Структурированное логирование
 
-## Следующие этапы
+## Этап 2: edge-agents-service
 
-### Этап 2: edge-agents-service (Ожидает аппрува)
-- Анализ через LLM-агенты
-- Интеграция с OpenRouter API
+### Возможности
+- Анализ нормализованных данных через LLM
+- Интеграция с OpenRouter API (LiteLLM, LangChain)
 - Генерация рекомендаций (pick, confidence, explanation)
-- Сохранение результатов в PostgreSQL
+- Extensible архитектура агентов (готовность к voting)
+
+### API Endpoints
+
+**POST /_agents/run_batch**
+- Запуск анализа для событий
+- Параметры: event_ids, league, from_date, to_date
+
+**GET /_agents/recommendations**
+- Получение рекомендаций
+- Фильтры: league, from, to, min_conf
+
+**GET /_agents/health**
+- Health check
+
+**Пример использования:**
+```bash
+# Запустить анализ для лиги
+curl -X POST http://localhost:8082/_agents/run_batch \
+  -H "Content-Type: application/json" \
+  -d '{"league": "soccer_uefa_champs_league"}'
+
+# Получить рекомендации
+curl "http://localhost:8082/_agents/recommendations?league=soccer_uefa_champs_league&min_conf=0.6"
+```
+
+## Следующие этапы
 
 ### Этап 3: gateway-service (Ожидает аппрува)
 - Публичное REST API
