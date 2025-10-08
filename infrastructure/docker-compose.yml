@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: layerbit-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - layerbit-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: layerbit-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: layerbit
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../odds-service/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - layerbit-network
+
+  odds-admin-api:
+    build:
+      context: ../odds-service
+      dockerfile: Dockerfile
+    container_name: layerbit-odds-admin-api
+    command: python -m boot.admin_api
+    ports:
+      - "8081:8081"
+    env_file:
+      - ../odds-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - layerbit-network
+    restart: unless-stopped
+
+  odds-worker:
+    build:
+      context: ../odds-service
+      dockerfile: Dockerfile
+    container_name: layerbit-odds-worker
+    command: python -m boot.worker
+    env_file:
+      - ../odds-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - layerbit-network
+    restart: unless-stopped
+
+  odds-scheduler:
+    build:
+      context: ../odds-service
+      dockerfile: Dockerfile
+    container_name: layerbit-odds-scheduler
+    command: python -m boot.scheduler
+    env_file:
+      - ../odds-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - layerbit-network
+    restart: unless-stopped
+
+  edge-agents:
+    build:
+      context: ../edge-agents-service
+      dockerfile: Dockerfile
+    container_name: layerbit-edge-agents
+    command: python -m app.main
+    ports:
+      - "8082:8082"
+    env_file:
+      - ../edge-agents-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - layerbit-network
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ../gateway-service
+      dockerfile: Dockerfile
+    container_name: layerbit-gateway
+    command: python -m app.main
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../gateway-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - layerbit-network
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  redis-data:
+
+networks:
+  layerbit-network:
+    driver: bridge

@@ -1,0 +1,11 @@
+{
+  "name": "layerbit-oraculum-ai",
+  "version": "0.1.0",
+  "description": "AI-powered betting analysis system for sports events",
+  "scripts": {
+    "build": "cd odds-service && python3 -m compileall app/ boot/ && cd ../edge-agents-service && python3 -m compileall app/ && cd ../gateway-service && python3 -m compileall app/",
+    "docker:up": "cd infrastructure && docker-compose up -d",
+    "docker:down": "cd infrastructure && docker-compose down",
+    "docker:logs": "cd infrastructure && docker-compose logs -f"
+  }
+}
