@@ -1,0 +1,12 @@
+{
+  "name": "layerbit-oraculum-ai",
+  "version": "0.1.0",
+  "description": "AI-powered betting analysis system for sports events",
+  "scripts": {
+    "build": "python3 -m compileall services/ shared/",
+    "test": "pytest",
+    "lint": "ruff check .",
+    "format": "ruff format .",
+    "typecheck": "mypy services/ shared/"
+  }
+}
