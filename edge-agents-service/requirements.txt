@@ -13,3 +13,4 @@ langchain-core>=0.3.0
 tenacity>=9.0.0
 structlog>=24.4.0
 python-dateutil>=2.9.0
+pyyaml>=6.0.0

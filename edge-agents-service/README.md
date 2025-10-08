@@ -17,12 +17,19 @@ edge-agents-service/
 │   ├── services/
 │   │   ├── features.py       # Feature builder (h2h)
 │   │   ├── runner.py         # Оркестрация анализа
+│   │   ├── prompts/          # Система промптов
+│   │   │   ├── loader.py     # Загрузчик YAML промптов
+│   │   │   └── processor.py  # Обработчик промптов
 │   │   └── agents/
 │   │       ├── base.py       # Интерфейс Agent
 │   │       └── llm_openrouter.py  # Реализация через OpenRouter
 │   ├── routes/
 │   │   └── internal.py       # FastAPI роуты /_agents/*
 │   └── main.py               # FastAPI приложение
+├── prompts/                   # YAML шаблоны промптов
+│   ├── betting_analysis.yml
+│   ├── conservative_analysis.yml
+│   └── value_hunting.yml
 ├── Dockerfile
 ├── requirements.txt
 └── .env.example
@@ -33,6 +40,8 @@ edge-agents-service/
 - Анализ нормализованных данных из odds-service
 - Генерация рекомендаций через LLM (pick, confidence, explanation)
 - Сохранение рекомендаций в PostgreSQL
+- **Система YAML-промптов** - гибкое управление промптами через файлы
+- Множественные стратегии анализа (betting_analysis, conservative_analysis, value_hunting)
 - Extensible архитектура агентов (готовность к voting/ensembling)
 - Внутреннее API для запуска анализа
 
@@ -46,12 +55,18 @@ edge-agents-service/
 - `league` (optional) - Ключ лиги (например, `soccer_uefa_champs_league`)
 - `from_date` (optional) - Начальная дата
 - `to_date` (optional) - Конечная дата
+- `prompt_template` (optional, default: "betting_analysis") - Имя YAML шаблона промпта
 
-**Пример:**
+**Примеры:**
 ```bash
-curl -X POST http://localhost:8082/_agents/run_batch \
-  -H "Content-Type: application/json" \
-  -d '{"league": "soccer_uefa_champs_league"}'
+# Использовать стандартный промпт
+curl -X POST "http://localhost:8082/_agents/run_batch?league=soccer_uefa_champs_league"
+
+# Использовать консервативный промпт
+curl -X POST "http://localhost:8082/_agents/run_batch?league=soccer_uefa_champs_league&prompt_template=conservative_analysis"
+
+# Использовать агрессивный промпт для поиска value
+curl -X POST "http://localhost:8082/_agents/run_batch?league=soccer_uefa_champs_league&prompt_template=value_hunting"
 ```
 
 ### GET /_agents/recommendations
@@ -74,6 +89,105 @@ Health check.
 
 ```bash
 curl http://localhost:8082/_agents/health
+```
+
+### GET /_agents/prompts
+Получить список доступных YAML промптов.
+
+```bash
+curl http://localhost:8082/_agents/prompts
+```
+
+**Ответ:**
+```json
+{
+  "betting_analysis": "Main prompt for football match betting analysis",
+  "conservative_analysis": "Conservative betting analysis with focus on value and risk",
+  "value_hunting": "Aggressive value hunting focused on finding market inefficiencies"
+}
+```
+
+### POST /_agents/prompts/reload
+Перезагрузить YAML промпты без перезапуска сервиса.
+
+```bash
+curl -X POST http://localhost:8082/_agents/prompts/reload
+```
+
+## Система YAML-промптов
+
+Сервис использует гибкую систему промптов на основе YAML файлов, что позволяет:
+- Легко изменять стратегии анализа без изменения кода
+- Создавать множественные варианты промптов
+- Версионировать промпты
+- Настраивать параметры LLM (temperature, max_tokens) для каждого промпта
+
+### Структура YAML промпта
+
+```yaml
+name: betting_analysis
+version: "1.0"
+description: "Описание промпта"
+
+system_prompt: |
+  Системный промпт для LLM
+
+user_prompt_template: |
+  Промпт с переменными {home_team}, {away_team}, {home_odds_avg}, etc.
+
+response_format:
+  type: "json"
+  schema:
+    pick:
+      type: "string"
+      enum: ["home", "draw", "away"]
+    confidence:
+      type: "number"
+      minimum: 0.0
+      maximum: 1.0
+
+parameters:
+  temperature: 0.7
+  max_tokens: 500
+  top_p: 0.9
+```
+
+### Доступные промпты
+
+1. **betting_analysis** (по умолчанию)
+   - Сбалансированный анализ
+   - Temperature: 0.7
+   - Подходит для общего использования
+
+2. **conservative_analysis**
+   - Консервативный подход
+   - Temperature: 0.5
+   - Фокус на минимизации рисков
+   - Confidence ограничена до 0.7
+
+3. **value_hunting**
+   - Агрессивный поиск value
+   - Temperature: 0.8
+   - Фокус на market inefficiencies
+   - Высокий риск / высокая награда
+
+### Создание собственного промпта
+
+1. Создайте YAML файл в директории `prompts/`:
+```bash
+touch prompts/my_custom_analysis.yml
+```
+
+2. Определите структуру промпта (см. примеры выше)
+
+3. Перезагрузите промпты:
+```bash
+curl -X POST http://localhost:8082/_agents/prompts/reload
+```
+
+4. Используйте новый промпт:
+```bash
+curl -X POST "http://localhost:8082/_agents/run_batch?league=soccer_uefa_champs_league&prompt_template=my_custom_analysis"
 ```
 
 ## Модель данных

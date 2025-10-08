@@ -6,53 +6,28 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 import structlog
 
 from app.services.agents.base import Agent, AgentPrediction
+from app.services.prompts.processor import PromptProcessor
 from app.config.settings import settings
 
 logger = structlog.get_logger()
 
 
 class OpenRouterLLMAgent(Agent):
-    def __init__(self):
+    def __init__(self, prompt_template: str = "betting_analysis"):
         self.api_key = settings.openrouter_api_key
         self.base_url = settings.openrouter_base_url
         self.model = settings.openrouter_model
-        self.temperature = settings.llm_temperature
-        self.max_tokens = settings.llm_max_tokens
         self.timeout = settings.llm_timeout
+        self.prompt_template = prompt_template
+        self.prompt_processor = PromptProcessor(prompts_dir="prompts")
 
     def get_model_version(self) -> str:
-        return f"{self.model}_v1"
-
-    def _build_prompt(self, features: Dict[str, Any]) -> str:
-        prompt = f"""You are an expert sports betting analyst. Analyze the following football match and provide a betting recommendation.
-
-Match Details:
-- League: {features.get('league_name', 'N/A')}
-- Home Team: {features.get('home_team', 'N/A')}
-- Away Team: {features.get('away_team', 'N/A')}
-- Match Time: {features.get('commence_time', 'N/A')}
-
-Odds Data (h2h market):
-- Home Win Average Odds: {features.get('home_odds_avg', 'N/A')}
-- Draw Average Odds: {features.get('draw_odds_avg', 'N/A')}
-- Away Win Average Odds: {features.get('away_odds_avg', 'N/A')}
-- Home Win Best Odds: {features.get('home_odds_best', 'N/A')}
-- Away Win Best Odds: {features.get('away_odds_best', 'N/A')}
-- Number of Bookmakers: {features.get('bookmakers_count', 'N/A')}
-
-Based on this data, provide your analysis in the following JSON format:
-{{
-    "pick": "home|draw|away",
-    "confidence": 0.0-1.0,
-    "explanation": "Brief explanation (max 200 chars)"
-}}
-
-Consider the odds, implied probabilities, and market consensus. Be objective and data-driven."""
-
-        return prompt
+        return f"{self.model}_{self.prompt_template}_v1"
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def _call_llm(self, prompt: str) -> str:
+    async def _call_llm(
+        self, system_prompt: str, user_prompt: str, parameters: Dict[str, Any]
+    ) -> str:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
@@ -62,14 +37,20 @@ Consider the odds, implied probabilities, and market consensus. Be objective and
             payload = {
                 "model": self.model,
                 "messages": [
-                    {"role": "system", "content": "You are a professional sports betting analyst."},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
                 ],
-                "temperature": self.temperature,
-                "max_tokens": self.max_tokens,
+                "temperature": parameters.get("temperature", 0.7),
+                "max_tokens": parameters.get("max_tokens", 500),
+                "top_p": parameters.get("top_p", 1.0),
             }
 
-            logger.info("calling_llm", model=self.model)
+            logger.info(
+                "calling_llm",
+                model=self.model,
+                template=self.prompt_template,
+                temperature=payload["temperature"],
+            )
 
             response = await client.post(
                 f"{self.base_url}/chat/completions",
@@ -128,8 +109,20 @@ Consider the odds, implied probabilities, and market consensus. Be objective and
                 logger.warning("insufficient_data", event_id=str(event_id))
                 return None
 
-            prompt = self._build_prompt(event_features)
-            response = await self._call_llm(prompt)
+            prompt_data = self.prompt_processor.prepare_prompt(
+                template_name=self.prompt_template, features=event_features
+            )
+
+            if not prompt_data:
+                logger.error("prompt_preparation_failed", template=self.prompt_template)
+                return None
+
+            response = await self._call_llm(
+                system_prompt=prompt_data["system_prompt"],
+                user_prompt=prompt_data["user_prompt"],
+                parameters=prompt_data["parameters"],
+            )
+
             prediction = self._parse_response(response, event_id)
 
             if prediction:
@@ -138,10 +131,11 @@ Consider the odds, implied probabilities, and market consensus. Be objective and
                     event_id=str(event_id),
                     pick=prediction.pick,
                     confidence=prediction.confidence,
+                    template=self.prompt_template,
                 )
 
             return prediction
 
         except Exception as e:
-            logger.error("analysis_failed", error=str(e))
+            logger.error("analysis_failed", error=str(e), template=self.prompt_template)
             return None

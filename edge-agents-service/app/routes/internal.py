@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, Depends, BackgroundTasks, Query
@@ -8,6 +8,7 @@ import structlog
 from app.db.pg import get_session
 from app.db.repositories import RecommendationRepository
 from app.services.runner import AgentRunner
+from app.services.prompts.processor import PromptProcessor
 from app.models.recommendation import RecommendationResponse
 
 logger = structlog.get_logger()
@@ -27,16 +28,18 @@ async def run_batch(
     league: Optional[str] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
+    prompt_template: str = Query(default="betting_analysis"),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     logger.info(
         "run_batch_requested",
         event_ids_count=len(event_ids) if event_ids else 0,
         league=league,
+        prompt_template=prompt_template,
     )
 
     repository = RecommendationRepository(session)
-    runner = AgentRunner(repository)
+    runner = AgentRunner(repository, prompt_template=prompt_template)
 
     result = await runner.run_batch(
         event_ids=event_ids,
@@ -79,3 +82,23 @@ async def get_recommendations(
     logger.info("recommendations_returned", count=len(recommendations))
 
     return recommendations
+
+
+@router.get("/prompts")
+async def list_prompts() -> Dict[str, str]:
+    processor = PromptProcessor(prompts_dir="prompts")
+    templates = processor.list_available_templates()
+
+    logger.info("prompts_listed", count=len(templates))
+
+    return templates
+
+
+@router.post("/prompts/reload")
+async def reload_prompts() -> dict:
+    processor = PromptProcessor(prompts_dir="prompts")
+    processor.reload_templates()
+
+    logger.info("prompts_reloaded")
+
+    return {"status": "success", "message": "Prompts reloaded"}

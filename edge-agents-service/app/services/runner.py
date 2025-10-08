@@ -15,10 +15,11 @@ logger = structlog.get_logger()
 
 
 class AgentRunner:
-    def __init__(self, repository: RecommendationRepository):
+    def __init__(self, repository: RecommendationRepository, prompt_template: str = "betting_analysis"):
         self.repository = repository
         self.feature_builder = FeatureBuilder(settings.postgres_url)
-        self.agent: Agent = OpenRouterLLMAgent()
+        self.prompt_template = prompt_template
+        self.agent: Agent = OpenRouterLLMAgent(prompt_template=prompt_template)
 
     async def run_batch(
         self,
