@@ -2,16 +2,28 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.infra.pg_client import PostgresClient
+from app.infra.repositories import (
+    TeamRepository,
+    EventRepository,
+    BookmakerRepository,
+    OddsSnapshotRepository,
+    NormalizedOddsRepository,
+)
 
 logger = structlog.get_logger()
 
 
 class OddsNormalizer:
-    def __init__(self, pg_client: PostgresClient) -> None:
-        self.pg_client = pg_client
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+        self.team_repo = TeamRepository(session)
+        self.event_repo = EventRepository(session)
+        self.bookmaker_repo = BookmakerRepository(session)
+        self.snapshot_repo = OddsSnapshotRepository(session)
+        self.normalized_repo = NormalizedOddsRepository(session)
 
     @staticmethod
     def normalize_team_name(name: str) -> str:
@@ -75,21 +87,21 @@ class OddsNormalizer:
 
             commence_time = datetime.fromisoformat(commence_time_str.replace("Z", "+00:00"))
 
-            home_team_id = await self.pg_client.get_or_create_team(
+            home_team_id = await self.team_repo.get_or_create(
                 name=home_team_name,
                 normalized_name=self.normalize_team_name(home_team_name),
                 sport_id=sport_id,
                 external_ids={"odds_api": external_id},
             )
 
-            away_team_id = await self.pg_client.get_or_create_team(
+            away_team_id = await self.team_repo.get_or_create(
                 name=away_team_name,
                 normalized_name=self.normalize_team_name(away_team_name),
                 sport_id=sport_id,
                 external_ids={"odds_api": external_id},
             )
 
-            event_id = await self.pg_client.create_or_update_event(
+            event_id = await self.event_repo.create_or_update(
                 external_id=external_id,
                 sport_id=sport_id,
                 league_id=league_id,
@@ -112,7 +124,7 @@ class OddsNormalizer:
                 if not bookmaker_key or not bookmaker_name:
                     continue
 
-                bookmaker_id = await self.pg_client.get_or_create_bookmaker(
+                bookmaker_id = await self.bookmaker_repo.get_or_create(
                     key=bookmaker_key,
                     name=bookmaker_name,
                     region="eu",
@@ -133,7 +145,7 @@ class OddsNormalizer:
                         else datetime.utcnow()
                     )
 
-                    await self.pg_client.create_odds_snapshot(
+                    await self.snapshot_repo.create_snapshot(
                         event_id=event_id,
                         bookmaker_id=bookmaker_id,
                         market_type=market_type,
@@ -156,7 +168,7 @@ class OddsNormalizer:
                     timestamp_source,
                 ) = self.calculate_odds_stats(all_outcomes)
 
-                await self.pg_client.create_normalized_odds(
+                await self.normalized_repo.create_normalized(
                     event_id=event_id,
                     market_type="h2h",
                     home_odds_avg=home_avg,

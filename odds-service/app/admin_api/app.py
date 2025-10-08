@@ -76,46 +76,13 @@ def create_admin_app(env: str = "development") -> FastAPI:
         logger.info("fetching_snapshots", limit=limit, league=league)
 
         try:
-            if league:
-                query = text("""
-                    SELECT
-                        n.*,
-                        e.external_id,
-                        l.key as league_key,
-                        t1.name as home_team,
-                        t2.name as away_team,
-                        e.commence_time
-                    FROM normalized_odds n
-                    JOIN events e ON n.event_id = e.id
-                    JOIN leagues l ON e.league_id = l.id
-                    JOIN teams t1 ON e.home_team_id = t1.id
-                    JOIN teams t2 ON e.away_team_id = t2.id
-                    WHERE l.key = :league_key
-                    ORDER BY n.timestamp_normalized DESC
-                    LIMIT :limit
-                """)
-                result = await session.execute(query, {"league_key": league, "limit": limit})
-            else:
-                query = text("""
-                    SELECT
-                        n.*,
-                        e.external_id,
-                        l.key as league_key,
-                        t1.name as home_team,
-                        t2.name as away_team,
-                        e.commence_time
-                    FROM normalized_odds n
-                    JOIN events e ON n.event_id = e.id
-                    JOIN leagues l ON e.league_id = l.id
-                    JOIN teams t1 ON e.home_team_id = t1.id
-                    JOIN teams t2 ON e.away_team_id = t2.id
-                    ORDER BY n.timestamp_normalized DESC
-                    LIMIT :limit
-                """)
-                result = await session.execute(query, {"limit": limit})
+            from app.infra.repositories import NormalizedOddsRepository
 
-            rows = result.fetchall()
-            snapshots = [dict(row._mapping) for row in rows]
+            normalized_repo = NormalizedOddsRepository(session)
+            snapshots = await normalized_repo.get_normalized_snapshots(
+                limit=limit,
+                league_key=league
+            )
 
             return {
                 "count": len(snapshots),
