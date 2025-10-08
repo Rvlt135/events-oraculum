@@ -3,10 +3,9 @@
   "version": "0.1.0",
   "description": "AI-powered betting analysis system for sports events",
   "scripts": {
-    "build": "python3 -m compileall services/ shared/",
-    "test": "pytest",
-    "lint": "ruff check .",
-    "format": "ruff format .",
-    "typecheck": "mypy services/ shared/"
+    "build": "cd odds-service && python3 -m compileall app/ boot/",
+    "docker:up": "cd infrastructure && docker-compose up -d",
+    "docker:down": "cd infrastructure && docker-compose down",
+    "docker:logs": "cd infrastructure && docker-compose logs -f"
   }
 }

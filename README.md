@@ -1,128 +1,161 @@
 # Layerbit-Oraculum-AI Backend MVP
 
-AI-powered betting analysis system for sports events. This MVP focuses on UEFA Champions League football events with a modular, extensible architecture.
+AI-система "оракулов" для анализа беттинговых событий. MVP фокусируется на футбольных событиях (UEFA Champions League) с модульной архитектурой микросервисов.
 
-## Architecture
+## Архитектура: Services-First
 
-Monorepo structure with three microservices:
+Каждый сервис **полностью независим** и готов к выносу в отдельный репозиторий без изменений. Монорепозиторий — временная организационная структура.
 
-1. **odds-service** - Data collection, normalization, and storage
-2. **gateway-service** - Public API for insights and recommendations (pending)
-3. **edge-agents-service** - AI agents for analysis and predictions (pending)
+### Этапы разработки
 
-## Project Structure
+**Этап 1 (Текущий):**
+1. ✅ **odds-service** - Сбор, нормализация и хранение данных
 
-```
-layerbit-oraculum-ai/
-├── shared/                     # Shared models and configuration
-│   ├── config.py              # Application configuration
-│   └── models.py              # Domain models
-├── services/
-│   └── odds_service/          # Odds collection service
-│       ├── api/               # FastAPI application
-│       │   ├── app.py
-│       │   └── routes/        # API endpoints
-│       ├── clients/           # External API clients
-│       │   └── odds_api.py    # The Odds API integration
-│       ├── repositories/      # Database layer
-│       │   ├── base.py
-│       │   └── events_repository.py
-│       ├── services/          # Business logic
-│       │   └── normalizer.py  # Data normalization
-│       ├── tasks/             # Background tasks
-│       │   └── scheduler.py   # TaskIQ scheduler
-│       ├── config.py          # Service configuration
-│       ├── main.py            # API server entry point
-│       └── scheduler_main.py  # Scheduler entry point
-├── migrations/                # SQL migrations
-│   └── 001_create_odds_service_schema.sql
-├── pyproject.toml             # Python dependencies
-└── package.json               # Build scripts
+**Этап 2 (Ожидает аппрува):**
+2. **edge-agents-service** - AI-агенты для анализа и рекомендаций
+
+**Этап 3 (Ожидает аппрува):**
+3. **gateway-service** - Публичное API для выдачи инсайтов
+
+## Структура проекта
 
 ```
+layerbit-oraculs-bet/
+├── odds-service/              # Этап 1 - Независимый сервис
+│   ├── app/
+│   │   ├── admin_api/        # FastAPI эндпоинты
+│   │   ├── tasks/            # TaskIQ таски (collector, normalizer)
+│   │   ├── domain/           # Pydantic модели (Event, Market, Quote)
+│   │   ├── adapters/         # the_odds_api.py (внешний API)
+│   │   ├── infra/            # redis_client.py, pg_client.py
+│   │   └── config/           # settings.py
+│   ├── boot/                 # worker.py, scheduler.py, admin_api.py
+│   ├── db/
+│   │   └── schema.sql
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── .env.example
+├── edge-agents-service/      # Этап 2 (не создан)
+├── gateway-service/          # Этап 3 (не создан)
+└── infrastructure/           # Docker Compose
+    ├── docker-compose.yml
+    └── README.md
+```
 
-## Current Status: Phase 1 - odds-service
+## Этап 1: odds-service
 
-The odds-service implements:
-- Data collection from The Odds API
-- Team name normalization
-- Odds aggregation and statistics
-- Scheduled collection (every 12 hours)
-- Admin API for manual triggers
+### Возможности
+- Сбор коэффициентов из The Odds API (UEFA Champions League)
+- Нормализация названий команд
+- Агрегация коэффициентов (avg, best)
+- Автоматический сбор 2 раза в сутки (9:00, 19:00)
+- Admin API для ручного запуска и просмотра данных
+- Prometheus метрики
 
-## Database Schema
+### Admin API Endpoints
 
-Tables:
-- `sports` - Sports reference data
-- `leagues` - Leagues/competitions
-- `teams` - Teams with normalized names
-- `events` - Betting events (matches)
-- `bookmakers` - Bookmaker reference data
-- `odds_snapshots` - Raw odds data from API
-- `normalized_odds` - Aggregated odds statistics
+**POST /_admin/tasks/collect**
+- Ручной запуск сбора данных
+- Ставит задачу в очередь TaskIQ
 
-## Setup
+**GET /_admin/data/snapshots?limit=100&league=soccer_uefa_champs_league**
+- Просмотр нормализованных снэпшотов
+- Данные с временными метками (ts_src, ts_ingest)
 
-### Prerequisites
-- Python 3.12+
-- PostgreSQL (via Supabase)
-- Redis
+**GET /health**
+- Health check
 
-### Installation
+**GET /metrics**
+- Prometheus метрики
 
-1. Install dependencies:
+## Быстрый старт
+
+### Используя Docker Compose (Рекомендуется)
+
+1. Настроить odds-service:
 ```bash
-pip install -e .
+cd odds-service
+cp .env.example .env
+# Отредактировать .env - добавить ODDS_API_KEY
 ```
 
-2. Configure environment:
+2. Запустить все сервисы:
 ```bash
-# Update .env with your credentials
-ODDS_API_KEY=your_key_here
+cd infrastructure
+docker-compose up -d
 ```
 
-3. Apply database migration:
+3. Проверить API:
 ```bash
-# Run the SQL migration in migrations/001_create_odds_service_schema.sql
-# through Supabase SQL Editor or psql
+# Health check
+curl http://localhost:8081/health
+
+# Запустить сбор вручную
+curl -X POST http://localhost:8081/_admin/tasks/collect
+
+# Просмотреть снэпшоты
+curl http://localhost:8081/_admin/data/snapshots?limit=10
 ```
 
-### Running odds-service
+### Запущенные сервисы
 
-Start the API server:
-```bash
-python -m services.odds_service.main
-```
+- **odds-admin-api**: http://localhost:8081
+- **odds-worker**: Обработчик фоновых задач
+- **odds-scheduler**: Планировщик (cron: 9:00, 19:00)
+- **postgres**: localhost:5432
+- **redis**: localhost:6379
 
-Start the scheduler:
-```bash
-python -m services.odds_service.scheduler_main
-```
+## База данных
 
-### API Endpoints
+Схема автоматически инициализируется из `odds-service/db/schema.sql`.
 
-Health checks:
-- `GET /health` - Service health
-- `GET /health/odds-api` - External API connectivity
+Таблицы:
+- `sports` - Справочник видов спорта
+- `leagues` - Лиги/соревнования
+- `teams` - Команды с нормализованными названиями
+- `events` - Беттинговые события
+- `bookmakers` - Справочник букмекеров
+- `odds_snapshots` - Сырые данные с ts_src, ts_ingest
+- `normalized_odds` - Агрегированная статистика
 
-Events:
-- `GET /api/v1/events/upcoming` - List upcoming events
+## Поток данных
 
-Admin:
-- `POST /api/v1/admin/trigger-collection` - Trigger manual collection
-- `GET /api/v1/admin/stats` - Service statistics
+1. **Scheduler** запускает задачу сбора (cron или вручную)
+2. **Worker** забирает задачу из очереди Redis
+3. **API Adapter** получает данные из The Odds API
+4. **Normalizer** обрабатывает и трансформирует данные
+5. **PG Client** сохраняет сырые снэпшоты и нормализованные коэффициенты
+6. **Admin API** предоставляет доступ к данным
 
-## Next Steps
+## Технологический стек
 
-After approval of odds-service:
-1. Implement gateway-service (public API)
-2. Implement edge-agents-service (AI analysis)
+- **Python 3.12+**
+- **FastAPI** - Web framework
+- **TaskIQ** - Очередь задач и планировщик
+- **PostgreSQL 15** - Персистентное хранилище
+- **Redis 7** - Очередь и кэш
+- **HTTPX** - Async HTTP клиент
+- **Pydantic v2** - Валидация данных
+- **Prometheus** - Метрики
+- **structlog** - Структурированное логирование
 
-## Technology Stack
+## Следующие этапы
 
-- FastAPI - Web framework
-- TaskIQ - Task scheduler
-- PostgreSQL - Persistent storage
-- Redis - Caching and task queue
-- HTTPX - Async HTTP client
-- Pydantic v2 - Data validation
+### Этап 2: edge-agents-service (Ожидает аппрува)
+- Анализ через LLM-агенты
+- Интеграция с OpenRouter API
+- Генерация рекомендаций (pick, confidence, explanation)
+- Сохранение результатов в PostgreSQL
+
+### Этап 3: gateway-service (Ожидает аппрува)
+- Публичное REST API
+- Эндпоинты: /v1/insights/recommendations, /v1/stats/summary
+- Доступ только на чтение к результатам анализа
+
+## Принципы разработки
+
+- Каждый сервис имеет собственный Dockerfile и requirements.txt
+- Отсутствует shared-код между сервисами (готовность к экстракции)
+- Сервисы взаимодействуют только через базу данных
+- Каждый сервис развертывается независимо
+- SOLID, DRY, KISS
