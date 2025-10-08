@@ -11,11 +11,11 @@ AI-система "оракулов" для анализа беттинговы�
 **Этап 1 (Завершён):**
 1. ✅ **odds-service** - Сбор, нормализация и хранение данных
 
-**Этап 2 (Текущий):**
+**Этап 2 (Завершён):**
 2. ✅ **edge-agents-service** - AI-агенты для анализа и рекомендаций
 
-**Этап 3 (Ожидает аппрува):**
-3. **gateway-service** - Публичное API для выдачи инсайтов
+**Этап 3 (Завершён):**
+3. ✅ **gateway-service** - Публичное API для выдачи инсайтов
 
 ## Структура проекта
 
@@ -46,7 +46,19 @@ layerbit-oraculs-bet/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── .env.example
-├── gateway-service/          # Этап 3 (не создан)
+├── gateway-service/          # Этап 3 - Публичное API
+│   ├── app/
+│   │   ├── config/           # settings.py
+│   │   ├── models/           # schemas.py (DTOs)
+│   │   ├── db/               # pg.py, repositories.py (read-only)
+│   │   ├── cache/            # redis.py
+│   │   ├── security/         # apikey.py
+│   │   ├── services/         # insights_service.py, stats_service.py
+│   │   ├── routes/           # insights.py, stats.py
+│   │   └── main.py
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── .env.example
 └── infrastructure/           # Docker Compose
     ├── docker-compose.yml
     └── README.md
@@ -109,10 +121,11 @@ curl http://localhost:8081/_admin/data/snapshots?limit=10
 
 ### Запущенные сервисы
 
-- **odds-admin-api**: http://localhost:8081
+- **gateway**: http://localhost:8080 (Публичное API)
+- **odds-admin-api**: http://localhost:8081 (Internal)
 - **odds-worker**: Обработчик фоновых задач
 - **odds-scheduler**: Планировщик (cron: 9:00, 19:00)
-- **edge-agents**: http://localhost:8082 (AI-агенты)
+- **edge-agents**: http://localhost:8082 (Internal AI)
 - **postgres**: localhost:5432
 - **redis**: localhost:6379
 
@@ -183,12 +196,59 @@ curl -X POST http://localhost:8082/_agents/run_batch \
 curl "http://localhost:8082/_agents/recommendations?league=soccer_uefa_champs_league&min_conf=0.6"
 ```
 
-## Следующие этапы
+## Этап 3: gateway-service
 
-### Этап 3: gateway-service (Ожидает аппрува)
-- Публичное REST API
-- Эндпоинты: /v1/insights/recommendations, /v1/stats/summary
-- Доступ только на чтение к результатам анализа
+### Возможности
+- Публичное REST API для чтения рекомендаций
+- API-key аутентификация
+- Redis кеширование
+- Пагинация и фильтрация
+- Prometheus метрики
+
+### API Endpoints
+
+**GET /v1/insights/recommendations**
+- Получение рекомендаций с пагинацией
+- Фильтры: league, from, to, min_conf
+- Требуется: X-API-Key
+
+**GET /v1/insights/events/{event_id}**
+- Детали события с рекомендациями и odds контекстом
+- Требуется: X-API-Key
+
+**GET /v1/stats/summary**
+- Базовая статистика рекомендаций
+- Фильтры: league, from, to
+- Требуется: X-API-Key
+
+**Пример использования:**
+```bash
+# Установить API-key в .env
+echo "API_KEY=my_secure_key" >> gateway-service/.env
+
+# Получить рекомендации
+curl -X GET "http://localhost:8080/v1/insights/recommendations?league=soccer_uefa_champs_league&limit=10" \
+  -H "X-API-Key: my_secure_key"
+
+# Получить статистику
+curl -X GET "http://localhost:8080/v1/stats/summary?league=soccer_uefa_champs_league" \
+  -H "X-API-Key: my_secure_key"
+```
+
+## Архитектура системы
+
+### Поток данных
+
+1. **odds-service** собирает данные из The Odds API → PostgreSQL
+2. **edge-agents-service** анализирует через LLM → recommendations в PostgreSQL
+3. **gateway-service** читает из PostgreSQL/Redis → Публичное API
+
+### Взаимодействие сервисов
+
+- Сервисы взаимодействуют только через PostgreSQL
+- Нет прямых HTTP запросов между сервисами
+- Каждый сервис полностью независим
+- Redis используется для кеширования (опционально)
 
 ## Принципы разработки
 
