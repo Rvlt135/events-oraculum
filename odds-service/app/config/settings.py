@@ -31,8 +31,13 @@ class Settings(BaseSettings):
 
     schedule_crons: List[str] = Field(default=["0 9 * * *", "0 19 * * *"])
 
-    admin_api_host: str = Field(default="0.0.0.0")
-    admin_api_port: int = Field(default=8081)
+    api_host: str = Field(default="0.0.0.0")
+    api_port: int = Field(default=8083)
+
+    admin_enabled: bool = Field(default=True)
+    admin_prefix: str = Field(default="/_admin")
+    admin_token: str = Field(default="")
+    admin_docs_enabled: bool = Field(default=False)
 
     @property
     def postgres_url(self) -> str:

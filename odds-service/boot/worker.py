@@ -1,6 +1,7 @@
 import asyncio
 import structlog
 
+from app.infra.providers import infrastructure
 from app.tasks.broker import broker
 
 structlog.configure(
@@ -15,6 +16,10 @@ logger = structlog.get_logger()
 
 async def main() -> None:
     logger.info("starting_taskiq_worker")
+
+    # Initialize shared infrastructure
+    await infrastructure.initialize()
+
     await broker.startup()
 
     try:
@@ -23,6 +28,7 @@ async def main() -> None:
     except KeyboardInterrupt:
         logger.info("shutting_down_worker")
         await broker.shutdown()
+        await infrastructure.dispose()
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from prometheus_client import Counter, Histogram
 from app.config import settings
 from app.adapters.the_odds_api import TheOddsAPIAdapter
 from app.domain.time_utils import now_utc
-from app.infra.db import db_manager
+from app.infra.providers import infrastructure
 from app.infra.repositories import SportRepository, LeagueRepository
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
@@ -31,10 +31,8 @@ async def collect_odds_task() -> Dict[str, str]:
     )
 
     try:
-        if not db_manager.session_factory:
-            await db_manager.initialize()
-
-        async with db_manager.session_factory() as session:
+        # Use shared infrastructure session factory
+        async with infrastructure.session_factory() as session:
             sport_repo = SportRepository(session)
             league_repo = LeagueRepository(session)
             normalizer = OddsNormalizer(session)

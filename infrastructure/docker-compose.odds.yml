@@ -1,20 +1,23 @@
 version: '3.8'
 
 services:
-  odds-admin-api:
+  odds-api:
     build:
       context: ../odds-service
       dockerfile: Dockerfile
-    container_name: layerbit-odds-admin-api
-    command: python -m boot.admin_api
+    container_name: layerbit-odds-api
+    command: python -m app.main
     ports:
-      - "8081:8081"
+      - "8083:8083"
     env_file:
       - ../odds-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
+      - API_HOST=0.0.0.0
+      - API_PORT=8083
+      - ADMIN_ENABLED=true
     networks:
       - layerbit-net
     restart: unless-stopped
