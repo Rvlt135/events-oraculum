@@ -72,7 +72,7 @@ class Event(Base):
     away_team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
     commence_time = Column(DateTime, nullable=False)
     status = Column(Text, default="upcoming")
-    metadata = Column(JSONB, default=dict)
+    event_metadata = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=now_utc)
     updated_at = Column(DateTime, default=now_utc, onupdate=now_utc)
 

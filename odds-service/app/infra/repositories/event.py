@@ -25,7 +25,7 @@ class EventRepository(BaseRepository[Event]):
         away_team_id: UUID,
         commence_time: datetime,
         status: str,
-        metadata: Dict[str, Any],
+        event_metadata: Dict[str, Any],
     ) -> UUID:
         result = await self.session.execute(
             select(Event).where(Event.external_id == external_id)
@@ -41,14 +41,14 @@ class EventRepository(BaseRepository[Event]):
                 away_team_id=away_team_id,
                 commence_time=commence_time,
                 status=status,
-                metadata=metadata
+                metadata=event_metadata
             )
             event = await self.create(event)
             logger.info("event_created", external_id=external_id, id=str(event.id))
         else:
             event.commence_time = commence_time
             event.status = status
-            event.metadata = metadata
+            event.metadata = event_metadata
             event.updated_at = now_utc()
             await self.session.flush()
             logger.debug("event_updated", external_id=external_id, id=str(event.id))
