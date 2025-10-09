@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: layerbit-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - layerbit-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: layerbit-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: layerbit
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../odds-service/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - layerbit-net
+
+  # Uncomment for future observability
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: layerbit-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus-data:/prometheus
+  #   networks:
+  #     - layerbit-net
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: layerbit-grafana
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #   networks:
+  #     - layerbit-net
+
+  # rabbitmq:
+  #   image: rabbitmq:3-management-alpine
+  #   container_name: layerbit-rabbitmq
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: admin
+  #     RABBITMQ_DEFAULT_PASS: admin
+  #   volumes:
+  #     - rabbitmq-data:/var/lib/rabbitmq
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmq-diagnostics", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #   networks:
+  #     - layerbit-net
+
+volumes:
+  pg-data:
+  redis-data:
+  # prometheus-data:
+  # grafana-data:
+  # rabbitmq-data:
+
+networks:
+  layerbit-net:
+    driver: bridge
