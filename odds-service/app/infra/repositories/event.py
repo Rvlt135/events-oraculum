@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.orm_models import Event
+from app.domain.time_utils import now_utc
 from .base import BaseRepository
 
 logger = structlog.get_logger()
@@ -48,7 +49,7 @@ class EventRepository(BaseRepository[Event]):
             event.commence_time = commence_time
             event.status = status
             event.metadata = metadata
-            event.updated_at = datetime.utcnow()
+            event.updated_at = now_utc()
             await self.session.flush()
             logger.debug("event_updated", external_id=external_id, id=str(event.id))
 
@@ -94,6 +95,6 @@ class EventRepository(BaseRepository[Event]):
         event = await self.get_by_id(event_id)
         if event:
             event.status = status
-            event.updated_at = datetime.utcnow()
+            event.updated_at = now_utc()
             await self.session.flush()
             logger.info("event_status_updated", id=str(event_id), status=status)

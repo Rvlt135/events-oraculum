@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.orm_models import OddsSnapshot
+from app.domain.time_utils import now_utc
 from .base import BaseRepository
 
 logger = structlog.get_logger()
@@ -29,7 +30,7 @@ class OddsSnapshotRepository(BaseRepository[OddsSnapshot]):
             market_type=market_type,
             outcomes=outcomes,
             timestamp_source=timestamp_source,
-            timestamp_ingested=datetime.utcnow()
+            timestamp_ingested=now_utc()
         )
         snapshot = await self.create(snapshot)
         logger.debug(

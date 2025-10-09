@@ -25,6 +25,7 @@ class DatabaseManager:
                 self.engine,
                 class_=AsyncSession,
                 expire_on_commit=False,
+                autoflush=False,
             )
             logger.info("database_initialized", url=settings.postgres_url.split("@")[1])
 

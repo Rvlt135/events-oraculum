@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
+from app.domain.time_utils import now_utc
 
 
 class SportType(str, Enum):
@@ -44,8 +45,8 @@ class Event(BaseModel):
     status: EventStatus = EventStatus.UPCOMING
     markets: Dict[str, Market] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
 
 
 class NormalizedSnapshot(BaseModel):
@@ -66,4 +67,4 @@ class NormalizedSnapshot(BaseModel):
     bookmakers_count: int
     ts_src: datetime
     ts_ingest: datetime
-    ts_normalized: datetime = Field(default_factory=datetime.utcnow)
+    ts_normalized: datetime = Field(default_factory=now_utc)

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.orm_models import Team
+from app.domain.time_utils import now_utc
 from .base import BaseRepository
 
 logger = structlog.get_logger()
@@ -35,7 +36,7 @@ class TeamRepository(BaseRepository[Team]):
         else:
             team.name = name
             team.external_ids = external_ids
-            team.updated_at = datetime.utcnow()
+            team.updated_at = now_utc()
             await self.session.flush()
             logger.debug("team_updated", name=name, id=str(team.id))
 

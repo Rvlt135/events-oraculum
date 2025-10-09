@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
+from app.domain.time_utils import now_utc, parse_utc
 from app.infra.repositories import (
     TeamRepository,
     EventRepository,
@@ -38,7 +39,7 @@ class OddsNormalizer:
         home_odds: List[float] = []
         away_odds: List[float] = []
         draw_odds: List[float] = []
-        latest_timestamp = datetime.utcnow()
+        latest_timestamp = now_utc()
 
         for outcome in outcomes:
             name = outcome.get("name", "").lower()
@@ -85,7 +86,7 @@ class OddsNormalizer:
                 logger.warning("missing_event_data", external_id=external_id)
                 return None
 
-            commence_time = datetime.fromisoformat(commence_time_str.replace("Z", "+00:00"))
+            commence_time = parse_utc(commence_time_str)
 
             home_team_id = await self.team_repo.get_or_create(
                 name=home_team_name,
@@ -112,7 +113,7 @@ class OddsNormalizer:
                 metadata={"sport_key": event_data.get("sport_key")},
             )
 
-            timestamp_ingested = datetime.utcnow()
+            timestamp_ingested = now_utc()
 
             bookmakers = event_data.get("bookmakers", [])
             all_outcomes: List[Dict[str, Any]] = []
@@ -140,9 +141,9 @@ class OddsNormalizer:
 
                     last_update_str = market.get("last_update")
                     last_update = (
-                        datetime.fromisoformat(last_update_str.replace("Z", "+00:00"))
+                        parse_utc(last_update_str)
                         if last_update_str
-                        else datetime.utcnow()
+                        else now_utc()
                     )
 
                     await self.snapshot_repo.create_snapshot(

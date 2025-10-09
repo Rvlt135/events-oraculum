@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.orm_models import NormalizedOdds
+from app.domain.time_utils import now_utc
 from .base import BaseRepository
 
 logger = structlog.get_logger()
@@ -41,7 +42,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
             bookmakers_count=bookmakers_count,
             timestamp_source=timestamp_source,
             timestamp_ingested=timestamp_ingested,
-            timestamp_normalized=datetime.utcnow()
+            timestamp_normalized=now_utc()
         )
         normalized = await self.create(normalized)
         logger.info(

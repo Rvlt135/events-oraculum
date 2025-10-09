@@ -5,6 +5,7 @@ from prometheus_client import Counter, Histogram
 
 from app.config import settings
 from app.adapters.the_odds_api import TheOddsAPIAdapter
+from app.domain.time_utils import now_utc
 from app.infra.db import db_manager
 from app.infra.repositories import SportRepository, LeagueRepository
 from app.tasks.normalizer import OddsNormalizer
@@ -19,7 +20,7 @@ collection_errors_total = Counter("odds_collection_errors_total", "Total number 
 
 @broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
 async def collect_odds_task() -> Dict[str, str]:
-    start_time = datetime.utcnow()
+    start_time = now_utc()
     logger.info("collection_task_started", timestamp=start_time.isoformat())
 
     api_adapter = TheOddsAPIAdapter(
@@ -70,7 +71,7 @@ async def collect_odds_task() -> Dict[str, str]:
 
             await session.commit()
 
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)
 
         logger.info(
@@ -82,7 +83,7 @@ async def collect_odds_task() -> Dict[str, str]:
         return {
             "status": "success",
             "total_events": str(total_processed),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now_utc().isoformat(),
         }
 
     except Exception as e:

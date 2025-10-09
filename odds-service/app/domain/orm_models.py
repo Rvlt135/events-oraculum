@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from .base import Base
+from .time_utils import now_utc
 
 
 class Sport(Base):
@@ -14,7 +15,7 @@ class Sport(Base):
     name = Column(Text, unique=True, nullable=False)
     display_name = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_utc)
 
     leagues = relationship("League", back_populates="sport")
     teams = relationship("Team", back_populates="sport")
@@ -30,7 +31,7 @@ class League(Base):
     name = Column(Text, nullable=False)
     region = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_utc)
 
     sport = relationship("Sport", back_populates="leagues")
     events = relationship("Event", back_populates="league")
@@ -49,8 +50,8 @@ class Team(Base):
     normalized_name = Column(Text, unique=True, nullable=False)
     sport_id = Column(UUID(as_uuid=True), ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
     external_ids = Column(JSONB, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=now_utc)
+    updated_at = Column(DateTime, default=now_utc, onupdate=now_utc)
 
     sport = relationship("Sport", back_populates="teams")
 
@@ -72,8 +73,8 @@ class Event(Base):
     commence_time = Column(DateTime, nullable=False)
     status = Column(Text, default="upcoming")
     metadata = Column(JSONB, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=now_utc)
+    updated_at = Column(DateTime, default=now_utc, onupdate=now_utc)
 
     sport = relationship("Sport", back_populates="events")
     league = relationship("League", back_populates="events")
@@ -99,7 +100,7 @@ class Bookmaker(Base):
     name = Column(Text, nullable=False)
     region = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_utc)
 
     odds_snapshots = relationship("OddsSnapshot", back_populates="bookmaker")
 
@@ -118,8 +119,8 @@ class OddsSnapshot(Base):
     market_type = Column(Text, nullable=False)
     outcomes = Column(JSONB, nullable=False)
     timestamp_source = Column(DateTime, nullable=False)
-    timestamp_ingested = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    timestamp_ingested = Column(DateTime, default=now_utc)
+    created_at = Column(DateTime, default=now_utc)
 
     event = relationship("Event", back_populates="odds_snapshots")
     bookmaker = relationship("Bookmaker", back_populates="odds_snapshots")
@@ -147,8 +148,8 @@ class NormalizedOdds(Base):
     bookmakers_count = Column(Integer, nullable=False, default=0)
     timestamp_source = Column(DateTime, nullable=False)
     timestamp_ingested = Column(DateTime, nullable=False)
-    timestamp_normalized = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    timestamp_normalized = Column(DateTime, default=now_utc)
+    created_at = Column(DateTime, default=now_utc)
 
     event = relationship("Event", back_populates="normalized_odds")
 
