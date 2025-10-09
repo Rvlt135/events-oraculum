@@ -49,6 +49,7 @@ class LLMAgent(Agent):
                 pick=recommendation.pick,
                 confidence=recommendation.confidence,
                 explanation=recommendation.short_explanation,
+                reasoning=recommendation.reasoning,
                 model_version=self.get_model_version(),
             )
 

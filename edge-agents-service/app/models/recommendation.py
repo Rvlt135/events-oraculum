@@ -20,6 +20,7 @@ class RecommendationDB(Base):
     pick = Column(String(20), nullable=False)
     confidence = Column(Float, nullable=False)
     short_explanation = Column(Text, nullable=False)
+    reasoning = Column(Text, nullable=False)
     model_version = Column(String(50), nullable=False)
     created_ts = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
 
@@ -30,6 +31,7 @@ class RecommendationCreate(BaseModel):
     pick: str
     confidence: float = Field(ge=0.0, le=1.0)
     short_explanation: str
+    reasoning: str
     model_version: str
 
 
@@ -46,13 +48,17 @@ class RecommendationSchema(BaseModel):
         max_length=200,
         description="Brief reasoning for the recommendation (max 200 characters)"
     )
+    reasoning: str = Field(
+        description="Detailed explanation of why this event and outcome were selected"
+    )
 
     class Config:
         json_schema_extra = {
             "example": {
                 "pick": "home",
                 "confidence": 0.75,
-                "short_explanation": "Strong home advantage with favorable odds"
+                "short_explanation": "Strong home advantage with favorable odds",
+                "reasoning": "• Home team undefeated in last 5 matches\n• Away team missing key striker\n• Historical H2H favors home (70% win rate)\n• Value in current odds (2.5 vs fair 2.1)"
             }
         }
 
@@ -64,6 +70,7 @@ class RecommendationResponse(BaseModel):
     pick: str
     confidence: float
     short_explanation: str
+    reasoning: str
     model_version: str
     created_ts: datetime
 

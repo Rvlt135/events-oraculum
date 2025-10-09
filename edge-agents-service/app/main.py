@@ -6,7 +6,8 @@ import structlog
 
 from app.config.settings import settings
 from app.db.pg import init_db, engine
-from app.routes import internal
+from app.cache.redis import recommendation_cache
+from app.routes import health, run, recommendations, internal
 
 structlog.configure(
     processors=[
@@ -22,7 +23,9 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_edge_agents_service")
     await init_db()
+    await recommendation_cache.initialize()
     yield
+    await recommendation_cache.dispose()
     await engine.dispose()
     logger.info("shutting_down_edge_agents_service")
 
@@ -43,6 +46,9 @@ def create_app(env: str = "development") -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.include_router(health.router)
+    app.include_router(run.router)
+    app.include_router(recommendations.router)
     app.include_router(internal.router)
 
     @app.get("/")

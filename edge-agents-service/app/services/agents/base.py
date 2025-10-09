@@ -9,6 +9,7 @@ class AgentPrediction(BaseModel):
     pick: str
     confidence: float
     explanation: str
+    reasoning: str
     model_version: str
 
 
