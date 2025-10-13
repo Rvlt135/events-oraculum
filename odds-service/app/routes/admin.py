@@ -10,37 +10,22 @@ Security: Should be protected at network level (ingress/proxy) or via admin toke
 """
 
 from typing import Optional
-from fastapi import APIRouter, Query, Depends, HTTPException, Header
+from fastapi import APIRouter, Query, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.config.settings import settings
 from app.domain.schemas import (
     TaskTriggerResponse,
     SnapshotsResponse,
     SnapshotSummary,
 )
+from app.config.security import verify_admin_token
 from app.infra.providers import get_db_session
 from app.tasks.collector import collect_odds_task
 
 logger = structlog.get_logger()
 
 router = APIRouter(tags=["admin"])
-
-
-async def verify_admin_token(
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")
-) -> None:
-    """
-    Simple token-based admin authentication.
-
-    If ADMIN_TOKEN is configured, validates the token from header.
-    For production, use network-level security (IP allowlist, mTLS, auth proxy).
-    """
-    if settings.admin_token:
-        if not x_admin_token or x_admin_token != settings.admin_token:
-            logger.warning("admin_unauthorized_attempt", provided_token_exists=bool(x_admin_token))
-            raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 @router.post("/tasks/collect", response_model=TaskTriggerResponse)
@@ -98,7 +83,7 @@ async def get_snapshots(
             league_key=league
         )
 
-        snapshots = [SnapshotSummary.model_validate(snap) for snap in snapshots_data]
+        snapshots = [SnapshotSummary.model_validate(snap, by_alias=True) for snap in snapshots_data]
 
         return SnapshotsResponse(
             count=len(snapshots),

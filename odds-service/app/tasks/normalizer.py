@@ -110,7 +110,7 @@ class OddsNormalizer:
                 away_team_id=away_team_id,
                 commence_time=commence_time,
                 status="upcoming",
-                metadata={"sport_key": event_data.get("sport_key")},
+                event_metadata={"sport_key": event_data.get("sport_key")},
             )
 
             timestamp_ingested = now_utc()

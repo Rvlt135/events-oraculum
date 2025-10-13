@@ -3,7 +3,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter, CollectorRegistry
 from starlette.responses import Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -22,26 +22,20 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-# Metrics
-http_requests_total = Counter(
-    "odds_service_http_requests_total",
-    "Total HTTP requests",
-    ["method", "path", "route_type"]
-)
-
 
 class MetricsMiddleware(BaseHTTPMiddleware):
-    """Middleware to track HTTP requests by route type (public/admin)."""
-
     async def dispatch(self, request: Request, call_next):
         route_type = "admin" if request.url.path.startswith(settings.admin_prefix) else "public"
-        http_requests_total.labels(
+        # стараемся брать шаблон маршрута (/items/{id}) вместо фактического пути
+        path_label = getattr(request.scope.get("route"), "path", request.url.path)
+
+        request.app.state.http_requests_total.labels(
             method=request.method,
-            path=request.url.path,
+            path=path_label,
             route_type=route_type
         ).inc()
-        response = await call_next(request)
-        return response
+
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -49,6 +43,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_odds_service", admin_enabled=settings.admin_enabled)
 
     await infrastructure.initialize()
+
+    registry = CollectorRegistry()
+
+    # Metrics
+    http_requests_total = Counter(
+        "odds_service_http_requests_total",
+        "Total HTTP requests",
+        ["method", "path", "route_type"],
+        registry=registry,
+    )
+    app.state.metrics_registry = registry
+    app.state.http_requests_total = http_requests_total
 
     yield
 
@@ -106,7 +112,8 @@ def create_app(env: str = "development") -> FastAPI:
     @app.get("/metrics")
     async def metrics() -> Response:
         """Prometheus metrics endpoint."""
-        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+        data = generate_latest(app.state.metrics_registry)
+        return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
     return app
 

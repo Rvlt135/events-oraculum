@@ -116,8 +116,8 @@ class SnapshotSummary(BaseModel):
 
     event_id: UUID
     external_id: str
-    sport: str
-    league: str
+    # sport: str
+    league: str = Field(alias="league_key")
     home_team: str
     away_team: str
     commence_time: datetime
@@ -129,9 +129,9 @@ class SnapshotSummary(BaseModel):
     away_odds_best: float
     draw_odds_best: Optional[float] = None
     bookmakers_count: int
-    ts_src: datetime
-    ts_ingest: datetime
-    ts_normalized: datetime
+    ts_src: datetime = Field(alias="timestamp_source")  # Маппинг
+    ts_ingest: datetime = Field(alias="timestamp_ingested")  # Маппинг
+    ts_normalized: datetime = Field(alias="timestamp_normalized")
 
     @field_serializer("commence_time", "ts_src", "ts_ingest", "ts_normalized")
     def serialize_dt(self, dt: datetime) -> str:

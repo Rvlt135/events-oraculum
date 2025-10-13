@@ -3,6 +3,7 @@ import structlog
 
 from app.infra.providers import infrastructure
 from app.tasks.broker import broker
+from app.tasks.collector import collect_odds_task
 
 structlog.configure(
     processors=[

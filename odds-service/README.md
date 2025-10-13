@@ -90,7 +90,9 @@ python -m boot.worker
 # Scheduler (отдельный терминал)
 python -m boot.scheduler
 ```
-
+```commandline
+taskiq worker app.tasks.broker:broker app.tasks.collector
+```
 ## Конфигурация
 
 Основные переменные окружения:

@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import func
+
 
 def now_utc() -> datetime:
     """
@@ -12,6 +14,18 @@ def now_utc() -> datetime:
         datetime: Current time in UTC with tzinfo set to timezone.utc
     """
     return datetime.now(timezone.utc)
+
+def now_utc_func():
+    """
+    Returns current UTC time as timezone-aware datetime.
+
+    This is the replacement for deprecated datetime.utcnow().
+    All timestamps in the system should use this function.
+
+    Returns:
+        datetime: Current time in UTC with tzinfo set to timezone.utc
+    """
+    return func.now()
 
 
 def ensure_utc(dt: datetime) -> datetime:
