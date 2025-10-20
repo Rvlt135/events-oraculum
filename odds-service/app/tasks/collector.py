@@ -91,3 +91,47 @@ async def collect_odds_task() -> Dict[str, str]:
 
     finally:
         await api_adapter.close()
+
+@broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
+async def collect_sports_task() -> Dict[str, str]:
+    start_time = now_utc()
+    logger.info("collection_task_started", timestamp=start_time.isoformat())
+
+    api_adapter = TheOddsAPIAdapter(
+        api_key=settings.odds_api_key,
+        base_url=settings.odds_api_base_url,
+        regions=settings.odds_api_regions,
+        markets=settings.odds_api_markets,
+    )
+
+    try:
+        # Use shared infrastructure session factory
+        async with infrastructure.session_factory() as session:
+            sport_repo = SportRepository(session)
+
+            sports = await api_adapter.get_sports()
+            sport_id = await sport_repo.get_or_create("football", "Football (Soccer)")
+
+            total_processed = 0
+
+
+
+        logger.info(
+            "collection_task_completed",
+            total_events=total_processed,
+            duration_seconds=duration,
+        )
+
+        return {
+            "status": "success",
+            "total_events": str(total_processed),
+            "timestamp": now_utc().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("collection_task_failed", error=str(e))
+        collection_errors_total.inc()
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        await api_adapter.close()

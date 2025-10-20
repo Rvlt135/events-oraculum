@@ -14,7 +14,7 @@ from fastapi import APIRouter, Query, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.schemas import (
+from app.schemas.schemas import (
     TaskTriggerResponse,
     SnapshotsResponse,
     SnapshotSummary,

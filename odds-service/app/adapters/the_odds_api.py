@@ -5,6 +5,8 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from aiolimiter import AsyncLimiter
 import structlog
 
+from app.adapters.dto.odds_api import SportList
+
 logger = structlog.get_logger()
 
 
@@ -21,15 +23,16 @@ class TheOddsAPIAdapter:
         await self.client.aclose()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def get_sports(self) -> List[Dict[str, Any]]:
+    async def get_sports(self, active: bool = True) -> List[Dict[str, Any]]:
         async with self.limiter:
             url = f"{self.base_url}/sports"
-            params = {"apiKey": self.api_key}
+            params = {"apiKey": self.api_key, "all": active}
 
             logger.info("fetching_sports", url=url)
             response = await self.client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            data = SportList.model_validate(response.json())
+            return data.model_dump(mode="json")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def get_odds(

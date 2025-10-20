@@ -9,7 +9,7 @@ from prometheus_client import Counter
 import structlog
 
 from app.config.settings import settings
-from app.domain.schemas import ServiceInfoResponse, HealthResponse
+from app.schemas.schemas import ServiceInfoResponse, HealthResponse
 
 logger = structlog.get_logger()
 
