@@ -1,0 +1,88 @@
+{
+  "evt_001": {
+    "id": "evt_001",
+    "league": "Premier League",
+    "sport": "soccer",
+    "home": "Manchester City",
+    "away": "Arsenal",
+    "kickoff": "2025-10-21T15:00:00Z",
+    "edgeScore": 8.7,
+    "reasoningSummary": "Strong home advantage with recent form favoring City. Arsenal missing key midfielder.",
+    "reasoningFull": "Manchester City has demonstrated exceptional home form with 12 wins in their last 14 home matches. Arsenal, while maintaining strong league position, will be without their key midfielder Martin Ødegaard due to injury. Historical data shows City averages 2.8 goals per game at home against top-6 opposition. Arsenal's defensive structure relies heavily on midfield press, which will be compromised. Weather conditions favor possession-based football. Market inefficiency detected in draw odds (3.5) which appears overvalued based on recent head-to-head results showing decisive outcomes. Edge identified primarily in home win with secondary value in over 2.5 goals market.",
+    "verdict": "win",
+    "oddsSeries": [
+      { "timestamp": "2025-10-14T10:00:00Z", "home": 2.2, "draw": 3.3, "away": 3.6 },
+      { "timestamp": "2025-10-16T10:00:00Z", "home": 2.15, "draw": 3.4, "away": 3.7 },
+      { "timestamp": "2025-10-18T10:00:00Z", "home": 2.1, "draw": 3.45, "away": 3.8 },
+      { "timestamp": "2025-10-20T10:00:00Z", "home": 2.05, "draw": 3.5, "away": 3.85 },
+      { "timestamp": "2025-10-21T10:00:00Z", "home": 2.15, "draw": 3.5, "away": 3.9 }
+    ],
+    "context": {
+      "weather": "Clear skies, 18°C, light wind",
+      "injuries": {
+        "home": ["Kevin De Bruyne (doubtful)"],
+        "away": ["Martin Ødegaard (out)", "Takehiro Tomiyasu (doubtful)"]
+      },
+      "recentForm": {
+        "home": "W-W-W-D-W",
+        "away": "W-W-L-W-D"
+      },
+      "headToHead": "Last 5: City 3 wins, Arsenal 1 win, 1 draw"
+    },
+    "aiConsensus": {
+      "homePercent": 62,
+      "drawPercent": 18,
+      "awayPercent": 20,
+      "models": [
+        { "name": "GPT-4o", "pick": "home", "confidence": 0.68, "note": "Strong statistical edge for City at home" },
+        { "name": "Claude Sonnet", "pick": "home", "confidence": 0.71, "note": "Key injuries favor home team" },
+        { "name": "Gemini Pro", "pick": "home", "confidence": 0.58, "note": "Form and venue advantage decisive" },
+        { "name": "Llama 3.3", "pick": "draw", "confidence": 0.52, "note": "Both teams quality suggests tight match" },
+        { "name": "Mixtral", "pick": "home", "confidence": 0.65, "note": "Historical data supports home victory" }
+      ]
+    }
+  },
+  "evt_002": {
+    "id": "evt_002",
+    "league": "La Liga",
+    "sport": "soccer",
+    "home": "Barcelona",
+    "away": "Real Madrid",
+    "kickoff": "2025-10-21T20:00:00Z",
+    "edgeScore": 7.2,
+    "reasoningSummary": "El Clásico with balanced odds. Both teams in excellent form, high-scoring expected.",
+    "reasoningFull": "El Clásico presents a fascinating tactical battle. Barcelona's possession-based approach under Xavi has yielded impressive results, averaging 68% possession in home fixtures. Real Madrid's counter-attacking prowess, led by Vinícius and Rodrygo, has been devastating on the break. Both teams enter in peak form with full-strength squads. Historical Camp Nou data shows an average of 3.2 goals per El Clásico. The market appears balanced, but slight edge detected in over 2.5 goals due to both teams' attacking firepower and defensive vulnerabilities. High-variance event with multiple betting angles.",
+    "verdict": "risky",
+    "oddsSeries": [
+      { "timestamp": "2025-10-14T10:00:00Z", "home": 2.4, "draw": 3.1, "away": 3.0 },
+      { "timestamp": "2025-10-16T10:00:00Z", "home": 2.35, "draw": 3.15, "away": 3.05 },
+      { "timestamp": "2025-10-18T10:00:00Z", "home": 2.3, "draw": 3.2, "away": 3.1 },
+      { "timestamp": "2025-10-20T10:00:00Z", "home": 2.35, "draw": 3.25, "away": 3.15 },
+      { "timestamp": "2025-10-21T10:00:00Z", "home": 2.4, "draw": 3.3, "away": 3.25 }
+    ],
+    "context": {
+      "weather": "Partly cloudy, 21°C, moderate wind",
+      "injuries": {
+        "home": [],
+        "away": ["Éder Militão (doubtful)"]
+      },
+      "recentForm": {
+        "home": "W-W-W-W-D",
+        "away": "W-D-W-W-W"
+      },
+      "headToHead": "Last 5: Barcelona 2 wins, Real Madrid 2 wins, 1 draw"
+    },
+    "aiConsensus": {
+      "homePercent": 41,
+      "drawPercent": 24,
+      "awayPercent": 35,
+      "models": [
+        { "name": "GPT-4o", "pick": "home", "confidence": 0.55, "note": "Home advantage in balanced fixture" },
+        { "name": "Claude Sonnet", "pick": "away", "confidence": 0.53, "note": "Madrid's big-game experience" },
+        { "name": "Gemini Pro", "pick": "draw", "confidence": 0.58, "note": "Evenly matched teams" },
+        { "name": "Llama 3.3", "pick": "home", "confidence": 0.51, "note": "Camp Nou factor" },
+        { "name": "Mixtral", "pick": "away", "confidence": 0.56, "note": "Counter-attack threat" }
+      ]
+    }
+  }
+}

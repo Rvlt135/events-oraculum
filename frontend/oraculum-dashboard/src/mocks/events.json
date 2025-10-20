@@ -1,0 +1,98 @@
+[
+  {
+    "id": "evt_001",
+    "league": "Premier League",
+    "sport": "soccer",
+    "home": "Manchester City",
+    "away": "Arsenal",
+    "kickoff": "2025-10-21T15:00:00Z",
+    "avgOdds": { "home": 2.1, "draw": 3.4, "away": 3.8 },
+    "bestOdds": { "home": 2.15, "draw": 3.5, "away": 3.9 },
+    "edgeScore": 8.7,
+    "reasoningSummary": "Strong home advantage with recent form favoring City. Arsenal missing key midfielder."
+  },
+  {
+    "id": "evt_002",
+    "league": "La Liga",
+    "sport": "soccer",
+    "home": "Barcelona",
+    "away": "Real Madrid",
+    "kickoff": "2025-10-21T20:00:00Z",
+    "avgOdds": { "home": 2.3, "draw": 3.2, "away": 3.1 },
+    "bestOdds": { "home": 2.4, "draw": 3.3, "away": 3.25 },
+    "edgeScore": 7.2,
+    "reasoningSummary": "El Clásico with balanced odds. Both teams in excellent form, high-scoring expected."
+  },
+  {
+    "id": "evt_003",
+    "league": "Bundesliga",
+    "sport": "soccer",
+    "home": "Bayern Munich",
+    "away": "Borussia Dortmund",
+    "kickoff": "2025-10-21T17:30:00Z",
+    "avgOdds": { "home": 1.8, "draw": 3.8, "away": 4.5 },
+    "bestOdds": { "home": 1.85, "draw": 3.9, "away": 4.7 },
+    "edgeScore": 6.5,
+    "reasoningSummary": "Bayern dominance at home. Dortmund's defensive weaknesses could be exploited."
+  },
+  {
+    "id": "evt_004",
+    "league": "Serie A",
+    "sport": "soccer",
+    "home": "Inter Milan",
+    "away": "AC Milan",
+    "kickoff": "2025-10-22T19:00:00Z",
+    "avgOdds": { "home": 2.0, "draw": 3.3, "away": 3.9 },
+    "bestOdds": { "home": 2.05, "draw": 3.4, "away": 4.0 },
+    "edgeScore": 7.8,
+    "reasoningSummary": "Derby della Madonnina. Inter's tactical superiority gives them the edge."
+  },
+  {
+    "id": "evt_005",
+    "league": "Ligue 1",
+    "sport": "soccer",
+    "home": "PSG",
+    "away": "Marseille",
+    "kickoff": "2025-10-22T20:45:00Z",
+    "avgOdds": { "home": 1.6, "draw": 4.0, "away": 5.5 },
+    "bestOdds": { "home": 1.65, "draw": 4.1, "away": 5.8 },
+    "edgeScore": 5.9,
+    "reasoningSummary": "PSG heavily favored at home. Marseille's away record is poor this season."
+  },
+  {
+    "id": "evt_006",
+    "league": "NBA",
+    "sport": "basketball",
+    "home": "Los Angeles Lakers",
+    "away": "Boston Celtics",
+    "kickoff": "2025-10-23T02:00:00Z",
+    "avgOdds": { "home": 1.9, "away": 2.0 },
+    "bestOdds": { "home": 1.95, "away": 2.05 },
+    "edgeScore": 6.8,
+    "reasoningSummary": "Close matchup. Lakers home court advantage slightly edges Celtics."
+  },
+  {
+    "id": "evt_007",
+    "league": "Premier League",
+    "sport": "soccer",
+    "home": "Liverpool",
+    "away": "Chelsea",
+    "kickoff": "2025-10-23T16:30:00Z",
+    "avgOdds": { "home": 2.2, "draw": 3.5, "away": 3.4 },
+    "bestOdds": { "home": 2.25, "draw": 3.6, "away": 3.5 },
+    "edgeScore": 7.5,
+    "reasoningSummary": "Liverpool's high press vs Chelsea's counter-attack. Tight game expected."
+  },
+  {
+    "id": "evt_008",
+    "league": "Championship",
+    "sport": "soccer",
+    "home": "Leeds United",
+    "away": "Sheffield United",
+    "kickoff": "2025-10-24T14:00:00Z",
+    "avgOdds": { "home": 2.5, "draw": 3.1, "away": 3.0 },
+    "bestOdds": { "home": 2.6, "draw": 3.2, "away": 3.1 },
+    "edgeScore": 6.2,
+    "reasoningSummary": "Both teams fighting for promotion. Home advantage could be decisive."
+  }
+]
