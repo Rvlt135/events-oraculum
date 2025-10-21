@@ -1,15 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { usePlanStore } from '../store/planStore';
-import { Crown, Zap, LogOut } from 'lucide-react';
+import { Crown, Zap, LogOut, User } from 'lucide-react';
 
 export function Header() {
-  const { plan, isAuthenticated, logout } = usePlanStore();
+  const { user, isAuthenticated, logout } = usePlanStore();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/auth');
   };
+
+  const planType = user?.plan_type || 'free';
 
   return (
     <header className="border-b bg-white shadow-sm">
@@ -41,14 +43,20 @@ export function Header() {
                 <Link
                   to="/pricing"
                   className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    plan === 'pro'
+                    planType === 'pro' || planType === 'partner'
                       ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                      : 'bg-secondary text-secondary-foreground'
+                      : 'bg-slate-100 text-slate-700 border border-slate-200'
                   }`}
                 >
-                  {plan === 'pro' && <Crown className="h-3 w-3" />}
-                  {plan === 'free' ? 'Free' : 'Pro'}
+                  {(planType === 'pro' || planType === 'partner') && <Crown className="h-3 w-3" />}
+                  {planType === 'free' ? 'FREE' : planType === 'partner' ? 'PARTNER' : 'PRO'}
                 </Link>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span className="max-w-[150px] truncate">{user?.email}</span>
+                </div>
+
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"

@@ -9,7 +9,8 @@ export function PredictedVsActual() {
   const [selectedPeriod, setSelectedPeriod] = useState<7 | 30 | 90>(7);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  const { plan, canAccessHistoryDays } = usePlanStore();
+  const { user, canAccessHistoryDays } = usePlanStore();
+  const planType = user?.plan_type || 'free';
 
   const filteredHistory = useMemo(() => {
     const now = new Date();
@@ -86,7 +87,7 @@ export function PredictedVsActual() {
       <div className="bg-white border rounded-lg p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Time Period</h3>
-          {plan === 'free' && (
+          {planType === 'free' && (
             <span className="text-xs text-muted-foreground">Free: Last 3 days only</span>
           )}
         </div>

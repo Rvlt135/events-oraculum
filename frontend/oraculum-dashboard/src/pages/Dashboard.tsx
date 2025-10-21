@@ -14,7 +14,8 @@ export function Dashboard() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState('');
 
-  const { plan, canAccessSport } = usePlanStore();
+  const { user, canAccessSport } = usePlanStore();
+  const planType = user?.plan_type || 'free';
 
   const filteredEvents = useMemo(() => {
     return eventsData
@@ -24,8 +25,8 @@ export function Dashboard() {
         if (event.edgeScore < minEdge) return false;
         return canAccessSport(event.sport);
       })
-      .slice(0, plan === 'free' ? 20 : 100);
-  }, [selectedSport, selectedLeague, minEdge, plan, canAccessSport]);
+      .slice(0, planType === 'free' ? 20 : 100);
+  }, [selectedSport, selectedLeague, minEdge, planType, canAccessSport]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -38,7 +39,7 @@ export function Dashboard() {
   };
 
   const handleConsensusClick = (e: React.MouseEvent) => {
-    if (plan === 'free') {
+    if (planType === 'free') {
       e.preventDefault();
       setUpgradeFeature('full AI consensus voting breakdown');
       setShowUpgrade(true);
@@ -50,7 +51,7 @@ export function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Events Dashboard</h1>
         <p className="text-muted-foreground">
-          AI-powered betting insights across {plan === 'pro' ? 'multiple sports' : 'soccer'}
+          AI-powered betting insights across {planType === 'pro' || planType === 'partner' ? 'multiple sports' : 'soccer'}
         </p>
       </div>
 
@@ -68,7 +69,7 @@ export function Dashboard() {
           <h2 className="text-lg font-semibold">
             Upcoming Events ({filteredEvents.length})
           </h2>
-          {plan === 'free' && (
+          {planType === 'free' && (
             <span className="text-xs text-muted-foreground">
               Showing max 20 events (Free plan)
             </span>
@@ -114,14 +115,14 @@ export function Dashboard() {
                   <div className="text-sm min-w-[120px]">
                     <div
                       className="text-muted-foreground mb-1 flex items-center gap-1 cursor-pointer"
-                      onClick={plan === 'free' ? handleConsensusClick : undefined}
+                      onClick={planType === 'free' ? handleConsensusClick : undefined}
                     >
                       <TrendingUp className="h-4 w-4" />
                       AI Consensus
-                      {plan === 'free' && <Lock className="h-3 w-3" />}
+                      {planType === 'free' && <Lock className="h-3 w-3" />}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {plan === 'pro' ? 'Click for details' : 'Upgrade for details'}
+                      {(planType === 'pro' || planType === 'partner') ? 'Click for details' : 'Upgrade for details'}
                     </div>
                   </div>
                 </div>

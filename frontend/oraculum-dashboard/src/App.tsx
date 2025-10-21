@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Header } from './components/Header';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -6,8 +7,23 @@ import { EventDetail } from './pages/EventDetail';
 import { PredictedVsActual } from './pages/PredictedVsActual';
 import { Auth } from './pages/Auth';
 import { Pricing } from './pages/Pricing';
+import { usePlanStore } from './store/planStore';
 
 function App() {
+  const { initializeAuth } = usePlanStore();
+
+  useEffect(() => {
+    if (import.meta.env.VITE_USE_MOCKS === 'true') {
+      import('./mocks/browser').then(({ worker }) => {
+        worker.start({
+          onUnhandledRequest: 'bypass',
+        });
+      });
+    }
+
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50">

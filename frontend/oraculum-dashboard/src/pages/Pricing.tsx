@@ -5,10 +5,9 @@ import { Link } from 'react-router-dom';
 
 export function Pricing() {
   const navigate = useNavigate();
-  const { isAuthenticated, setPlan } = usePlanStore();
+  const { isAuthenticated } = usePlanStore();
 
-  const handleSelectPlan = (plan: 'free' | 'pro') => {
-    setPlan(plan);
+  const handleSelectPlan = () => {
     if (!isAuthenticated) {
       navigate('/auth');
     } else {
@@ -76,7 +75,7 @@ export function Pricing() {
             </div>
 
             <button
-              onClick={() => handleSelectPlan('free')}
+              onClick={handleSelectPlan}
               className="w-full py-3 bg-slate-600 text-white rounded-md font-medium hover:bg-slate-700 transition-colors"
             >
               Начать бесплатно
@@ -131,7 +130,7 @@ export function Pricing() {
             </div>
 
             <button
-              onClick={() => handleSelectPlan('pro')}
+              onClick={handleSelectPlan}
               className="w-full py-3 bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-colors"
             >
               Перейти на Pro
