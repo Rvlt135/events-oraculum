@@ -1,5 +1,5 @@
 import { X, Crown, Check } from 'lucide-react';
-import { usePlanStore } from '../store/planStore';
+import { useNavigate } from 'react-router-dom';
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -8,13 +8,13 @@ interface UpgradeModalProps {
 }
 
 export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
-  const { setPlan } = usePlanStore();
+  const navigate = useNavigate();
 
   if (!isOpen) return null;
 
   const handleUpgrade = () => {
-    setPlan('pro');
     onClose();
+    navigate('/pricing');
   };
 
   return (
