@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     google_client_secret: str = Field(default="")
     google_redirect_uri: str = Field(default="http://localhost:8080/auth/google/callback")
 
+    telegram_bot_token: str = Field(default="")
+    telegram_max_auth_age_seconds: int = Field(default=600)
+
     password_hash_scheme: str = Field(default="argon2")
 
     @property

@@ -8,12 +8,15 @@ from app.auth.service import AuthService
 from app.auth.jwt_utils import JWTService
 from app.auth.password_utils import PasswordService
 from app.auth.google_oauth import GoogleOAuthService
+from app.auth.telegram_validator import TelegramValidator
 from app.auth.schemas import (
     EmailRegisterRequest,
     EmailLoginRequest,
+    TelegramAuthRequest,
     AuthResponse,
     AuthTokens,
     UserProfile,
+    TelegramInfo,
     TokenRefreshRequest,
     MeResponse,
 )
@@ -44,14 +47,24 @@ def get_google_oauth_service() -> GoogleOAuthService:
     )
 
 
+def get_telegram_validator() -> TelegramValidator | None:
+    if not settings.telegram_bot_token:
+        return None
+    return TelegramValidator(
+        bot_token=settings.telegram_bot_token,
+        max_auth_age_seconds=settings.telegram_max_auth_age_seconds,
+    )
+
+
 async def get_auth_service(
     db: AsyncSession = Depends(get_db_session),
     redis: Redis = Depends(get_redis),
     jwt_service: JWTService = Depends(get_jwt_service),
     password_service: PasswordService = Depends(get_password_service),
     google_oauth: GoogleOAuthService = Depends(get_google_oauth_service),
+    telegram_validator: TelegramValidator | None = Depends(get_telegram_validator),
 ) -> AuthService:
-    return AuthService(db, redis, jwt_service, password_service, google_oauth)
+    return AuthService(db, redis, jwt_service, password_service, google_oauth, telegram_validator)
 
 
 async def get_current_user(
@@ -186,6 +199,57 @@ async def refresh_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
+        )
+
+
+@router.post("/telegram", response_model=AuthResponse)
+async def login_with_telegram(
+    req: TelegramAuthRequest,
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    try:
+        user_agent = request.headers.get("user-agent")
+        user, access_token, refresh_token = await auth_service.login_with_telegram(
+            req.init_data, user_agent
+        )
+
+        telegram_info = None
+        if user.identities:
+            telegram_identity = next(
+                (i for i in user.identities if i.provider == "telegram"),
+                None
+            )
+            if telegram_identity:
+                telegram_info = TelegramInfo(
+                    account_id=user.telegram_account_id,
+                    username=telegram_identity.username,
+                    first_name=telegram_identity.first_name,
+                    last_name=telegram_identity.last_name,
+                    language_code=telegram_identity.language_code,
+                    photo_url=telegram_identity.photo_url,
+                    is_premium=telegram_identity.is_premium or False,
+                )
+
+        user_profile = UserProfile.model_validate(user)
+        user_profile.telegram = telegram_info
+
+        return AuthResponse(
+            user=user_profile,
+            tokens=AuthTokens(
+                access_token=access_token,
+                refresh_token=refresh_token,
+            ),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Telegram authentication failed: {str(e)}",
         )
 
 
