@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 import orjson
 from redis.asyncio import Redis
@@ -55,7 +55,7 @@ class AuthService:
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
         refresh_token, jti = self.jwt.create_refresh_token(user.id)
 
-        refresh_expires = datetime.utcnow() + timedelta(
+        refresh_expires = datetime.now(UTC) + timedelta(
             seconds=self.jwt.refresh_ttl
         )
         await self.session_repo.create(
@@ -117,7 +117,7 @@ class AuthService:
         else:
             user = await self.user_repo.get_by_email(email)
             if not user:
-                trial_end = datetime.utcnow() + timedelta(days=7)
+                trial_end = datetime.now(UTC) + timedelta(days=7)
                 user = await self.user_repo.create(
                     email=email,
                     email_verified=email_verified,
@@ -133,7 +133,7 @@ class AuthService:
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
         refresh_token, jti = self.jwt.create_refresh_token(user.id)
 
-        refresh_expires = datetime.utcnow() + timedelta(
+        refresh_expires = datetime.now(UTC) + timedelta(
             seconds=self.jwt.refresh_ttl
         )
         await self.session_repo.create(
@@ -206,7 +206,7 @@ class AuthService:
             "user_id": str(user_id),
             "expires_at": expires_at.isoformat(),
         }
-        ttl = int((expires_at - datetime.utcnow()).total_seconds())
+        ttl = int((expires_at - datetime.now(UTC)).total_seconds())
         if ttl > 0:
             await self.redis.setex(key, ttl, orjson.dumps(data))
 
