@@ -68,6 +68,7 @@ export function EventDetail() {
   const isHistoricalEvent = (event as any).status === 'finished';
   const homeTeam = event.home || (event as any).teams?.home || '';
   const awayTeam = event.away || (event as any).teams?.away || '';
+  const edgeScore = event.edgeScore || (event as any).edgeAtPrediction || 0;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -81,16 +82,20 @@ export function EventDetail() {
   };
 
   const oddsChartData = event.oddsSeries.map((item) => ({
-    date: new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    Home: item.home,
-    Draw: item.draw,
-    Away: item.away,
+    date: new Date(item.timestamp || (item as any).t || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    Home: (item as any).avg?.home || item.home,
+    Draw: (item as any).avg?.draw || item.draw,
+    Away: (item as any).avg?.away || item.away,
   }));
 
+  const homePercent = event.aiConsensus.homePercent || (event.aiConsensus as any).homePct || 0;
+  const drawPercent = event.aiConsensus.drawPercent || (event.aiConsensus as any).drawPct || 0;
+  const awayPercent = event.aiConsensus.awayPercent || (event.aiConsensus as any).awayPct || 0;
+
   const pieData = [
-    { name: 'Home', value: event.aiConsensus.homePercent, color: '#0ea5e9' },
-    { name: 'Draw', value: event.aiConsensus.drawPercent, color: '#94a3b8' },
-    { name: 'Away', value: event.aiConsensus.awayPercent, color: '#f59e0b' },
+    { name: 'Home', value: homePercent, color: '#0ea5e9' },
+    { name: 'Draw', value: drawPercent, color: '#94a3b8' },
+    { name: 'Away', value: awayPercent, color: '#f59e0b' },
   ];
 
   const getVerdictColor = (verdict: string) => {
@@ -157,7 +162,7 @@ export function EventDetail() {
               <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-1 rounded">
                 {event.league}
               </span>
-              <EdgeBadge score={event.edgeScore} />
+              <EdgeBadge score={edgeScore} />
             </div>
             <h1 className="text-3xl font-bold">
               {homeTeam} vs {awayTeam}
@@ -235,7 +240,7 @@ export function EventDetail() {
                     <Tooltip />
                     <Legend />
                     <Line type="monotone" dataKey="Home" stroke="#0ea5e9" strokeWidth={2} />
-                    {event.oddsSeries[0].draw && (
+                    {(event.oddsSeries[0].draw || (event.oddsSeries[0] as any).avg?.draw) && (
                       <Line type="monotone" dataKey="Draw" stroke="#94a3b8" strokeWidth={2} />
                     )}
                     <Line type="monotone" dataKey="Away" stroke="#f59e0b" strokeWidth={2} />
@@ -247,21 +252,21 @@ export function EventDetail() {
                 <div className="border rounded-lg p-4">
                   <div className="text-sm text-muted-foreground mb-1">Home Win</div>
                   <div className="text-2xl font-bold">
-                    {event.oddsSeries[event.oddsSeries.length - 1].home}
+                    {(event.oddsSeries[event.oddsSeries.length - 1] as any).avg?.home || event.oddsSeries[event.oddsSeries.length - 1].home}
                   </div>
                 </div>
-                {event.oddsSeries[0].draw && (
+                {(event.oddsSeries[0].draw || (event.oddsSeries[0] as any).avg?.draw) && (
                   <div className="border rounded-lg p-4">
                     <div className="text-sm text-muted-foreground mb-1">Draw</div>
                     <div className="text-2xl font-bold">
-                      {event.oddsSeries[event.oddsSeries.length - 1].draw}
+                      {(event.oddsSeries[event.oddsSeries.length - 1] as any).avg?.draw || event.oddsSeries[event.oddsSeries.length - 1].draw}
                     </div>
                   </div>
                 )}
                 <div className="border rounded-lg p-4">
                   <div className="text-sm text-muted-foreground mb-1">Away Win</div>
                   <div className="text-2xl font-bold">
-                    {event.oddsSeries[event.oddsSeries.length - 1].away}
+                    {(event.oddsSeries[event.oddsSeries.length - 1] as any).avg?.away || event.oddsSeries[event.oddsSeries.length - 1].away}
                   </div>
                 </div>
               </div>
@@ -270,22 +275,24 @@ export function EventDetail() {
 
           {activeTab === 'reasoning' && (
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Summary
-                </h4>
-                <p className="text-sm">{event.reasoningSummary}</p>
-              </div>
+              {event.reasoningSummary && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Summary
+                  </h4>
+                  <p className="text-sm">{event.reasoningSummary}</p>
+                </div>
+              )}
 
-              {canAccessFullReasoning() ? (
+              {canAccessFullReasoning() && event.reasoningFull ? (
                 <div>
                   <h4 className="font-semibold mb-2">Full Analysis</h4>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {event.reasoningFull}
                   </p>
                 </div>
-              ) : (
+              ) : event.reasoningFull ? (
                 <div className="border-2 border-dashed rounded-lg p-8 text-center">
                   <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                   <h4 className="font-semibold mb-2">Full Analysis Locked</h4>
@@ -302,7 +309,7 @@ export function EventDetail() {
                     Upgrade to Pro
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -316,58 +323,72 @@ export function EventDetail() {
                 <p className="text-sm text-muted-foreground">{event.context.weather}</p>
               </div>
 
-              <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Injuries & Availability
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="border rounded-lg p-4">
-                    <div className="font-medium mb-2">{event.home}</div>
-                    {event.context.injuries.home.length > 0 ? (
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        {event.context.injuries.home.map((injury, i) => (
-                          <li key={i}>• {injury}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No injuries reported</p>
-                    )}
-                  </div>
-                  <div className="border rounded-lg p-4">
-                    <div className="font-medium mb-2">{event.away}</div>
-                    {event.context.injuries.away.length > 0 ? (
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        {event.context.injuries.away.map((injury, i) => (
-                          <li key={i}>• {injury}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No injuries reported</p>
-                    )}
+              {event.context.injuries ? (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Injuries & Availability
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border rounded-lg p-4">
+                      <div className="font-medium mb-2">{homeTeam}</div>
+                      {event.context.injuries.home?.length > 0 ? (
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {event.context.injuries.home.map((injury, i) => (
+                            <li key={i}>• {injury}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No injuries reported</p>
+                      )}
+                    </div>
+                    <div className="border rounded-lg p-4">
+                      <div className="font-medium mb-2">{awayTeam}</div>
+                      {event.context.injuries.away?.length > 0 ? (
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {event.context.injuries.away.map((injury, i) => (
+                            <li key={i}>• {injury}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No injuries reported</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (event.context as any).lineups ? (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Lineups
+                  </h4>
+                  <p className="text-sm text-muted-foreground">{(event.context as any).lineups}</p>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border rounded-lg p-4">
-                  <h5 className="font-medium mb-2">Recent Form</h5>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">{event.home}:</span>
-                      <span className="ml-2 font-mono">{event.context.recentForm.home}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{event.away}:</span>
-                      <span className="ml-2 font-mono">{event.context.recentForm.away}</span>
+                {event.context.recentForm && (
+                  <div className="border rounded-lg p-4">
+                    <h5 className="font-medium mb-2">Recent Form</h5>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">{homeTeam}:</span>
+                        <span className="ml-2 font-mono">{event.context.recentForm.home}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{awayTeam}:</span>
+                        <span className="ml-2 font-mono">{event.context.recentForm.away}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div className="border rounded-lg p-4">
-                  <h5 className="font-medium mb-2">Head to Head</h5>
-                  <p className="text-sm text-muted-foreground">{event.context.headToHead}</p>
-                </div>
+                {(event.context.headToHead || (event.context as any).h2h) && (
+                  <div className="border rounded-lg p-4">
+                    <h5 className="font-medium mb-2">Head to Head</h5>
+                    <p className="text-sm text-muted-foreground">{event.context.headToHead || (event.context as any).h2h}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -402,34 +423,34 @@ export function EventDetail() {
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm">Home Win</span>
-                          <span className="font-bold">{event.aiConsensus.homePercent}%</span>
+                          <span className="font-bold">{homePercent}%</span>
                         </div>
                         <div className="w-full bg-secondary rounded-full h-2">
                           <div
                             className="bg-blue-500 h-2 rounded-full"
-                            style={{ width: `${event.aiConsensus.homePercent}%` }}
+                            style={{ width: `${homePercent}%` }}
                           />
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-sm">Draw</span>
-                          <span className="font-bold">{event.aiConsensus.drawPercent}%</span>
+                          <span className="font-bold">{drawPercent}%</span>
                         </div>
                         <div className="w-full bg-secondary rounded-full h-2">
                           <div
                             className="bg-slate-400 h-2 rounded-full"
-                            style={{ width: `${event.aiConsensus.drawPercent}%` }}
+                            style={{ width: `${drawPercent}%` }}
                           />
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-sm">Away Win</span>
-                          <span className="font-bold">{event.aiConsensus.awayPercent}%</span>
+                          <span className="font-bold">{awayPercent}%</span>
                         </div>
                         <div className="w-full bg-secondary rounded-full h-2">
                           <div
                             className="bg-amber-500 h-2 rounded-full"
-                            style={{ width: `${event.aiConsensus.awayPercent}%` }}
+                            style={{ width: `${awayPercent}%` }}
                           />
                         </div>
                       </div>
@@ -467,7 +488,7 @@ export function EventDetail() {
                   <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                   <h4 className="font-semibold mb-2">AI Voting Details Locked</h4>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Basic consensus: {event.aiConsensus.homePercent}% Home / {event.aiConsensus.drawPercent}% Draw / {event.aiConsensus.awayPercent}% Away
+                    Basic consensus: {homePercent}% Home / {drawPercent}% Draw / {awayPercent}% Away
                   </p>
                   <p className="text-sm text-muted-foreground mb-4">
                     Upgrade to Pro to see individual model predictions and confidence scores
