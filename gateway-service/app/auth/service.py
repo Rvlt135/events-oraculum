@@ -7,6 +7,7 @@ from app.auth.jwt_utils import JWTService
 from app.auth.password_utils import PasswordService
 from app.auth.repositories import UserRepository, IdentityRepository, SessionRepository
 from app.auth.google_oauth import GoogleOAuthService
+from app.auth.telegram_validator import TelegramValidator, ParsedTelegramUser
 from app.domain.auth_models import PlanType, IdentityProvider, User
 
 
@@ -18,12 +19,14 @@ class AuthService:
         jwt_service: JWTService,
         password_service: PasswordService,
         google_oauth: GoogleOAuthService,
+        telegram_validator: TelegramValidator | None = None,
     ):
         self.db = db_session
         self.redis = redis
         self.jwt = jwt_service
         self.password = password_service
         self.google = google_oauth
+        self.telegram = telegram_validator
         self.user_repo = UserRepository(db_session)
         self.identity_repo = IdentityRepository(db_session)
         self.session_repo = SessionRepository(db_session)
@@ -145,6 +148,79 @@ class AuthService:
 
         return user, access_token, refresh_token
 
+    async def login_with_telegram(
+        self, init_data_str: str, user_agent: str | None = None
+    ) -> tuple[User, str, str]:
+        if not self.telegram:
+            raise ValueError("Telegram authentication not configured")
+
+        parsed_user = self.telegram.validate_and_parse(init_data_str)
+        account_id = parsed_user.account_id
+
+        identity = await self.identity_repo.get_by_provider(
+            IdentityProvider.TELEGRAM, str(account_id)
+        )
+
+        if identity:
+            user = identity.user
+            if user.telegram_account_id != account_id:
+                user.telegram_account_id = account_id
+                user.telegram_is_premium = parsed_user.is_premium
+                await self.user_repo.update(user)
+        else:
+            user = await self.user_repo.get_by_telegram_account_id(account_id)
+
+            if user:
+                await self.identity_repo.create(
+                    user_id=user.id,
+                    provider=IdentityProvider.TELEGRAM,
+                    provider_user_id=str(account_id),
+                    username=parsed_user.username,
+                    first_name=parsed_user.first_name,
+                    last_name=parsed_user.last_name,
+                    language_code=parsed_user.language_code,
+                    photo_url=parsed_user.photo_url,
+                    is_premium=parsed_user.is_premium,
+                )
+            else:
+                trial_end = datetime.utcnow() + timedelta(days=7)
+                user = await self.user_repo.create(
+                    email=None,
+                    email_verified=False,
+                    plan_type=PlanType.FREE,
+                    trial_end_at=trial_end,
+                    telegram_account_id=account_id,
+                    telegram_is_premium=parsed_user.is_premium,
+                )
+
+                await self.identity_repo.create(
+                    user_id=user.id,
+                    provider=IdentityProvider.TELEGRAM,
+                    provider_user_id=str(account_id),
+                    username=parsed_user.username,
+                    first_name=parsed_user.first_name,
+                    last_name=parsed_user.last_name,
+                    language_code=parsed_user.language_code,
+                    photo_url=parsed_user.photo_url,
+                    is_premium=parsed_user.is_premium,
+                )
+
+        access_token = self.jwt.create_access_token(
+            user.id, user.plan_type.value, account_id=account_id
+        )
+        refresh_token, jti = self.jwt.create_refresh_token(user.id)
+
+        refresh_expires = datetime.utcnow() + timedelta(seconds=self.jwt.refresh_ttl)
+        await self.session_repo.create(
+            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
+        )
+
+        await self._cache_session(jti, user.id, refresh_expires)
+        await self._cache_user_with_account_id(user, account_id)
+        await self.db.commit()
+
+        return user, access_token, refresh_token
+
     async def refresh_access_token(self, refresh_token: str) -> str:
         token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
         jti = UUID(token_payload.jti)
@@ -160,7 +236,8 @@ class AuthService:
         if not user:
             raise ValueError("User not found")
 
-        return self.jwt.create_access_token(user.id, user.plan_type.value)
+        account_id = user.telegram_account_id if user.telegram_account_id else None
+        return self.jwt.create_access_token(user.id, user.plan_type.value, account_id=account_id)
 
     async def logout(self, refresh_token: str) -> None:
         token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
@@ -221,6 +298,19 @@ class AuthService:
         key = f"session:{jti}"
         await self.redis.delete(key)
 
-    async def _invalidate_user_cache(self, user_id: UUID) -> None:
+    async def _cache_user_with_account_id(self, user: User, account_id: int) -> None:
+        await self._cache_user(user)
+
+        account_key = f"account:{account_id}"
+        data = {
+            "user_id": str(user.id),
+        }
+        await self.redis.setex(account_key, 300, orjson.dumps(data))
+
+    async def _invalidate_user_cache(self, user_id: UUID, account_id: int | None = None) -> None:
         key = f"user:{user_id}"
         await self.redis.delete(key)
+
+        if account_id:
+            account_key = f"account:{account_id}"
+            await self.redis.delete(account_key)

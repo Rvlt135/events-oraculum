@@ -26,18 +26,30 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_telegram_account_id(self, account_id: int) -> User | None:
+        result = await self.session.execute(
+            select(User)
+            .where(User.telegram_account_id == account_id)
+            .options(selectinload(User.identities))
+        )
+        return result.scalar_one_or_none()
+
     async def create(
         self,
-        email: str,
+        email: str | None = None,
         plan_type: PlanType = PlanType.FREE,
         password_hash: str | None = None,
         email_verified: bool = False,
         trial_end_at: datetime | None = None,
+        telegram_account_id: int | None = None,
+        telegram_is_premium: bool | None = None,
     ) -> User:
         user = User(
             email=email,
             email_verified=email_verified,
             password_hash=password_hash,
+            telegram_account_id=telegram_account_id,
+            telegram_is_premium=telegram_is_premium,
             plan_type=plan_type,
             trial_end_at=trial_end_at,
         )
@@ -71,12 +83,27 @@ class IdentityRepository:
         return result.scalar_one_or_none()
 
     async def create(
-        self, user_id: UUID, provider: IdentityProvider, provider_user_id: str
+        self,
+        user_id: UUID,
+        provider: IdentityProvider,
+        provider_user_id: str,
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        language_code: str | None = None,
+        photo_url: str | None = None,
+        is_premium: bool | None = None,
     ) -> UserIdentity:
         identity = UserIdentity(
             user_id=user_id,
             provider=provider,
             provider_user_id=provider_user_id,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            language_code=language_code,
+            photo_url=photo_url,
+            is_premium=is_premium,
         )
         self.session.add(identity)
         await self.session.flush()

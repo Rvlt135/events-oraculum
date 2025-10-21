@@ -11,6 +11,7 @@ class TokenPayload(BaseModel):
     iat: int
     type: str
     plan: str | None = None
+    aid: int | None = None
 
 
 class JWTService:
@@ -26,7 +27,9 @@ class JWTService:
         self.access_ttl = access_ttl
         self.refresh_ttl = refresh_ttl
 
-    def create_access_token(self, user_id: UUID, plan_type: str) -> str:
+    def create_access_token(
+        self, user_id: UUID, plan_type: str, account_id: int | None = None
+    ) -> str:
         now = datetime.utcnow()
         payload = {
             "sub": str(user_id),
@@ -36,6 +39,8 @@ class JWTService:
             "type": "access",
             "plan": plan_type,
         }
+        if account_id is not None:
+            payload["aid"] = account_id
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)
 
     def create_refresh_token(self, user_id: UUID, jti: UUID | None = None) -> tuple[str, UUID]:
