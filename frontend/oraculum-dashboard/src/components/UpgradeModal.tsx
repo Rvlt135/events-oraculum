@@ -1,5 +1,7 @@
 import { X, Crown, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { usePlanStore } from '../store/planStore';
+import { useState } from 'react';
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -9,10 +11,21 @@ interface UpgradeModalProps {
 
 export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
   const navigate = useNavigate();
+  const { setPlan } = usePlanStore();
+  const [showToast, setShowToast] = useState(false);
 
   if (!isOpen) return null;
 
   const handleUpgrade = () => {
+    setPlan('pro');
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+      onClose();
+    }, 1500);
+  };
+
+  const handleViewPricing = () => {
     onClose();
     navigate('/pricing');
   };
@@ -61,10 +74,10 @@ export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
 
         <div className="flex gap-3">
           <button
-            onClick={onClose}
+            onClick={handleViewPricing}
             className="flex-1 px-4 py-2 border rounded-md hover:bg-secondary transition-colors"
           >
-            Maybe Later
+            View Pricing
           </button>
           <button
             onClick={handleUpgrade}
@@ -73,6 +86,15 @@ export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
             Upgrade Now
           </button>
         </div>
+
+        {showToast && (
+          <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 whitespace-nowrap">
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5" />
+              <span className="font-medium">Upgraded to Pro!</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,18 +2,43 @@ import { useNavigate } from 'react-router-dom';
 import { usePlanStore } from '../store/planStore';
 import { Check, Zap, Crown, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
 export function Pricing() {
   const navigate = useNavigate();
-  const { isAuthenticated } = usePlanStore();
+  const { isAuthenticated, setPlan, user } = usePlanStore();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
-  const handleSelectPlan = () => {
+  const handleSelectFreePlan = () => {
     if (!isAuthenticated) {
       navigate('/auth');
     } else {
-      navigate('/');
+      setPlan('free');
+      setToastMessage('План: Free');
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/');
+      }, 1500);
     }
   };
+
+  const handleSelectProPlan = () => {
+    if (!isAuthenticated) {
+      navigate('/auth');
+    } else {
+      setPlan('pro');
+      setToastMessage('План: Pro');
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+        navigate('/');
+      }, 1500);
+    }
+  };
+
+  const currentPlan = user?.plan_type || 'free';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
@@ -75,10 +100,14 @@ export function Pricing() {
             </div>
 
             <button
-              onClick={handleSelectPlan}
-              className="w-full py-3 bg-slate-600 text-white rounded-md font-medium hover:bg-slate-700 transition-colors"
+              onClick={handleSelectFreePlan}
+              className={`w-full py-3 rounded-md font-medium transition-colors ${
+                currentPlan === 'free'
+                  ? 'bg-slate-400 text-white cursor-default'
+                  : 'bg-slate-600 text-white hover:bg-slate-700'
+              }`}
             >
-              Начать бесплатно
+              {currentPlan === 'free' ? 'Текущий план' : 'Начать бесплатно'}
             </button>
           </div>
 
@@ -130,10 +159,14 @@ export function Pricing() {
             </div>
 
             <button
-              onClick={handleSelectPlan}
-              className="w-full py-3 bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-colors"
+              onClick={handleSelectProPlan}
+              className={`w-full py-3 rounded-md font-medium transition-colors ${
+                currentPlan === 'pro' || currentPlan === 'partner'
+                  ? 'bg-amber-400 text-white cursor-default'
+                  : 'bg-amber-600 text-white hover:bg-amber-700'
+              }`}
             >
-              Перейти на Pro
+              {currentPlan === 'pro' || currentPlan === 'partner' ? 'Текущий план' : 'Перейти на Pro'}
             </button>
           </div>
         </div>
@@ -146,6 +179,15 @@ export function Pricing() {
           </p>
         </div>
       </div>
+
+      {showToast && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center gap-2">
+            <Check className="h-5 w-5" />
+            <span className="font-medium">{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

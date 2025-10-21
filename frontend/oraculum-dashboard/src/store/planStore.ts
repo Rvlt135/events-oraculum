@@ -13,6 +13,7 @@ interface AuthStore {
   setAuth: (user: UserProfile, accessToken: string, refreshToken: string) => void;
   setUser: (user: UserProfile) => void;
   updateAccessToken: (accessToken: string) => void;
+  setPlan: (plan: 'free' | 'pro') => void;
   logout: () => void;
 
   canAccessSport: (sport: string) => boolean;
@@ -32,6 +33,13 @@ export const usePlanStore = create<AuthStore>()(persist((set, get) => ({
   isTrialActive: false,
 
   setAuth: (user, accessToken, refreshToken) => {
+    const savedPlan = localStorage.getItem('oraculum.plan') as 'free' | 'pro' | null;
+    if (savedPlan) {
+      user.plan_type = savedPlan;
+    } else if (!user.plan_type) {
+      user.plan_type = 'free';
+      localStorage.setItem('oraculum.plan', 'free');
+    }
     set({
       isAuthenticated: true,
       user,
@@ -48,6 +56,16 @@ export const usePlanStore = create<AuthStore>()(persist((set, get) => ({
     set({ accessToken });
   },
 
+  setPlan: (plan) => {
+    const { user } = get();
+    if (user) {
+      const updatedUser = { ...user, plan_type: plan };
+      set({ user: updatedUser });
+      localStorage.setItem('oraculum.plan', plan);
+      console.info('Plan changed:', plan);
+    }
+  },
+
   logout: async () => {
     const { refreshToken } = get();
     if (refreshToken) {
@@ -57,6 +75,7 @@ export const usePlanStore = create<AuthStore>()(persist((set, get) => ({
         console.error('Logout error:', error);
       }
     }
+    localStorage.removeItem('oraculum.plan');
     set({
       isAuthenticated: false,
       user: null,
@@ -93,13 +112,18 @@ export const usePlanStore = create<AuthStore>()(persist((set, get) => ({
 
   initializeAuth: async () => {
     const { refreshToken, accessToken } = get();
+    const savedPlan = localStorage.getItem('oraculum.plan') as 'free' | 'pro' | null;
 
     if (refreshToken && accessToken) {
       try {
         const meData = await authService.getMe(accessToken);
+        const user = meData.user;
+        if (savedPlan) {
+          user.plan_type = savedPlan;
+        }
         set({
           isAuthenticated: true,
-          user: meData.user,
+          user,
           trialLeftDays: meData.trial_left_days,
           isTrialActive: meData.is_trial_active,
         });
@@ -109,9 +133,13 @@ export const usePlanStore = create<AuthStore>()(persist((set, get) => ({
           set({ accessToken: refreshData.access_token });
 
           const meData = await authService.getMe(refreshData.access_token);
+          const user = meData.user;
+          if (savedPlan) {
+            user.plan_type = savedPlan;
+          }
           set({
             isAuthenticated: true,
-            user: meData.user,
+            user,
             trialLeftDays: meData.trial_left_days,
             isTrialActive: meData.is_trial_active,
           });
