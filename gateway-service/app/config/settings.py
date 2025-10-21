@@ -35,6 +35,17 @@ class Settings(BaseSettings):
 
     cache_ttl_seconds: int = Field(default=300)
 
+    jwt_secret: str = Field(default="changeme_jwt_secret_min_32_chars")
+    jwt_algorithm: str = Field(default="HS256")
+    access_token_ttl_seconds: int = Field(default=900)
+    refresh_token_ttl_seconds: int = Field(default=1209600)
+
+    google_client_id: str = Field(default="")
+    google_client_secret: str = Field(default="")
+    google_redirect_uri: str = Field(default="http://localhost:8080/auth/google/callback")
+
+    password_hash_scheme: str = Field(default="argon2")
+
     @property
     def postgres_url(self) -> str:
         return (

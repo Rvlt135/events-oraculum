@@ -9,8 +9,9 @@ import structlog
 from app.config.settings import settings
 from app.cache.redis import redis_cache_manager
 from app.db.pg import engine
-from app.routes import insights, stats
+from app.routes import insights, stats, auth
 from app.observability.logging import configure_logging
+from app.domain.auth_models import Base
 
 configure_logging()
 
@@ -21,6 +22,10 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_gateway_service")
     await redis_cache_manager.initialize()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     yield
     await redis_cache_manager.dispose()
     await engine.dispose()
@@ -43,6 +48,7 @@ def create_app(env: str = "production") -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.include_router(auth.router)
     app.include_router(insights.router)
     app.include_router(stats.router)
 
