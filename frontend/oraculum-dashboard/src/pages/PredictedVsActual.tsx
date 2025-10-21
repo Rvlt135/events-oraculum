@@ -158,10 +158,11 @@ export function PredictedVsActual() {
         <h3 className="font-semibold mb-4">Prediction History</h3>
         <div className="space-y-3">
           {filteredHistory.map((item) => (
-            <div
+            <Link
               key={item.id}
-              className={`border rounded-lg p-4 ${
-                item.hit ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+              to={`/history/${item.id}`}
+              className={`block border rounded-lg p-4 transition-transform hover:scale-[1.02] cursor-pointer ${
+                item.hit ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-red-50 border-red-200 hover:bg-red-100'
               }`}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -217,7 +218,7 @@ export function PredictedVsActual() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
 
           {filteredHistory.length === 0 && (

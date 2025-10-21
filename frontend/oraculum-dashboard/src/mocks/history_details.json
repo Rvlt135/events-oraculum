@@ -1,0 +1,234 @@
+[
+  {
+    "id": "ucl-2025-10-14-psg-rma",
+    "sport": "soccer",
+    "league": "UEFA Champions League",
+    "teams": { "home": "PSG", "away": "Real Madrid" },
+    "kickoff": "2025-10-14T19:00:00Z",
+    "status": "finished",
+    "finalScore": "1-1",
+    "predicted": "home",
+    "actual": "draw",
+    "hit": false,
+    "edgeAtPrediction": 5.1,
+    "oddsSeries": [
+      {
+        "t": "2025-10-14T10:00:00Z",
+        "avg": { "home": 2.1, "draw": 3.4, "away": 3.4 },
+        "best": { "home": 2.2, "draw": 3.55, "away": 3.55 }
+      },
+      {
+        "t": "2025-10-14T18:00:00Z",
+        "avg": { "home": 2.05, "draw": 3.45, "away": 3.55 },
+        "best": { "home": 2.15, "draw": 3.6, "away": 3.65 }
+      }
+    ],
+    "reasoningFull": "AI models identified PSG's improved pressing game and Real Madrid's recent struggles in away fixtures. Home advantage and tactical adjustments from PSG coach suggested value in home win. However, defensive solidity from both sides resulted in a draw.",
+    "context": {
+      "lineups": "PSG: 4-3-3 formation with key attackers. Real Madrid: 4-4-2 defensive setup.",
+      "injuries": "PSG: No major injuries. Real Madrid: Midfielder out, affecting midfield creativity.",
+      "weather": "Clear, 15°C",
+      "h2h": "Last 5 meetings: PSG 2 wins, Real Madrid 2 wins, 1 draw"
+    },
+    "aiConsensus": {
+      "homePct": 48,
+      "drawPct": 27,
+      "awayPct": 25,
+      "models": [
+        {
+          "name": "Model-A",
+          "pick": "home",
+          "confidence": 0.62,
+          "note": "Strong home field advantage and recent form"
+        },
+        {
+          "name": "Model-B",
+          "pick": "draw",
+          "confidence": 0.51,
+          "note": "Conservative market pricing indicates tight match"
+        },
+        {
+          "name": "Model-C",
+          "pick": "home",
+          "confidence": 0.58,
+          "note": "Real Madrid's away form concerns"
+        }
+      ]
+    },
+    "verdict": "risky"
+  },
+  {
+    "id": "uel-2025-10-13-ata-mun",
+    "sport": "soccer",
+    "league": "UEFA Europa League",
+    "teams": { "home": "Atalanta", "away": "Man United" },
+    "kickoff": "2025-10-13T18:45:00Z",
+    "status": "finished",
+    "finalScore": "1-2",
+    "predicted": "away",
+    "actual": "away",
+    "hit": true,
+    "edgeAtPrediction": 4.3,
+    "oddsSeries": [
+      {
+        "t": "2025-10-13T09:00:00Z",
+        "avg": { "home": 2.4, "draw": 3.3, "away": 2.9 },
+        "best": { "home": 2.5, "draw": 3.45, "away": 3.05 }
+      },
+      {
+        "t": "2025-10-13T17:00:00Z",
+        "avg": { "home": 2.5, "draw": 3.35, "away": 2.85 },
+        "best": { "home": 2.6, "draw": 3.5, "away": 2.95 }
+      }
+    ],
+    "reasoningFull": "Man United showed superior squad depth and tactical flexibility. Atalanta's high-pressing style susceptible to counter-attacks. United's away record in Europe was strong, and market undervalued their chances.",
+    "context": {
+      "lineups": "Atalanta: 3-4-3 attacking formation. Man United: 4-2-3-1 balanced setup.",
+      "injuries": "Atalanta: Key defender out. Man United: Full squad available.",
+      "weather": "Light rain, 12°C",
+      "h2h": "First competitive meeting this season"
+    },
+    "aiConsensus": {
+      "homePct": 35,
+      "drawPct": 28,
+      "awayPct": 37,
+      "models": [
+        {
+          "name": "Model-A",
+          "pick": "away",
+          "confidence": 0.65,
+          "note": "Squad quality advantage for United"
+        },
+        {
+          "name": "Model-B",
+          "pick": "draw",
+          "confidence": 0.52,
+          "note": "Evenly matched on paper"
+        },
+        {
+          "name": "Model-C",
+          "pick": "away",
+          "confidence": 0.61,
+          "note": "Atalanta's defensive vulnerability"
+        }
+      ]
+    },
+    "verdict": "confident"
+  },
+  {
+    "id": "hist_001",
+    "sport": "soccer",
+    "league": "Premier League",
+    "teams": { "home": "Tottenham", "away": "Manchester United" },
+    "kickoff": "2025-10-19T15:00:00Z",
+    "status": "finished",
+    "finalScore": "2-1",
+    "predicted": "home",
+    "actual": "home",
+    "hit": true,
+    "edgeAtPrediction": 7.8,
+    "oddsSeries": [
+      {
+        "t": "2025-10-19T08:00:00Z",
+        "avg": { "home": 2.2, "draw": 3.5, "away": 3.3 },
+        "best": { "home": 2.3, "draw": 3.65, "away": 3.45 }
+      },
+      {
+        "t": "2025-10-19T14:00:00Z",
+        "avg": { "home": 2.15, "draw": 3.55, "away": 3.4 },
+        "best": { "home": 2.25, "draw": 3.7, "away": 3.5 }
+      }
+    ],
+    "reasoningFull": "Tottenham's home form was exceptional, and Manchester United showed defensive frailties in recent away matches. Key player availability favored Tottenham, and the market undervalued home win probability.",
+    "context": {
+      "lineups": "Tottenham: 4-3-3. Man United: 4-2-3-1.",
+      "injuries": "Tottenham: Full squad. Man United: Center back injured.",
+      "weather": "Partly cloudy, 14°C",
+      "h2h": "Last 5: Tottenham 2 wins, Man United 2 wins, 1 draw"
+    },
+    "aiConsensus": {
+      "homePct": 52,
+      "drawPct": 25,
+      "awayPct": 23,
+      "models": [
+        {
+          "name": "Model-A",
+          "pick": "home",
+          "confidence": 0.68,
+          "note": "Strong home advantage"
+        },
+        {
+          "name": "Model-B",
+          "pick": "home",
+          "confidence": 0.61,
+          "note": "United's defensive issues"
+        },
+        {
+          "name": "Model-C",
+          "pick": "home",
+          "confidence": 0.64,
+          "note": "Form and momentum favors Spurs"
+        }
+      ]
+    },
+    "verdict": "confident"
+  },
+  {
+    "id": "hist_002",
+    "sport": "soccer",
+    "league": "Serie A",
+    "teams": { "home": "Juventus", "away": "Napoli" },
+    "kickoff": "2025-10-19T17:30:00Z",
+    "status": "finished",
+    "finalScore": "1-1",
+    "predicted": "away",
+    "actual": "draw",
+    "hit": false,
+    "edgeAtPrediction": 6.5,
+    "oddsSeries": [
+      {
+        "t": "2025-10-19T10:00:00Z",
+        "avg": { "home": 2.8, "draw": 3.2, "away": 2.5 },
+        "best": { "home": 2.9, "draw": 3.3, "away": 2.6 }
+      },
+      {
+        "t": "2025-10-19T16:30:00Z",
+        "avg": { "home": 2.85, "draw": 3.25, "away": 2.45 },
+        "best": { "home": 2.95, "draw": 3.35, "away": 2.55 }
+      }
+    ],
+    "reasoningFull": "Napoli's attacking prowess suggested value in away win. However, Juventus's defensive organization proved resilient, leading to a balanced draw.",
+    "context": {
+      "lineups": "Juventus: 3-5-2 defensive. Napoli: 4-3-3 attacking.",
+      "injuries": "Both squads mostly healthy.",
+      "weather": "Clear, 16°C",
+      "h2h": "Last 5: Napoli 3 wins, Juventus 1 win, 1 draw"
+    },
+    "aiConsensus": {
+      "homePct": 28,
+      "drawPct": 30,
+      "awayPct": 42,
+      "models": [
+        {
+          "name": "Model-A",
+          "pick": "away",
+          "confidence": 0.59,
+          "note": "Napoli's attacking form"
+        },
+        {
+          "name": "Model-B",
+          "pick": "draw",
+          "confidence": 0.55,
+          "note": "Defensive strength vs attacking power"
+        },
+        {
+          "name": "Model-C",
+          "pick": "away",
+          "confidence": 0.62,
+          "note": "Recent head-to-head favors Napoli"
+        }
+      ]
+    },
+    "verdict": "moderate"
+  }
+]
