@@ -30,6 +30,14 @@ type EventDetails = {
     homePercent: number;
     drawPercent: number;
     awayPercent: number;
+    homeVoting?: {
+      totalConfidence: number;
+      models: Array<{ name: string; pick: string; confidence: number; note: string }>;
+    };
+    awayVoting?: {
+      totalConfidence: number;
+      models: Array<{ name: string; pick: string; confidence: number; note: string }>;
+    };
     models: Array<{ name: string; pick: string; confidence: number; note: string }>;
   };
 };
@@ -458,29 +466,90 @@ export function EventDetail() {
                   </div>
 
                   <div>
-                    <h4 className="font-semibold mb-3">Model Predictions</h4>
-                    <div className="space-y-3">
-                      {event.aiConsensus.models.map((model, i) => (
-                        <div key={i} className="border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium">{model.name}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">
-                                Confidence: {(model.confidence * 100).toFixed(0)}%
-                              </span>
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                model.pick === 'home' ? 'bg-blue-100 text-blue-800' :
-                                model.pick === 'draw' ? 'bg-slate-100 text-slate-800' :
-                                'bg-amber-100 text-amber-800'
-                              }`}>
-                                {model.pick.toUpperCase()}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{model.note}</p>
+                    <h4 className="font-semibold mb-4">Team-Specific AI Voting</h4>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="font-semibold text-blue-900">{homeTeam} Support</h5>
+                          {event.aiConsensus.homeVoting && (
+                            <span className="text-sm font-medium text-blue-700">
+                              Avg Confidence: {(event.aiConsensus.homeVoting.totalConfidence * 100).toFixed(0)}%
+                            </span>
+                          )}
                         </div>
-                      ))}
+                        <div className="space-y-2">
+                          {(event.aiConsensus.homeVoting?.models || event.aiConsensus.models.filter(m => m.pick === 'home')).map((model, i) => {
+                            const confidence = model.confidence * 100;
+                            const colorClass = confidence >= 70 ? 'bg-green-100 border-green-300' : confidence >= 50 ? 'bg-yellow-100 border-yellow-300' : 'bg-gray-100 border-gray-300';
+                            const textColor = confidence >= 70 ? 'text-green-800' : confidence >= 50 ? 'text-yellow-800' : 'text-gray-800';
+                            return (
+                              <div key={i} className={`border rounded-lg p-3 ${colorClass}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-sm">{model.name}</span>
+                                  <span className={`text-xs font-bold ${textColor}`}>
+                                    {confidence.toFixed(0)}%
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{model.note}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="border-2 border-amber-200 rounded-lg p-4 bg-amber-50/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="font-semibold text-amber-900">{awayTeam} Support</h5>
+                          {event.aiConsensus.awayVoting && (
+                            <span className="text-sm font-medium text-amber-700">
+                              Avg Confidence: {(event.aiConsensus.awayVoting.totalConfidence * 100).toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {(event.aiConsensus.awayVoting?.models || event.aiConsensus.models.filter(m => m.pick === 'away')).map((model, i) => {
+                            const confidence = model.confidence * 100;
+                            const colorClass = confidence >= 70 ? 'bg-green-100 border-green-300' : confidence >= 50 ? 'bg-yellow-100 border-yellow-300' : 'bg-gray-100 border-gray-300';
+                            const textColor = confidence >= 70 ? 'text-green-800' : confidence >= 50 ? 'text-yellow-800' : 'text-gray-800';
+                            return (
+                              <div key={i} className={`border rounded-lg p-3 ${colorClass}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-sm">{model.name}</span>
+                                  <span className={`text-xs font-bold ${textColor}`}>
+                                    {confidence.toFixed(0)}%
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{model.note}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
+
+                    {event.aiConsensus.models.filter(m => m.pick === 'draw').length > 0 && (
+                      <div className="mt-4 border-2 border-slate-200 rounded-lg p-4 bg-slate-50/30">
+                        <h5 className="font-semibold text-slate-900 mb-3">Draw Predictions</h5>
+                        <div className="space-y-2">
+                          {event.aiConsensus.models.filter(m => m.pick === 'draw').map((model, i) => {
+                            const confidence = model.confidence * 100;
+                            const colorClass = confidence >= 70 ? 'bg-green-100 border-green-300' : confidence >= 50 ? 'bg-yellow-100 border-yellow-300' : 'bg-gray-100 border-gray-300';
+                            const textColor = confidence >= 70 ? 'text-green-800' : confidence >= 50 ? 'text-yellow-800' : 'text-gray-800';
+                            return (
+                              <div key={i} className={`border rounded-lg p-3 ${colorClass}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-sm">{model.name}</span>
+                                  <span className={`text-xs font-bold ${textColor}`}>
+                                    {confidence.toFixed(0)}%
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{model.note}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (

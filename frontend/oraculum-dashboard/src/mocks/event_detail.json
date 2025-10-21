@@ -33,12 +33,28 @@
       "homePercent": 62,
       "drawPercent": 18,
       "awayPercent": 20,
+      "homeVoting": {
+        "totalConfidence": 0.655,
+        "models": [
+          { "name": "GPT-4o", "pick": "home", "confidence": 0.68, "note": "Strong statistical edge for City at home" },
+          { "name": "Claude Sonnet", "pick": "home", "confidence": 0.71, "note": "Key injuries favor home team" },
+          { "name": "Gemini Pro", "pick": "home", "confidence": 0.58, "note": "Form and venue advantage decisive" },
+          { "name": "Mixtral", "pick": "home", "confidence": 0.65, "note": "Historical data supports home victory" }
+        ]
+      },
+      "awayVoting": {
+        "totalConfidence": 0.48,
+        "models": [
+          { "name": "DeepSeek", "pick": "away", "confidence": 0.48, "note": "Arsenal's counter-attacking style could exploit City's high line" }
+        ]
+      },
       "models": [
         { "name": "GPT-4o", "pick": "home", "confidence": 0.68, "note": "Strong statistical edge for City at home" },
         { "name": "Claude Sonnet", "pick": "home", "confidence": 0.71, "note": "Key injuries favor home team" },
         { "name": "Gemini Pro", "pick": "home", "confidence": 0.58, "note": "Form and venue advantage decisive" },
         { "name": "Llama 3.3", "pick": "draw", "confidence": 0.52, "note": "Both teams quality suggests tight match" },
-        { "name": "Mixtral", "pick": "home", "confidence": 0.65, "note": "Historical data supports home victory" }
+        { "name": "Mixtral", "pick": "home", "confidence": 0.65, "note": "Historical data supports home victory" },
+        { "name": "DeepSeek", "pick": "away", "confidence": 0.48, "note": "Arsenal's counter-attacking style could exploit City's high line" }
       ]
     }
   },
@@ -76,6 +92,20 @@
       "homePercent": 41,
       "drawPercent": 24,
       "awayPercent": 35,
+      "homeVoting": {
+        "totalConfidence": 0.53,
+        "models": [
+          { "name": "GPT-4o", "pick": "home", "confidence": 0.55, "note": "Home advantage in balanced fixture" },
+          { "name": "Llama 3.3", "pick": "home", "confidence": 0.51, "note": "Camp Nou factor" }
+        ]
+      },
+      "awayVoting": {
+        "totalConfidence": 0.545,
+        "models": [
+          { "name": "Claude Sonnet", "pick": "away", "confidence": 0.53, "note": "Madrid's big-game experience" },
+          { "name": "Mixtral", "pick": "away", "confidence": 0.56, "note": "Counter-attack threat" }
+        ]
+      },
       "models": [
         { "name": "GPT-4o", "pick": "home", "confidence": 0.55, "note": "Home advantage in balanced fixture" },
         { "name": "Claude Sonnet", "pick": "away", "confidence": 0.53, "note": "Madrid's big-game experience" },

@@ -370,7 +370,7 @@ curl "$VITE_GATEWAY_BASE_URL/v1/events/evt-123/context" \
 
 ### GET /v1/events/{id}/voting
 
-AI-Voting по событию: консенсус и (для Pro) расклад по моделям.
+AI-Voting по событию: консенсус и (для Pro) расклад по моделям с разделением по командам.
 
 **Response** (200):
 ```json
@@ -380,6 +380,34 @@ AI-Voting по событию: консенсус и (для Pro) расклад
     "drawPct": 27,
     "awayPct": 25,
     "visibility": "full",
+    "homeVoting": {
+      "totalConfidence": 0.62,
+      "models": [
+        {
+          "name": "Model-A",
+          "pick": "home",
+          "confidence": 0.62,
+          "note": "Strong home field advantage and recent form"
+        },
+        {
+          "name": "Model-C",
+          "pick": "home",
+          "confidence": 0.58,
+          "note": "Historical data favors home team"
+        }
+      ]
+    },
+    "awayVoting": {
+      "totalConfidence": 0.55,
+      "models": [
+        {
+          "name": "Model-D",
+          "pick": "away",
+          "confidence": 0.55,
+          "note": "Away team's tactical advantage"
+        }
+      ]
+    },
     "models": [
       {
         "name": "Model-A",
@@ -392,6 +420,18 @@ AI-Voting по событию: консенсус и (для Pro) расклад
         "pick": "draw",
         "confidence": 0.51,
         "note": "Conservative market pricing indicates tight match"
+      },
+      {
+        "name": "Model-C",
+        "pick": "home",
+        "confidence": 0.58,
+        "note": "Historical data favors home team"
+      },
+      {
+        "name": "Model-D",
+        "pick": "away",
+        "confidence": 0.55,
+        "note": "Away team's tactical advantage"
       }
     ]
   }
@@ -399,8 +439,8 @@ AI-Voting по событию: консенсус и (для Pro) расклад
 ```
 
 **Plan-гейтинг**:
-- Free: `visibility: "summary_only"`, `models` = `[]`
-- Pro: `visibility: "full"`, полный список моделей
+- Free: `visibility: "summary_only"`, `homeVoting` и `awayVoting` отсутствуют, `models` = `[]`
+- Pro: `visibility: "full"`, полные списки `homeVoting`, `awayVoting` и `models` с reasoning для каждой модели
 
 **Пример**:
 ```bash
@@ -539,7 +579,7 @@ curl "$VITE_GATEWAY_BASE_URL/v1/history?from=2025-10-01&to=2025-10-21" \
 
 ### GET /v1/history/{id}/voting
 
-AI-Voting по прошедшему событию (тот же формат, что `/events/{id}/voting`).
+AI-Voting по прошедшему событию (тот же формат, что `/events/{id}/voting`, включая разделение по командам).
 
 **Response** (200):
 ```json
@@ -549,12 +589,40 @@ AI-Voting по прошедшему событию (тот же формат, ч
     "drawPct": 27,
     "awayPct": 25,
     "visibility": "full",
+    "homeVoting": {
+      "totalConfidence": 0.62,
+      "models": [
+        {
+          "name": "Model-A",
+          "pick": "home",
+          "confidence": 0.62,
+          "note": "Strong home field advantage"
+        }
+      ]
+    },
+    "awayVoting": {
+      "totalConfidence": 0.55,
+      "models": [
+        {
+          "name": "Model-B",
+          "pick": "away",
+          "confidence": 0.55,
+          "note": "Away team's tactical setup"
+        }
+      ]
+    },
     "models": [
       {
         "name": "Model-A",
         "pick": "home",
         "confidence": 0.62,
         "note": "Strong home field advantage"
+      },
+      {
+        "name": "Model-B",
+        "pick": "away",
+        "confidence": 0.55,
+        "note": "Away team's tactical setup"
       }
     ]
   }
