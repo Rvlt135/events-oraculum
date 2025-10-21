@@ -55,7 +55,7 @@ export function FiltersBar({
                       ? 'bg-primary text-white border-primary'
                       : isLocked
                       ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
-                      : 'bg-white hover:bg-secondary border-border'
+                      : 'bg-white hover:bg-secondary border-border cursor-pointer'
                   }`}
                 >
                   <span className="flex items-center gap-1">
