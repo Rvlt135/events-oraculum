@@ -21,7 +21,7 @@ export const handlers = [
   http.post(`${BASE_URL}/auth/email/register`, async ({ request }) => {
     const body = await request.json() as { email: string; password: string };
     return HttpResponse.json({
-      user: { ...mockUser, email: body.email },
+      user: { ...mockUser, email: body.email, plan_type: 'pro' },
       tokens: mockTokens,
     });
   }),
@@ -47,7 +47,7 @@ export const handlers = [
 
     if (code) {
       return HttpResponse.json({
-        user: { ...mockUser, email: 'google.user@example.com', email_verified: true },
+        user: { ...mockUser, email: 'google.user@example.com', email_verified: true, plan_type: 'pro' },
         tokens: mockTokens,
       });
     }
@@ -77,7 +77,7 @@ export const handlers = [
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return HttpResponse.json({
-        user: mockUser,
+        user: { ...mockUser, plan_type: 'pro' },
         trial_left_days: 5,
         is_trial_active: true,
       });
