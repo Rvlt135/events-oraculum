@@ -40,6 +40,7 @@ function App() {
                   <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/event/:id" element={<ProtectedRoute><EventDetail /></ProtectedRoute>} />
                   <Route path="/history" element={<ProtectedRoute><PredictedVsActual /></ProtectedRoute>} />
+                  <Route path="/history/:id" element={<ProtectedRoute><EventDetail /></ProtectedRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </>

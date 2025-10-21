@@ -1,5 +1,7 @@
 import { usePlanStore } from '../store/planStore';
 import { Lock } from 'lucide-react';
+import { useState } from 'react';
+import { UpgradeModal } from './UpgradeModal';
 
 interface FiltersBarProps {
   selectedSport: string;
@@ -20,6 +22,8 @@ const SPORTS = [
 
 const LEAGUES = [
   'All Leagues',
+  'UEFA Champions League',
+  'UEFA Europa League',
   'Premier League',
   'La Liga',
   'Bundesliga',
@@ -36,8 +40,25 @@ export function FiltersBar({
   onMinEdgeChange,
 }: FiltersBarProps) {
   const { canAccessSport } = usePlanStore();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState('');
+
+  const handleSportClick = (sportId: string, sportLabel: string, isLocked: boolean) => {
+    if (isLocked) {
+      setUpgradeFeature(sportLabel);
+      setUpgradeModalOpen(true);
+    } else {
+      onSportChange(sportId);
+    }
+  };
 
   return (
+    <>
+      <UpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        feature={upgradeFeature}
+      />
     <div className="bg-white border rounded-lg p-4 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -46,23 +67,28 @@ export function FiltersBar({
             {SPORTS.map((sport) => {
               const isLocked = sport.restricted && !canAccessSport(sport.id);
               return (
-                <button
-                  key={sport.id}
-                  onClick={() => !isLocked && onSportChange(sport.id)}
-                  disabled={isLocked}
-                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                    selectedSport === sport.id
-                      ? 'bg-primary text-white border-primary'
-                      : isLocked
-                      ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
-                      : 'bg-white hover:bg-secondary border-border cursor-pointer'
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    {sport.label}
-                    {isLocked && <Lock className="h-3 w-3" />}
-                  </span>
-                </button>
+                <div key={sport.id} className="relative group">
+                  <button
+                    onClick={() => handleSportClick(sport.id, sport.label, isLocked)}
+                    className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                      selectedSport === sport.id
+                        ? 'bg-primary text-white border-primary'
+                        : isLocked
+                        ? 'bg-muted text-muted-foreground border-muted cursor-pointer'
+                        : 'bg-white hover:bg-secondary border-border cursor-pointer'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1">
+                      {sport.label}
+                      {isLocked && <Lock className="h-3 w-3" />}
+                    </span>
+                  </button>
+                  {isLocked && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      Available in Pro
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -103,5 +129,6 @@ export function FiltersBar({
         </div>
       </div>
     </div>
+    </>
   );
 }

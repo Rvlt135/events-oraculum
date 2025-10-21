@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { EdgeBadge } from '../components/EdgeBadge';
 import { UpgradeModal } from '../components/UpgradeModal';
 import { usePlanStore } from '../store/planStore';
 import eventDetailsData from '../mocks/event_detail.json';
-import { Calendar, ArrowLeft, Lock, TrendingUp, CloudRain, Users } from 'lucide-react';
+import historyDetailsData from '../mocks/history_details.json';
+import { Calendar, ArrowLeft, Lock, TrendingUp, CloudRain, Users, CheckCircle2, XCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 type EventDetails = {
@@ -35,28 +36,38 @@ type EventDetails = {
 
 export function EventDetail() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'odds' | 'reasoning' | 'context' | 'voting'>('odds');
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState('');
 
   const { canAccessFullReasoning, canAccessFullVoting } = usePlanStore();
 
+  const isHistoryPage = location.pathname.startsWith('/history/');
+
   const event: EventDetails | undefined = useMemo(() => {
+    if (isHistoryPage) {
+      return (historyDetailsData as any[]).find((e: any) => e.id === id) as EventDetails | undefined;
+    }
     return (eventDetailsData as Record<string, EventDetails>)[id || ''];
-  }, [id]);
+  }, [id, isHistoryPage]);
 
   if (!event) {
     return (
       <div className="container mx-auto px-4 py-6">
         <div className="text-center py-12">
           <p className="text-muted-foreground">Event not found</p>
-          <Link to="/" className="text-primary hover:underline mt-4 inline-block">
-            Back to Dashboard
+          <Link to={isHistoryPage ? '/history' : '/'} className="text-primary hover:underline mt-4 inline-block">
+            Back to {isHistoryPage ? 'History' : 'Dashboard'}
           </Link>
         </div>
       </div>
     );
   }
+
+  const isHistoricalEvent = (event as any).status === 'finished';
+  const homeTeam = event.home || (event as any).teams?.home || '';
+  const awayTeam = event.away || (event as any).teams?.away || '';
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -112,10 +123,32 @@ export function EventDetail() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+      <Link to={isHistoryPage ? '/history' : '/'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" />
-        Back to Dashboard
+        Back to {isHistoryPage ? 'History' : 'Dashboard'}
       </Link>
+
+      {isHistoricalEvent && (
+        <div className={`bg-white border rounded-lg p-4 ${(event as any).hit ? 'border-green-300' : 'border-red-300'}`}>
+          <div className="flex items-center gap-3">
+            {(event as any).hit ? (
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            ) : (
+              <XCircle className="h-6 w-6 text-red-600" />
+            )}
+            <div className="flex-1">
+              <div className="font-semibold">
+                {(event as any).hit ? 'Prediction Hit ✓' : 'Prediction Miss ✗'}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Predicted: <span className="font-medium">{(event as any).predicted}</span> |
+                Actual: <span className="font-medium">{(event as any).actual}</span> |
+                Final Score: <span className="font-medium">{(event as any).finalScore}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border rounded-lg p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
@@ -127,7 +160,7 @@ export function EventDetail() {
               <EdgeBadge score={event.edgeScore} />
             </div>
             <h1 className="text-3xl font-bold">
-              {event.home} vs {event.away}
+              {homeTeam} vs {awayTeam}
             </h1>
             <div className="flex items-center gap-2 mt-2 text-muted-foreground">
               <Calendar className="h-4 w-4" />
