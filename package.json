@@ -1,0 +1,20 @@
+{
+  "name": "layerbit-oraculum-ai",
+  "version": "0.1.0",
+  "description": "AI-powered betting analysis system for sports events",
+  "scripts": {
+    "build": "cd odds-service && python3 -m compileall app/ boot/ && cd ../edge-agents-service && python3 -m compileall app/ && cd ../gateway-service && python3 -m compileall app/",
+    "infra:up": "docker compose -f infrastructure/docker-compose.infra.yml up -d",
+    "infra:down": "docker compose -f infrastructure/docker-compose.infra.yml down",
+    "infra:logs": "docker compose -f infrastructure/docker-compose.infra.yml logs -f",
+    "odds:up": "docker compose -f infrastructure/docker-compose.odds.yml up -d",
+    "odds:down": "docker compose -f infrastructure/docker-compose.odds.yml down",
+    "odds:logs": "docker compose -f infrastructure/docker-compose.odds.yml logs -f",
+    "agents:up": "docker compose -f infrastructure/docker-compose.agents.yml up -d",
+    "agents:down": "docker compose -f infrastructure/docker-compose.agents.yml down",
+    "agents:logs": "docker compose -f infrastructure/docker-compose.agents.yml logs -f",
+    "gateway:up": "docker compose -f infrastructure/docker-compose.gateway.yml up -d",
+    "gateway:down": "docker compose -f infrastructure/docker-compose.gateway.yml down",
+    "gateway:logs": "docker compose -f infrastructure/docker-compose.gateway.yml logs -f"
+  }
+}

@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  odds-api:
+    build:
+      context: ../odds-service
+      dockerfile: Dockerfile
+    container_name: layerbit-odds-api
+    command: python -m app.main
+    ports:
+      - "8083:8083"
+    env_file:
+      - ../odds-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - API_HOST=0.0.0.0
+      - API_PORT=8083
+      - ADMIN_ENABLED=true
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+  odds-worker:
+    build:
+      context: ../odds-service
+      dockerfile: Dockerfile
+    container_name: layerbit-odds-worker
+    command: python -m boot.worker
+    env_file:
+      - ../odds-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+  odds-scheduler:
+    build:
+      context: ../odds-service
+      dockerfile: Dockerfile
+    container_name: layerbit-odds-scheduler
+    command: python -m boot.scheduler
+    env_file:
+      - ../odds-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+networks:
+  layerbit-net:
+    external: true

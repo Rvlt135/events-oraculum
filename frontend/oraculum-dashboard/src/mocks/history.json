@@ -1,0 +1,134 @@
+[
+  {
+    "id": "hist_001",
+    "date": "2025-10-19T15:00:00Z",
+    "league": "Premier League",
+    "teams": "Tottenham vs Manchester United",
+    "predicted": "home",
+    "actual": "home",
+    "edgeAtPrediction": 7.8,
+    "hit": true,
+    "finalScore": "2-1"
+  },
+  {
+    "id": "hist_002",
+    "date": "2025-10-19T17:30:00Z",
+    "league": "Serie A",
+    "teams": "Juventus vs Napoli",
+    "predicted": "away",
+    "actual": "draw",
+    "edgeAtPrediction": 6.5,
+    "hit": false,
+    "finalScore": "1-1"
+  },
+  {
+    "id": "hist_003",
+    "date": "2025-10-19T20:00:00Z",
+    "league": "La Liga",
+    "teams": "Atlético Madrid vs Sevilla",
+    "predicted": "home",
+    "actual": "home",
+    "edgeAtPrediction": 8.2,
+    "hit": true,
+    "finalScore": "3-0"
+  },
+  {
+    "id": "hist_004",
+    "date": "2025-10-18T19:45:00Z",
+    "league": "Bundesliga",
+    "teams": "RB Leipzig vs Bayer Leverkusen",
+    "predicted": "draw",
+    "actual": "draw",
+    "edgeAtPrediction": 7.1,
+    "hit": true,
+    "finalScore": "2-2"
+  },
+  {
+    "id": "hist_005",
+    "date": "2025-10-18T18:30:00Z",
+    "league": "Ligue 1",
+    "teams": "Lyon vs Monaco",
+    "predicted": "home",
+    "actual": "away",
+    "edgeAtPrediction": 6.8,
+    "hit": false,
+    "finalScore": "1-2"
+  },
+  {
+    "id": "hist_006",
+    "date": "2025-10-17T20:00:00Z",
+    "league": "Premier League",
+    "teams": "Newcastle vs Brighton",
+    "predicted": "home",
+    "actual": "home",
+    "edgeAtPrediction": 7.5,
+    "hit": true,
+    "finalScore": "2-0"
+  },
+  {
+    "id": "hist_007",
+    "date": "2025-10-17T15:00:00Z",
+    "league": "La Liga",
+    "teams": "Real Sociedad vs Valencia",
+    "predicted": "home",
+    "actual": "home",
+    "edgeAtPrediction": 6.9,
+    "hit": true,
+    "finalScore": "1-0"
+  },
+  {
+    "id": "hist_008",
+    "date": "2025-10-16T19:00:00Z",
+    "league": "Serie A",
+    "teams": "Roma vs Lazio",
+    "predicted": "away",
+    "actual": "home",
+    "edgeAtPrediction": 6.3,
+    "hit": false,
+    "finalScore": "2-1"
+  },
+  {
+    "id": "hist_009",
+    "date": "2025-10-16T21:00:00Z",
+    "league": "Bundesliga",
+    "teams": "Wolfsburg vs Frankfurt",
+    "predicted": "draw",
+    "actual": "away",
+    "edgeAtPrediction": 5.8,
+    "hit": false,
+    "finalScore": "0-2"
+  },
+  {
+    "id": "hist_010",
+    "date": "2025-10-15T20:00:00Z",
+    "league": "Premier League",
+    "teams": "West Ham vs Everton",
+    "predicted": "home",
+    "actual": "home",
+    "edgeAtPrediction": 7.9,
+    "hit": true,
+    "finalScore": "3-1"
+  },
+  {
+    "id": "hist_011",
+    "date": "2025-10-13T17:00:00Z",
+    "league": "Ligue 1",
+    "teams": "Lille vs Lens",
+    "predicted": "draw",
+    "actual": "draw",
+    "edgeAtPrediction": 7.3,
+    "hit": true,
+    "finalScore": "1-1"
+  },
+  {
+    "id": "hist_012",
+    "date": "2025-10-12T19:00:00Z",
+    "league": "La Liga",
+    "teams": "Villarreal vs Athletic Bilbao",
+    "predicted": "home",
+    "actual": "away",
+    "edgeAtPrediction": 6.1,
+    "hit": false,
+    "finalScore": "0-1"
+  }
+]

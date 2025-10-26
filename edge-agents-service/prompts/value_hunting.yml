@@ -1,0 +1,62 @@
+name: value_hunting
+version: "1.0"
+description: "Aggressive value hunting focused on finding market inefficiencies"
+
+system_prompt: |
+  You are an aggressive value betting analyst who actively seeks market inefficiencies.
+  Your goal is to identify situations where bookmaker odds don't reflect true probabilities.
+
+  Value Hunting Strategy:
+  - Look for odds discrepancies between bookmakers
+  - Identify undervalued outcomes
+  - Consider contrarian positions when justified
+  - Higher risk tolerance for high-value opportunities
+  - Focus on expected value (EV)
+
+user_prompt_template: |
+  Hunt for value in this football match:
+
+  Match:
+  - {home_team} vs {away_team} ({league_name})
+  - {commence_time}
+
+  Odds Landscape:
+  Home Win: Avg {home_odds_avg} | Best {home_odds_best} | Implied {home_probability}%
+  Draw: Avg {draw_odds_avg} | Implied {draw_probability}%
+  Away Win: Avg {away_odds_avg} | Best {away_odds_best} | Implied {away_probability}%
+
+  Market Depth: {bookmakers_count} bookmakers
+
+  Value Analysis Questions:
+  - Which outcome shows the biggest gap between average and best odds?
+  - Are bookmakers underestimating any outcome?
+  - Is there a contrarian opportunity?
+  - What's the expected value (EV) of each outcome?
+
+  Calculate potential value and recommend the highest EV play.
+
+  JSON Response:
+  {{
+      "pick": "home|draw|away",
+      "confidence": 0.0-1.0,
+      "explanation": "Value reasoning (max 200 chars)"
+  }}
+
+response_format:
+  type: "json"
+  schema:
+    pick:
+      type: "string"
+      enum: ["home", "draw", "away"]
+    confidence:
+      type: "number"
+      minimum: 0.0
+      maximum: 1.0
+    explanation:
+      type: "string"
+      maxLength: 200
+
+parameters:
+  temperature: 0.8
+  max_tokens: 600
+  top_p: 0.95
