@@ -1,11 +1,10 @@
-from datetime import datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.orm_models import Team
+from app.domain.models.orm.orm_models import Team
 from app.domain.time_utils import now_utc
 from .base import BaseRepository
 

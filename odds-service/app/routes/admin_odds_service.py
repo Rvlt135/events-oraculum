@@ -13,7 +13,7 @@ router = APIRouter(tags=["admin"])
 
 
 @router.post("/collect/sports", response_model=TaskTriggerResponse)
-async def trigger_collection(
+async def trigger_collection_sport(
     _auth: None = Depends(verify_admin_token)
 ) -> TaskTriggerResponse:
     """

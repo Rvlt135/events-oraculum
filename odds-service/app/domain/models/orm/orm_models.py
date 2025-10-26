@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, N
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
-from .base import Base
+from app.domain.base import Base
 from app.domain.time_utils import now_utc, now_utc_func
 
 
