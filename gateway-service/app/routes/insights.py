@@ -1,16 +1,16 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
+
+import structlog
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.db.pg import get_session
 from app.db.repositories import RecommendationsReadRepo, EventsReadRepo
-from app.services.insights_service import InsightsService
-from app.models.schemas import RecommendationDTO, EventDTO, PaginatedResponse
+from app.models.schemas import EventDTO, PaginatedResponse
 from app.security.apikey import verify_api_key
-from app.config.settings import settings
+from app.services.insights_service import InsightsService
 
 logger = structlog.get_logger()
 

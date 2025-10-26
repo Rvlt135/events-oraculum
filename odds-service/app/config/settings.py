@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     odds_api_base_url: str = Field(default="https://api.the-odds-api.com/v4")
     odds_api_regions: List[str] = Field(default=["eu"])
     odds_api_markets: List[str] = Field(default=["h2h"])
-    odds_api_leagues: List[str] = Field(default=["soccer_uefa_champs_league"])
+    odds_api_competitions: List[str] = Field(default=["soccer_uefa_champs_league"])
 
     schedule_crons: List[str] = Field(default=["0 9 * * *", "0 19 * * *"])
 

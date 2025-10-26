@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, Numeric, Text, Index, func
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, Numeric, Text, Index, func, \
+    UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -12,33 +13,48 @@ class Sport(Base):
     __tablename__ = "sports"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    name = Column(Text, unique=True, nullable=False)
-    display_name = Column(Text, nullable=False)
-    is_active = Column(Boolean, default=True)
+    provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, mvp - odds_api')
+    category = Column(Text, nullable=False, comment=', напр. soccer, tennis, basketball, ice hockey')
+    is_active = Column(Boolean, nullable=False, comment='Выставляется явно инжестом (зеркало факта наличия активных competitions)')
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    leagues = relationship("League", back_populates="sport")
-    teams = relationship("Team", back_populates="sport")
-    events = relationship("Event", back_populates="sport")
-
-
-class League(Base):
-    __tablename__ = "leagues"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    sport_id = Column(UUID(as_uuid=True), ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
-    key = Column(Text, unique=True, nullable=False)
-    name = Column(Text, nullable=False)
-    region = Column(Text, nullable=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    sport = relationship("Sport", back_populates="leagues")
-    events = relationship("Event", back_populates="league")
+    competitions = relationship("Competition", back_populates="sport", cascade="all, delete-orphan")
+    teams = relationship("Team", back_populates="sport", cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="sport", cascade="all, delete-orphan")
 
     __table_args__ = (
-        Index("idx_leagues_sport_id", "sport_id"),
-        Index("idx_leagues_is_active", "is_active"),
+        UniqueConstraint("provider", "category", name="uq_sports_provider_category"),
+        Index("idx_sports_is_active", "is_active"),
+    )
+
+
+class Competition(Base):
+    __tablename__ = "competitions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    sport_id = Column(UUID(as_uuid=True), ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
+
+    title = Column(Text, nullable=False, comment='Напр.: UEFA Champions League или EPL')
+    description = Column(Text, nullable=True, comment='Напр.: English Premier League, Опционально, из провайдера')
+
+    provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, (mvp - odds_api)')
+    provider_key = Column(Text, nullable=False, comment='Из sports.key, напр.: "soccer_uefa_champs_league"')
+
+    is_active = Column(Boolean, nullable=False, comment='payload.active из провайдера; без default, ставим явно в инжесте')
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment='При обновлении сompetition например is_active -> true или false')
+
+    sport = relationship("Sport", back_populates="competitions")
+    events = relationship("Event", back_populates="competition")
+
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_key", name="uq_competitions_provider_key"),
+        Index("idx_competitions_sport_id", "sport_id"),
+        Index("idx_competitions_is_active", "is_active"),
     )
 
 
@@ -67,7 +83,7 @@ class Event(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     external_id = Column(Text, unique=True, nullable=False)
     sport_id = Column(UUID(as_uuid=True), ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
-    league_id = Column(UUID(as_uuid=True), ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False)
+    competition_id = Column(UUID(as_uuid=True), ForeignKey("competitions.id", ondelete="CASCADE"), nullable=False)
     home_team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
     away_team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
     commence_time = Column(DateTime(timezone=True), nullable=False)
@@ -77,7 +93,7 @@ class Event(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     sport = relationship("Sport", back_populates="events")
-    league = relationship("League", back_populates="events")
+    competition = relationship("Competition", back_populates="events")
     home_team = relationship("Team", foreign_keys=[home_team_id])
     away_team = relationship("Team", foreign_keys=[away_team_id])
     odds_snapshots = relationship("OddsSnapshot", back_populates="event")
@@ -85,7 +101,7 @@ class Event(Base):
 
     __table_args__ = (
         Index("idx_events_sport_id", "sport_id"),
-        Index("idx_events_league_id", "league_id"),
+        Index("idx_events_competition_id", "competition_id"),
         Index("idx_events_commence_time", "commence_time"),
         Index("idx_events_status", "status"),
         Index("idx_events_external_id", "external_id"),

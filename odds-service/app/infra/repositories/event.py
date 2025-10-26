@@ -20,7 +20,7 @@ class EventRepository(BaseRepository[Event]):
         self,
         external_id: str,
         sport_id: UUID,
-        league_id: UUID,
+        competition_id: UUID,
         home_team_id: UUID,
         away_team_id: UUID,
         commence_time: datetime,
@@ -36,7 +36,7 @@ class EventRepository(BaseRepository[Event]):
             event = Event(
                 external_id=external_id,
                 sport_id=sport_id,
-                league_id=league_id,
+                competition_id=competition_id,
                 home_team_id=home_team_id,
                 away_team_id=away_team_id,
                 commence_time=commence_time,
@@ -61,10 +61,10 @@ class EventRepository(BaseRepository[Event]):
         )
         return result.scalar_one_or_none()
 
-    async def get_by_league(
-        self, league_id: UUID, status: Optional[str] = None, limit: int = 100
+    async def get_by_competition(
+        self, competition_id: UUID, status: Optional[str] = None, limit: int = 100
     ) -> List[Event]:
-        query = select(Event).where(Event.league_id == league_id)
+        query = select(Event).where(Event.competition_id == competition_id)
 
         if status:
             query = query.where(Event.status == status)

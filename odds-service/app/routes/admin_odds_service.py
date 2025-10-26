@@ -5,7 +5,7 @@ from app.schemas.schemas import (
     TaskTriggerResponse,
 )
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_odds_task
+from app.tasks.collector import collect_odds_task, collect_sports_task
 
 logger = structlog.get_logger()
 
@@ -28,7 +28,7 @@ async def trigger_collection(
     logger.info("manual_collection_triggered")
 
     try:
-        task = await collect_odds_task.kiq()
+        task = await collect_sports_task.kiq()
 
         return TaskTriggerResponse(
             status="enqueued",

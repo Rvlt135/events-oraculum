@@ -17,6 +17,11 @@ import structlog
 
 from app.config.settings import settings
 from app.infra.redis_client import RedisManager
+from app.domain.services.sports_service import SportsService
+from app.infra.adapters.sports_provider_adapter import SportsProviderAdapter
+from app.infra.adapters.sports_repository_adapter import SportsRepositoryAdapter
+from app.adapters.the_odds_api import TheOddsAPIAdapter
+from app.infra.unit_of_work import UnitOfWork
 
 logger = structlog.get_logger()
 
@@ -35,6 +40,7 @@ class InfrastructureProvider:
         self._engine: Optional[AsyncEngine] = None
         self._session_factory: Optional[async_sessionmaker[AsyncSession]] = None
         self._redis_manager: Optional[RedisManager] = None
+        self._sports_service: Optional[SportsService] = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -61,6 +67,9 @@ class InfrastructureProvider:
         # Initialize Redis
         self._redis_manager = RedisManager()
         await self._redis_manager.initialize()
+
+        # Initialize SportsService
+        self._sports_service = self._create_sports_service()
 
         self._initialized = True
         logger.info("infrastructure_initialized")
@@ -102,6 +111,35 @@ class InfrastructureProvider:
             raise RuntimeError("Infrastructure not initialized. Call initialize() first.")
         return self._redis_manager
 
+    @property
+    def sports_service(self) -> SportsService:
+        """Get Sports service."""
+        if not self._sports_service:
+            raise RuntimeError("Infrastructure not initialized. Call initialize() first.")
+        return self._sports_service
+
+    def _create_sports_service(self) -> SportsService:
+        """Create SportsService with dependencies."""
+        # Create API adapter
+        api_adapter = TheOddsAPIAdapter(
+            api_key=settings.odds_api_key,
+            base_url=settings.odds_api_base_url,
+            regions=settings.odds_api_regions,
+            markets=settings.odds_api_markets,
+        )
+        
+        # Create provider adapter
+        sports_provider = SportsProviderAdapter(api_adapter)
+        
+        # Note: Repository adapter will be created per-request with session
+        # This is handled in the get_sports_service method
+        
+        return SportsService(
+            sports_provider=sports_provider,
+            sports_repository=None,  # Will be injected per-request
+            unit_of_work=None,  # Will be injected per-request
+        )
+
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """
         Dependency for FastAPI routes to get database session.
@@ -129,3 +167,26 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     async for session in infrastructure.get_session():
         yield session
+
+
+async def get_sports_service() -> AsyncGenerator[SportsService, None]:
+    """
+    FastAPI dependency for SportsService with injected dependencies.
+    
+    Creates a new instance with session-specific dependencies.
+    """
+    async for session in infrastructure.get_session():
+        # Create repository adapter with current session
+        sports_repository = SportsRepositoryAdapter(session)
+        
+        # Create UoW with current session and Redis
+        unit_of_work = UnitOfWork(session, infrastructure.redis)
+        
+        # Create service instance with injected dependencies
+        service = SportsService(
+            sports_provider=infrastructure.sports_service.sports_provider,
+            sports_repository=sports_repository,
+            unit_of_work=unit_of_work,
+        )
+        
+        yield service

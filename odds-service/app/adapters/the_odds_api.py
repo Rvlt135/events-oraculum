@@ -23,10 +23,10 @@ class TheOddsAPIAdapter:
         await self.client.aclose()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def get_sports(self, active: bool = True) -> List[Dict[str, Any]]:
+    async def get_sports(self, all_sports: bool = False) -> List[Dict[str, Any]]:
         async with self.limiter:
             url = f"{self.base_url}/sports"
-            params = {"apiKey": self.api_key, "all": active}
+            params = {"apiKey": self.api_key, "all": all_sports}
 
             logger.info("fetching_sports", url=url)
             response = await self.client.get(url, params=params)

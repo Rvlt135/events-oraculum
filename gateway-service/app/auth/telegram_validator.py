@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 from init_data_py import InitData
-from init_data_py.errors import ValidationError as InitDataValidationError
+from init_data_py.errors.errors import InitDataPyError as InitDataValidationError
 
 
 class ParsedTelegramUser(BaseModel):

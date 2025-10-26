@@ -2,12 +2,14 @@ from datetime import datetime
 from typing import Dict
 import structlog
 from prometheus_client import Counter, Histogram
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.adapters.the_odds_api import TheOddsAPIAdapter
+from app.config.dependencies import get_task_session
 from app.domain.time_utils import now_utc
-from app.infra.providers import infrastructure
-from app.infra.repositories import SportRepository, LeagueRepository
+from app.infra.providers import get_db_session, get_sports_service
+from app.infra.repositories import SportRepository, CompetitionsRepository
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
 
@@ -31,43 +33,46 @@ async def collect_odds_task() -> Dict[str, str]:
     )
 
     try:
-        # Use shared infrastructure session factory
-        async with infrastructure.session_factory() as session:
+        # Use dependency injection for database session
+        session = await get_task_session()
+        try:
             sport_repo = SportRepository(session)
-            league_repo = LeagueRepository(session)
+            competition_repo = CompetitionsRepository(session)
             normalizer = OddsNormalizer(session)
 
             sport_id = await sport_repo.get_or_create("football", "Football (Soccer)")
 
             total_processed = 0
 
-            for league_key in settings.odds_api_leagues:
-                logger.info("collecting_league", league=league_key)
+            for competition_key in settings.odds_api_competitions:
+                logger.info("collecting_competition", competition=competition_key)
 
-                league_id = await league_repo.get_or_create(
+                competition_id = await competition_repo.get_or_create(
                     sport_id=sport_id,
-                    key=league_key,
-                    name=league_key.replace("_", " ").title(),
-                    region="eu",
+                    provider_key=competition_key,
+                    title=competition_key.replace("_", " ").title(),
+                    description=f"Competition for {competition_key}",
                 )
 
                 odds_data = await api_adapter.get_odds(
-                    sport=league_key,
+                    sport=competition_key,
                     regions=settings.odds_api_regions,
                     markets=settings.odds_api_markets,
                 )
 
                 events_processed = 0
                 for event_data in odds_data:
-                    event_id = await normalizer.process_event_data(event_data, sport_id, league_id)
+                    event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
                     if event_id:
                         events_processed += 1
 
-                logger.info("league_processed", league=league_key, events_count=events_processed)
+                logger.info("competition_processed", competition=competition_key, events_count=events_processed)
                 events_processed_total.inc(events_processed)
                 total_processed += events_processed
 
             await session.commit()
+        finally:
+            await session.close()
 
         duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)
@@ -94,44 +99,37 @@ async def collect_odds_task() -> Dict[str, str]:
 
 @broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
 async def collect_sports_task() -> Dict[str, str]:
+    """
+    Collect and sync sports data from external provider.
+    
+    This task is now thin and delegates to SportsService.
+    """
     start_time = now_utc()
-    logger.info("collection_task_started", timestamp=start_time.isoformat())
-
-    api_adapter = TheOddsAPIAdapter(
-        api_key=settings.odds_api_key,
-        base_url=settings.odds_api_base_url,
-        regions=settings.odds_api_regions,
-        markets=settings.odds_api_markets,
-    )
+    logger.info("sports_collection_task_started", timestamp=start_time.isoformat())
 
     try:
-        # Use shared infrastructure session factory
-        async with infrastructure.session_factory() as session:
-            sport_repo = SportRepository(session)
-
-            sports = await api_adapter.get_sports()
-            sport_id = await sport_repo.get_or_create("football", "Football (Soccer)")
-
-            total_processed = 0
-
-
-
-        logger.info(
-            "collection_task_completed",
-            total_events=total_processed,
-            duration_seconds=duration,
-        )
-
-        return {
-            "status": "success",
-            "total_events": str(total_processed),
-            "timestamp": now_utc().isoformat(),
-        }
+        # Get SportsService with injected dependencies
+        async for sports_service in get_sports_service():
+            # Delegate to service for business logic
+            result = await sports_service.sync_from_odds()
+            
+            duration = (now_utc() - start_time).total_seconds()
+            collection_duration.observe(duration)
+            
+            logger.info(
+                "sports_collection_task_completed",
+                duration_seconds=duration,
+                **result
+            )
+            
+            return {
+                "status": result["status"],
+                "synced_count": str(result.get("synced_count", 0)),
+                "total_fetched": str(result.get("total_fetched", 0)),
+                "timestamp": now_utc().isoformat(),
+            }
 
     except Exception as e:
-        logger.error("collection_task_failed", error=str(e))
+        logger.error("sports_collection_task_failed", error=str(e))
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
-
-    finally:
-        await api_adapter.close()

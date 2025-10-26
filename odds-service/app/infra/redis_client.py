@@ -39,6 +39,10 @@ class RedisManager:
         client = await self.get_client()
         await client.delete(key)
 
+    async def setex(self, key: str, time: int, value: str) -> None:
+        client = await self.get_client()
+        await client.setex(key, time, value)
+
 
 redis_manager = RedisManager()
 

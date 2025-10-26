@@ -85,39 +85,39 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
         return result.scalar_one_or_none()
 
     async def get_normalized_snapshots(
-        self, limit: int = 100, league_key: Optional[str] = None
+        self, limit: int = 100, competition_key: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        if league_key:
+        if competition_key:
             query = text("""
                 SELECT
                     n.*,
                     e.external_id,
-                    l.key as league_key,
+                    l.key as competition_key,
                     t1.name as home_team,
                     t2.name as away_team,
                     e.commence_time
                 FROM normalized_odds n
                 JOIN events e ON n.event_id = e.id
-                JOIN leagues l ON e.league_id = l.id
+                JOIN competition l ON e.competition = l.id
                 JOIN teams t1 ON e.home_team_id = t1.id
                 JOIN teams t2 ON e.away_team_id = t2.id
-                WHERE l.key = :league_key
+                WHERE l.key = :competition_key
                 ORDER BY n.timestamp_normalized DESC
                 LIMIT :limit
             """)
-            result = await self.session.execute(query, {"league_key": league_key, "limit": limit})
+            result = await self.session.execute(query, {"competition_key": competition_key, "limit": limit})
         else:
             query = text("""
                 SELECT
                     n.*,
                     e.external_id,
-                    l.key as league_key,
+                    l.key as competition_key,
                     t1.name as home_team,
                     t2.name as away_team,
                     e.commence_time
                 FROM normalized_odds n
                 JOIN events e ON n.event_id = e.id
-                JOIN leagues l ON e.league_id = l.id
+                JOIN competitions l ON e.competition_id = l.id
                 JOIN teams t1 ON e.home_team_id = t1.id
                 JOIN teams t2 ON e.away_team_id = t2.id
                 ORDER BY n.timestamp_normalized DESC

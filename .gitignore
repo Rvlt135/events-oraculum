@@ -205,3 +205,16 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+*/.cursor/
+*/.vscode/
+*/.idea/
+*/.pytest_cache/
+*/.ruff_cache/
+*/.mypy_cache/
+*/.pytype/
+*/.pyre/
+*/.dmypy.json
+*/dmypy.json
+*/.dmypy/
+*/.dmypy.json

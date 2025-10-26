@@ -1,14 +1,9 @@
 from datetime import datetime
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from redis.asyncio import Redis
-from app.auth.service import AuthService
-from app.auth.jwt_utils import JWTService
-from app.auth.password_utils import PasswordService
+
 from app.auth.google_oauth import GoogleOAuthService
-from app.auth.telegram_validator import TelegramValidator
 from app.auth.schemas import (
     EmailRegisterRequest,
     EmailLoginRequest,
@@ -20,80 +15,10 @@ from app.auth.schemas import (
     TokenRefreshRequest,
     MeResponse,
 )
-from app.config.dependencies import get_db_session, get_redis
-from app.config.settings import settings
+from app.auth.service import AuthService
+from app.security.authorization import get_auth_service, get_google_oauth_service, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def get_jwt_service() -> JWTService:
-    return JWTService(
-        secret=settings.jwt_secret,
-        algorithm=settings.jwt_algorithm,
-        access_ttl=settings.access_token_ttl_seconds,
-        refresh_ttl=settings.refresh_token_ttl_seconds,
-    )
-
-
-def get_password_service() -> PasswordService:
-    return PasswordService()
-
-
-def get_google_oauth_service() -> GoogleOAuthService:
-    return GoogleOAuthService(
-        client_id=settings.google_client_id,
-        client_secret=settings.google_client_secret,
-        redirect_uri=settings.google_redirect_uri,
-    )
-
-
-def get_telegram_validator() -> TelegramValidator | None:
-    if not settings.telegram_bot_token:
-        return None
-    return TelegramValidator(
-        bot_token=settings.telegram_bot_token,
-        max_auth_age_seconds=settings.telegram_max_auth_age_seconds,
-    )
-
-
-async def get_auth_service(
-    db: AsyncSession = Depends(get_db_session),
-    redis: Redis = Depends(get_redis),
-    jwt_service: JWTService = Depends(get_jwt_service),
-    password_service: PasswordService = Depends(get_password_service),
-    google_oauth: GoogleOAuthService = Depends(get_google_oauth_service),
-    telegram_validator: TelegramValidator | None = Depends(get_telegram_validator),
-) -> AuthService:
-    return AuthService(db, redis, jwt_service, password_service, google_oauth, telegram_validator)
-
-
-async def get_current_user(
-    authorization: str | None = Header(None),
-    auth_service: AuthService = Depends(get_auth_service),
-    jwt_service: JWTService = Depends(get_jwt_service),
-):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid authorization header",
-        )
-
-    token = authorization.replace("Bearer ", "")
-    try:
-        payload = jwt_service.verify_token(token, expected_type="access")
-        user_id = UUID(payload.sub)
-        user = await auth_service.get_user_by_id(user_id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-            )
-        return user
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-        )
 
 
 @router.get("/google/start")
@@ -133,7 +58,6 @@ async def google_oauth_callback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OAuth failed: {str(e)}",
         )
-
 
 @router.post("/email/register", response_model=AuthResponse)
 async def register_with_email(

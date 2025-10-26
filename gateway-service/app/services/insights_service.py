@@ -4,7 +4,7 @@ from uuid import UUID
 import structlog
 
 from app.db.repositories import RecommendationsReadRepo, EventsReadRepo
-from app.cache.redis import redis_cache
+from app.cache.redis import redis_cache_manager
 from app.models.schemas import RecommendationDTO, EventDTO, OddsContextDTO
 
 logger = structlog.get_logger()
@@ -50,7 +50,7 @@ class InsightsService:
 
     async def get_event_details(self, event_id: UUID) -> Optional[EventDTO]:
         cache_key = f"event:{event_id}"
-        cached = await redis_cache.get(cache_key)
+        cached = await redis_cache_manager.get(cache_key)
 
         if cached:
             logger.info("event_from_cache", event_id=str(event_id))
@@ -72,7 +72,7 @@ class InsightsService:
             odds_context=odds_context,
         )
 
-        await redis_cache.set(cache_key, event_dto.model_dump(mode="json"))
+        await redis_cache_manager.set(cache_key, event_dto.model_dump(mode="json"))
 
         logger.info("event_details_retrieved", event_id=str(event_id))
 

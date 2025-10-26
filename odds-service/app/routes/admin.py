@@ -62,7 +62,7 @@ async def trigger_collection(
 @router.get("/data/snapshots", response_model=SnapshotsResponse)
 async def get_snapshots(
     limit: int = Query(default=100, ge=1, le=1000),
-    league: Optional[str] = Query(default=None),
+    competition: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_db_session),
     _auth: None = Depends(verify_admin_token),
 ) -> SnapshotsResponse:
@@ -72,7 +72,7 @@ async def get_snapshots(
     Returns aggregated odds data with averages and best odds
     from multiple bookmakers.
     """
-    logger.info("fetching_snapshots", limit=limit, league=league)
+    logger.info("fetching_snapshots", limit=limit, competition=competition)
 
     try:
         from app.infra.repositories import NormalizedOddsRepository
@@ -80,7 +80,7 @@ async def get_snapshots(
         normalized_repo = NormalizedOddsRepository(session)
         snapshots_data = await normalized_repo.get_normalized_snapshots(
             limit=limit,
-            league_key=league
+            competition_key=competition
         )
 
         snapshots = [SnapshotSummary.model_validate(snap, by_alias=True) for snap in snapshots_data]
@@ -88,7 +88,7 @@ async def get_snapshots(
         return SnapshotsResponse(
             count=len(snapshots),
             limit=limit,
-            league=league,
+            competition=competition,
             snapshots=snapshots,
         )
 

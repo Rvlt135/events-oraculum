@@ -1,6 +1,6 @@
 from .base import BaseRepository
 from .sport import SportRepository
-from .league import LeagueRepository
+from .competitions import CompetitionsRepository
 from .team import TeamRepository
 from .event import EventRepository
 from .bookmaker import BookmakerRepository
@@ -10,7 +10,7 @@ from .normalized_odds import NormalizedOddsRepository
 __all__ = [
     "BaseRepository",
     "SportRepository",
-    "LeagueRepository",
+    "CompetitionsRepository",
     "TeamRepository",
     "EventRepository",
     "BookmakerRepository",

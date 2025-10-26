@@ -117,7 +117,7 @@ class SnapshotSummary(BaseModel):
     event_id: UUID
     external_id: str
     # sport: str
-    league: str = Field(alias="league_key")
+    competition: str = Field(alias="competition_key")
     home_team: str
     away_team: str
     commence_time: datetime
@@ -144,7 +144,7 @@ class SnapshotSummary(BaseModel):
 class SnapshotsResponse(BaseModel):
     count: int
     limit: int
-    league: Optional[str]
+    competition: Optional[str]
     snapshots: List[SnapshotSummary]
 
 

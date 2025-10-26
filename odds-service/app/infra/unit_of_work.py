@@ -2,6 +2,8 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
+from app.infra.redis_client import RedisManager
+
 logger = structlog.get_logger()
 
 
@@ -13,13 +15,14 @@ class UnitOfWork:
     Use as async context manager for atomic operations.
 
     Example:
-        async with UnitOfWork(session) as uow:
+        async with UnitOfWork(session, redis) as uow:
             await repository.create(entity)
             await uow.commit()
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, redis: Optional[RedisManager] = None):
         self.session = session
+        self.redis = redis
         self._transaction = None
         self._committed = False
 

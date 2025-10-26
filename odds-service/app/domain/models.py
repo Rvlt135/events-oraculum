@@ -38,7 +38,7 @@ class Event(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     external_id: str
     sport_type: SportType
-    league: str
+    competition: str
     home_team: str
     away_team: str
     commence_time: datetime
@@ -53,7 +53,7 @@ class NormalizedSnapshot(BaseModel):
     event_id: UUID
     external_id: str
     sport: SportType
-    league: str
+    competition: str
     home_team: str
     away_team: str
     commence_time: datetime

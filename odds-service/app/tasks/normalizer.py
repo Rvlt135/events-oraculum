@@ -74,7 +74,7 @@ class OddsNormalizer:
         )
 
     async def process_event_data(
-        self, event_data: Dict[str, Any], sport_id: UUID, league_id: UUID
+        self, event_data: Dict[str, Any], sport_id: UUID, competition_id: UUID
     ) -> Optional[UUID]:
         try:
             external_id = event_data.get("id")
@@ -105,7 +105,7 @@ class OddsNormalizer:
             event_id = await self.event_repo.create_or_update(
                 external_id=external_id,
                 sport_id=sport_id,
-                league_id=league_id,
+                competition_id=competition_id,
                 home_team_id=home_team_id,
                 away_team_id=away_team_id,
                 commence_time=commence_time,
