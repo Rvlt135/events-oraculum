@@ -1,40 +1,9 @@
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
 
-
-class Provider(str, Enum):
-    THE_ODDS_API = "the_odds_api"
-
-
-class Region(str, Enum):
-    EU = "eu"
-    US = "us"
-    UK = "uk"
-    AU = "au"
-
-
-class Market(str, Enum):
-    H2H = "h2h"
-    SPREADS = "spreads"
-    TOTALS = "totals"
-
-
-class SportType(str, Enum):
-    FOOTBALL = "football"
-    BASKETBALL = "basketball"
-    TENNIS = "tennis"
-    HOCKEY = "hockey"
-
-
-class EventStatus(str, Enum):
-    UPCOMING = "upcoming"
-    LIVE = "live"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-
+from app.schemas.enums import Provider, Market, Region
 
 class EventRef(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -49,7 +18,7 @@ class EventRef(BaseModel):
     @field_serializer("commence_time_utc")
     def serialize_dt(self, dt: datetime) -> str:
         if dt.tzinfo is None:
-            from app.domain.time_utils import ensure_utc
+            from app.domain.utils.time_utils import ensure_utc
             dt = ensure_utc(dt)
         return dt.isoformat().replace("+00:00", "Z")
 
@@ -67,7 +36,7 @@ class BookmakerOdds(BaseModel):
     @field_serializer("last_update_utc")
     def serialize_dt(self, dt: datetime) -> str:
         if dt.tzinfo is None:
-            from app.domain.time_utils import ensure_utc
+            from app.domain.utils.time_utils import ensure_utc
             dt = ensure_utc(dt)
         return dt.isoformat().replace("+00:00", "Z")
 
@@ -84,7 +53,7 @@ class OddsItem(BaseModel):
     @field_serializer("fetched_at_utc")
     def serialize_dt(self, dt: datetime) -> str:
         if dt.tzinfo is None:
-            from app.domain.time_utils import ensure_utc
+            from app.domain.utils.time_utils import ensure_utc
             dt = ensure_utc(dt)
         return dt.isoformat().replace("+00:00", "Z")
 
@@ -136,7 +105,7 @@ class SnapshotSummary(BaseModel):
     @field_serializer("commence_time", "ts_src", "ts_ingest", "ts_normalized")
     def serialize_dt(self, dt: datetime) -> str:
         if dt.tzinfo is None:
-            from app.domain.time_utils import ensure_utc
+            from app.domain.utils.time_utils import ensure_utc
             dt = ensure_utc(dt)
         return dt.isoformat().replace("+00:00", "Z")
 

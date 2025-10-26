@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.base import Base
+from app.infra.db.orm.base import Base
 
 logger = structlog.get_logger()
 

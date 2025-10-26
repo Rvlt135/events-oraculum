@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.models.orm.orm_models import Event
-from app.domain.time_utils import now_utc
-from .base import BaseRepository
+from app.domain.utils.time_utils import now_utc
+from app.infra.repositories.base import BaseRepository
 
 logger = structlog.get_logger()
 

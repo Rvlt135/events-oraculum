@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.models.orm.orm_models import Bookmaker
-from .base import BaseRepository
+from app.infra.repositories.base import BaseRepository
 
 logger = structlog.get_logger()
 

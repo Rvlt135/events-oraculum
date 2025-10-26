@@ -1,14 +1,12 @@
-from datetime import datetime
 from typing import Dict
 import structlog
 from prometheus_client import Counter, Histogram
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.adapters.the_odds_api import TheOddsAPIAdapter
-from app.config.dependencies import get_task_session
-from app.domain.time_utils import now_utc
-from app.infra.providers import get_db_session, get_sports_service
+from app.infra.http.odds_api import OddsAPIClient
+from app.infra.di.dependencies import get_task_session
+from app.domain.utils.time_utils import now_utc
+from app.infra.di.dependencies import get_sports_service
 from app.infra.repositories import SportRepository, CompetitionsRepository
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
@@ -25,7 +23,7 @@ async def collect_odds_task() -> Dict[str, str]:
     start_time = now_utc()
     logger.info("collection_task_started", timestamp=start_time.isoformat())
 
-    api_adapter = TheOddsAPIAdapter(
+    api_adapter = OddsAPIClient(
         api_key=settings.odds_api_key,
         base_url=settings.odds_api_base_url,
         regions=settings.odds_api_regions,
@@ -40,7 +38,7 @@ async def collect_odds_task() -> Dict[str, str]:
             competition_repo = CompetitionsRepository(session)
             normalizer = OddsNormalizer(session)
 
-            sport_id = await sport_repo.get_or_create("football", "Football (Soccer)")
+            sport_id = await sport_repo.get_or_create("soccer")
 
             total_processed = 0
 
@@ -108,26 +106,31 @@ async def collect_sports_task() -> Dict[str, str]:
     logger.info("sports_collection_task_started", timestamp=start_time.isoformat())
 
     try:
-        # Get SportsService with injected dependencies
-        async for sports_service in get_sports_service():
-            # Delegate to service for business logic
-            result = await sports_service.sync_from_odds()
-            
-            duration = (now_utc() - start_time).total_seconds()
-            collection_duration.observe(duration)
-            
-            logger.info(
-                "sports_collection_task_completed",
-                duration_seconds=duration,
-                **result
-            )
-            
-            return {
-                "status": result["status"],
-                "synced_count": str(result.get("synced_count", 0)),
-                "total_fetched": str(result.get("total_fetched", 0)),
-                "timestamp": now_utc().isoformat(),
-            }
+        # Get sports service - it manages its own session lifecycle
+        sports_service = await get_sports_service()
+        
+        # Delegate to service for business logic
+        result = await sports_service.sync_sports_and_competitions()
+        
+        duration = (now_utc() - start_time).total_seconds()
+        collection_duration.observe(duration)
+        
+        logger.info(
+            "sports_collection_task_completed",
+            duration_seconds=duration,
+            **result
+        )
+        
+        # Handle new nested result structure
+        categories_count = result.get("categories", {}).get("synced_count", 0)
+        competitions_count = result.get("competitions", {}).get("synced_count", 0)
+        
+        return {
+            "status": result["status"],
+            "categories_synced": str(categories_count),
+            "competitions_synced": str(competitions_count),
+            "timestamp": now_utc().isoformat(),
+        }
 
     except Exception as e:
         logger.error("sports_collection_task_failed", error=str(e))

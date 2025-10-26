@@ -10,7 +10,7 @@ from starlette.requests import Request
 import structlog
 
 from app.config.settings import settings
-from app.infra.providers import infrastructure
+from app.infra.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
 from app.routes import public, admin
 
 structlog.configure(
@@ -42,7 +42,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_odds_service", admin_enabled=settings.admin_enabled)
 
-    await infrastructure.initialize()
+    await initialize_infrastructure()
 
     registry = CollectorRegistry()
 
@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    await infrastructure.dispose()
+    await dispose_infrastructure()
 
     logger.info("shutting_down_odds_service")
 

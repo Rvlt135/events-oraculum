@@ -4,26 +4,26 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.models.orm.orm_models import Competitions
-from .base import BaseRepository
+from app.infra.db.orm.competition import Competition
+from app.infra.repositories.base import BaseRepository
 
 logger = structlog.get_logger()
 
 
-class CompetitionsRepository(BaseRepository[Competitions]):
+class CompetitionsRepository(BaseRepository[Competition]):
     def __init__(self, session: AsyncSession):
-        super().__init__(Competitions, session)
+        super().__init__(Competition, session)
 
     async def get_or_create(
         self, sport_id: UUID, provider_key: str, title: str, description: str = None
     ) -> UUID:
         result = await self.session.execute(
-            select(Competitions).where(Competitions.provider_key == provider_key)
+            select(Competition).where(Competition.provider_key == provider_key)
         )
         competition = result.scalar_one_or_none()
 
         if not competition:
-            competition = Competitions(
+            competition = Competition(
                 sport_id=sport_id,
                 provider_key=provider_key,
                 title=title,
@@ -42,17 +42,17 @@ class CompetitionsRepository(BaseRepository[Competitions]):
 
         return competition.id
 
-    async def get_by_key(self, key: str) -> Optional[Competitions]:
+    async def get_by_key(self, key: str) -> Optional[Competition]:
         result = await self.session.execute(
-            select(Competitions).where(Competitions.provider_key == key)
+            select(Competition).where(Competition.provider_key == key)
         )
         return result.scalar_one_or_none()
 
-    async def get_active_by_sport(self, sport_id: UUID) -> List[Competitions]:
+    async def get_active_by_sport(self, sport_id: UUID) -> List[Competition]:
         result = await self.session.execute(
-            select(Competitions)
-            .where(Competitions.sport_id == sport_id)
-            .where(Competitions.is_active == True)
+            select(Competition)
+            .where(Competition.sport_id == sport_id)
+            .where(Competition.is_active == True)
         )
         return list(result.scalars().all())
 

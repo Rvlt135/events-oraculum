@@ -134,12 +134,14 @@ session = AsyncSession(...)     # Manual session creation
 ```
 
 ### After
+
 ```python
 # New pattern
-from app.domain.time_utils import now_utc
+from app.domain.utils.time_utils import now_utc
 from app.infra.unit_of_work import UnitOfWork
 
 created_at = now_utc()  # Timezone-aware UTC
+
 
 # Sessions via DI
 async def handler(session: AsyncSession = Depends(get_db_session)):

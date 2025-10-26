@@ -19,9 +19,10 @@ from app.schemas.schemas import (
     SnapshotsResponse,
     SnapshotSummary,
 )
+from app.infra.di.session import get_session as get_db_session
 from app.config.security import verify_admin_token
-from app.infra.providers import get_db_session
-from app.tasks.collector import collect_odds_task
+from app.tasks.collector import collect_odds_task, collect_sports_task
+from app.infra.repositories import NormalizedOddsRepository
 
 logger = structlog.get_logger()
 
@@ -75,8 +76,6 @@ async def get_snapshots(
     logger.info("fetching_snapshots", limit=limit, competition=competition)
 
     try:
-        from app.infra.repositories import NormalizedOddsRepository
-
         normalized_repo = NormalizedOddsRepository(session)
         snapshots_data = await normalized_repo.get_normalized_snapshots(
             limit=limit,
@@ -95,3 +94,34 @@ async def get_snapshots(
     except Exception as e:
         logger.error("failed_to_fetch_snapshots", error=str(e))
         raise
+
+
+@router.post("/collect/sports", response_model=TaskTriggerResponse)
+async def trigger_collection_sport(
+    _auth: None = Depends(verify_admin_token)
+) -> TaskTriggerResponse:
+    """
+    Manually trigger odds collection task.
+
+    This enqueues a collection task in TaskIQ that will:
+    1. Fetch odds from external API
+    2. Normalize team names
+    3. Store events and odds snapshots
+    4. Calculate aggregated odds
+    """
+    logger.info("manual_collection_triggered")
+
+    try:
+        task = await collect_sports_task.kiq()
+
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="Collection task enqueued in TaskIQ",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_task", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )

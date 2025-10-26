@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.models.orm.orm_models import Sport
-from .base import BaseRepository
+from app.infra.db.orm.sports import Sport
+from app.infra.repositories.base import BaseRepository
 
 logger = structlog.get_logger()
 
@@ -14,26 +14,25 @@ class SportRepository(BaseRepository[Sport]):
     def __init__(self, session: AsyncSession):
         super().__init__(Sport, session)
 
-    async def get_or_create(self, name: str, display_name: str) -> UUID:
+    async def get_or_create(self, category: str) -> UUID:
         result = await self.session.execute(
-            select(Sport).where(Sport.name == name)
+            select(Sport).where(Sport.category == category)
         )
         sport = result.scalar_one_or_none()
 
         if not sport:
             sport = Sport(
-                name=name,
-                display_name=display_name,
+                category=category,
                 is_active=True
             )
             sport = await self.create(sport)
-            logger.info("sport_created", name=name, id=str(sport.id))
+            logger.info("sport_created", category=category, id=str(sport.id))
 
         return sport.id
 
-    async def get_by_name(self, name: str) -> Optional[Sport]:
+    async def get_by_category(self, category: str) -> Optional[Sport]:
         result = await self.session.execute(
-            select(Sport).where(Sport.name == name)
+            select(Sport).where(Sport.category == category)
         )
         return result.scalar_one_or_none()
 

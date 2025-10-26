@@ -1,4 +1,4 @@
-from .base import BaseRepository
+from app.infra.repositories.base import BaseRepository
 from .sport import SportRepository
 from .competitions import CompetitionsRepository
 from .team import TeamRepository

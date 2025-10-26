@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
-from app.domain.time_utils import now_utc
+from app.domain.utils.time_utils import now_utc
 
 
 class SportType(str, Enum):
