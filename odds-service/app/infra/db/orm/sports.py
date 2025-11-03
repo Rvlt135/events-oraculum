@@ -12,6 +12,7 @@ class Sport(Base):
     provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, mvp - odds_api')
     category = Column(Text, nullable=False, comment=', напр. soccer, tennis, basketball, ice hockey')
     is_active = Column(Boolean, nullable=False, comment='Выставляется явно инжестом (зеркало факта наличия активных competitions)')
+    available = Column(Boolean, nullable=False, comment='')
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
