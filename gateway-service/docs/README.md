@@ -22,6 +22,13 @@
 - **Pydantic** - валидация данных
 - **Structlog** - структурированное логирование
 
+### 📚 Документация по архитектуре
+
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Обзор архитектуры и принципов
+- **[CLEAN_CODE_ANALYSIS.md](./CLEAN_CODE_ANALYSIS.md)** - Детальный анализ структуры и рекомендации по Clean Code
+- **[AUTH_IMPLEMENTATION.md](./AUTH_IMPLEMENTATION.md)** - Документация по реализации аутентификации
+- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - Примеры использования API
+
 ## 📋 Требования
 
 - Python 3.12+
