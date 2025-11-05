@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from uuid import UUID, uuid4
 import jwt
 from pydantic import BaseModel
-
 
 class TokenPayload(BaseModel):
     sub: str
@@ -22,7 +21,8 @@ class JWTService:
         access_ttl: int = 900,
         refresh_ttl: int = 1209600,
     ):
-        self.secret = secret
+        # Ensure secret is a string
+        self.secret = str(secret)
         self.algorithm = algorithm
         self.access_ttl = access_ttl
         self.refresh_ttl = refresh_ttl
@@ -30,7 +30,7 @@ class JWTService:
     def create_access_token(
         self, user_id: UUID, plan_type: str, account_id: int | None = None
     ) -> str:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         payload = {
             "sub": str(user_id),
             "jti": str(uuid4()),
@@ -41,12 +41,16 @@ class JWTService:
         }
         if account_id is not None:
             payload["aid"] = account_id
-        return jwt.encode(payload, self.secret, algorithm=self.algorithm)
+        token = jwt.encode(payload, self.secret, algorithm=self.algorithm)
+        # Ensure token is a string (PyJWT 2.x returns str, but 1.x returns bytes)
+        if isinstance(token, bytes):
+            return token.decode("utf-8")
+        return token
 
     def create_refresh_token(self, user_id: UUID, jti: UUID | None = None) -> tuple[str, UUID]:
         if jti is None:
             jti = uuid4()
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         payload = {
             "sub": str(user_id),
             "jti": str(jti),
@@ -55,11 +59,20 @@ class JWTService:
             "type": "refresh",
         }
         token = jwt.encode(payload, self.secret, algorithm=self.algorithm)
+        # Ensure token is a string (PyJWT 2.x returns str, but 1.x returns bytes)
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
         return token, jti
 
     def verify_token(self, token: str, expected_type: str = "access") -> TokenPayload:
         try:
-            payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
+            # Ensure token is a string
+            token_str = str(token) if token else ""
+            if not token_str:
+                raise ValueError("Token is required")
+            
+            # Use the stored secret (already ensured to be string in __init__)
+            payload = jwt.decode(token_str, self.secret, algorithms=[self.algorithm])
             token_data = TokenPayload(**payload)
             if token_data.type != expected_type:
                 raise ValueError(f"Invalid token type: expected {expected_type}, got {token_data.type}")

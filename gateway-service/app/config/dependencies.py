@@ -1,10 +1,9 @@
 from fastapi import Depends
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.telegram_validator import TelegramValidator
 from app.db.pg import get_session
-from app.cache.redis import get_redis_cache
+from app.cache.redis import get_redis_cache, RedisCache
 from app.config.settings import settings as _settings, Settings
 from app.auth.service import JWTService, AuthService, GoogleOAuthService, PasswordService
 from app.config.settings import settings
@@ -42,7 +41,7 @@ def get_telegram_validator() -> TelegramValidator | None:
 
 async def get_auth_service(
     db: AsyncSession = Depends(get_session),
-    redis: Redis = Depends(get_redis_cache),
+    redis: RedisCache = Depends(get_redis_cache),
     jwt_service: JWTService = Depends(get_jwt_service),
     password_service: PasswordService = Depends(get_password_service),
     google_oauth: GoogleOAuthService = Depends(get_google_oauth_service),

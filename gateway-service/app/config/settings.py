@@ -11,42 +11,52 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    service_name: str = Field(default="gateway-service")
-    environment: str = Field(default="production")
-    log_level: str = Field(default="INFO")
+    # Основные настройки - обязательные из env
+    service_name: str
+    environment: str
+    log_level: str
 
-    api_host: str = Field(default="0.0.0.0")
-    api_port: int = Field(default=8080)
+    # API настройки - обязательные из env
+    api_host: str
+    api_port: int
+    api_key: str  # Секретный ключ - обязательно из env
 
-    api_key: str = Field(default="changeme_secret_key")
+    # Redis - обязательные из env
+    redis_url: str
 
-    redis_url: str = Field(default="redis://localhost:6379/0")
+    # PostgreSQL - обязательные из env
+    postgres_host: str
+    postgres_port: int
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
 
-    postgres_host: str = Field(default="localhost")
-    postgres_port: int = Field(default=5432)
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="postgres")
-    postgres_db: str = Field(default="layerbit")
-
+    # Пагинация - можно оставить дефолты или брать из env
     default_page_limit: int = Field(default=50)
     max_page_limit: int = Field(default=500)
 
+    # CORS - можно оставить дефолт или брать из env
     cors_origins: List[str] = Field(default=["*"])
 
+    # Кеш - можно оставить дефолт или брать из env
     cache_ttl_seconds: int = Field(default=300)
 
-    jwt_secret: str = Field(default="changeme_jwt_secret_min_32_chars")
-    jwt_algorithm: str = Field(default="HS256")
-    access_token_ttl_seconds: int = Field(default=900)
-    refresh_token_ttl_seconds: int = Field(default=1209600)
+    # JWT - обязательные из env (без дефолтов для безопасности)
+    jwt_secret: str  # Секретный ключ - обязательно из env
+    jwt_algorithm: str = Field(default="HS256")  # Алгоритм редко меняется
+    access_token_ttl_seconds: int = Field(default=86400)  # 1 день (24 часа)
+    refresh_token_ttl_seconds: int = Field(default=1209600)  # 14 дней
 
+    # Google OAuth - опциональные, можно оставить пустые строки
     google_client_id: str = Field(default="")
     google_client_secret: str = Field(default="")
     google_redirect_uri: str = Field(default="http://localhost:8080/auth/google/callback")
 
+    # Telegram - опциональные
     telegram_bot_token: str = Field(default="")
     telegram_max_auth_age_seconds: int = Field(default=600)
 
+    # Password hashing - алгоритм редко меняется
     password_hash_scheme: str = Field(default="argon2")
 
     @property

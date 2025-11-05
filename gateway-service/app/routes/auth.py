@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
@@ -16,7 +16,9 @@ from app.auth.schemas import (
     MeResponse,
 )
 from app.auth.service import AuthService
-from app.security.authorization import get_auth_service, get_google_oauth_service, get_current_user
+from app.domain.auth_models import User
+from app.security.auth import get_current_user
+from app.config.dependencies import get_auth_service, get_google_oauth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -194,18 +196,18 @@ async def logout(
 
 @router.get("/me", response_model=MeResponse)
 async def get_me(
-    user = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     trial_left_days = None
     is_trial_active = False
 
     if user.trial_end_at:
-        delta = user.trial_end_at - datetime.utcnow()
+        delta = user.trial_end_at - datetime.now(UTC)
         trial_left_days = max(0, delta.days)
         is_trial_active = delta.total_seconds() > 0
-
-    return MeResponse(
+    resp = MeResponse(
         user=UserProfile.model_validate(user),
         trial_left_days=trial_left_days,
         is_trial_active=is_trial_active,
     )
+    return resp.model_dump(exclude_none=True) # TODO: убрать null в будущем в ответе

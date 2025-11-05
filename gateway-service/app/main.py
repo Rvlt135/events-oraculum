@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+import inspect
+from app.security.auth import get_current_user
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
@@ -39,6 +42,41 @@ def create_app(env: str = "production") -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        openapi_schema["components"]["securitySchemes"] = {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Enter your JWT access token"
+            }
+        }
+        
+        # Automatically detect and add security to operations using get_current_user
+        for path, path_item in openapi_schema["paths"].items():
+            for method, operation in path_item.items():
+                if method in ["get", "post", "put", "delete", "patch"]:
+                    # Skip public endpoints
+                    if "/health" in path or "/metrics" in path or "/v1/stats/summary'" in path:
+                        continue
+                    # Add security requirement
+                    operation["security"] = [{"BearerAuth": []}]
+
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+    
+    app.openapi = custom_openapi
 
     app.add_middleware(
         CORSMiddleware,
