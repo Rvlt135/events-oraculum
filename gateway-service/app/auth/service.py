@@ -1,13 +1,12 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
-import orjson
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.jwt_utils import JWTService
 from app.auth.password_utils import PasswordService
 from app.auth.repositories import UserRepository, IdentityRepository, SessionRepository
 from app.auth.google_oauth import GoogleOAuthService
 from app.auth.telegram_validator import TelegramValidator, ParsedTelegramUser
+from app.cache.redis import RedisCache
 from app.domain.auth_models import PlanType, IdentityProvider, User
 
 
@@ -15,7 +14,7 @@ class AuthService:
     def __init__(
         self,
         db_session: AsyncSession,
-        redis: Redis,
+        redis: RedisCache,
         jwt_service: JWTService,
         password_service: PasswordService,
         google_oauth: GoogleOAuthService,
@@ -268,7 +267,7 @@ class AuthService:
             "trial_end_at": user.trial_end_at.isoformat() if user.trial_end_at else None,
             "created_at": user.created_at.isoformat(),
         }
-        await self.redis.setex(key, 300, orjson.dumps(data))
+        await self.redis.set(key, data, ttl=300)
 
     async def _get_cached_user(self, user_id: UUID) -> User | None:
         key = f"user:{user_id}"
@@ -285,14 +284,14 @@ class AuthService:
         }
         ttl = int((expires_at - datetime.now(UTC)).total_seconds())
         if ttl > 0:
-            await self.redis.setex(key, ttl, orjson.dumps(data))
+            await self.redis.set(key, data, ttl=ttl)
 
     async def _get_cached_session(self, jti: UUID) -> dict | None:
         key = f"session:{jti}"
         data = await self.redis.get(key)
         if not data:
             return None
-        return orjson.loads(data)
+        return data
 
     async def _invalidate_session(self, jti: UUID) -> None:
         key = f"session:{jti}"
@@ -305,7 +304,7 @@ class AuthService:
         data = {
             "user_id": str(user.id),
         }
-        await self.redis.setex(account_key, 300, orjson.dumps(data))
+        await self.redis.set(account_key, data, ttl=300)
 
     async def _invalidate_user_cache(self, user_id: UUID, account_id: int | None = None) -> None:
         key = f"user:{user_id}"
