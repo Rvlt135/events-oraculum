@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Optional
 import structlog
 
-from app.db.repositories import RecommendationsReadRepo
-from app.models.schemas import StatsDTO
+from app.infrastructure.db.repositories.recommendations_repo import RecommendationsReadRepo
+from app.api.schemas.insights import StatsDTO
 
 logger = structlog.get_logger()
 

@@ -1,0 +1,58 @@
+from uuid import UUID
+from typing import Literal
+
+from fastapi import Depends, HTTPException, status, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from app.infrastructure.security.jwt import JWTService
+from app.services.auth_service import AuthService
+from app.api.di.deps import get_auth_service, get_jwt_service
+from app.infrastructure.db.orm.user import User
+
+security = HTTPBearer(scheme_name="Bearer")
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+    auth_service: AuthService = Depends(get_auth_service),
+    jwt_service: JWTService = Depends(get_jwt_service),
+) -> User:
+    token = credentials.credentials
+    try:
+        payload = jwt_service.verify_token(token, expected_type="access")
+        user_id = UUID(payload.sub)
+        user = await auth_service.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+        return user
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+
+# TODO: actualize
+def require_plan(min_plan: Literal["free", "pro", "partner"] = "free"):
+    async def _check_plan(user: User = Depends(get_current_user)):
+        plan_hierarchy = {
+            "free": 0,
+            "pro": 1,
+            "partner": 2,
+        }
+
+        user_level = plan_hierarchy.get(user.plan_type.value, 0)
+        required_level = plan_hierarchy.get(min_plan, 0)
+
+        if user_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This feature requires {min_plan} plan or higher",
+            )
+
+        return user
+
+    return _check_plan
+

@@ -3,9 +3,10 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 import structlog
 
-from app.db.repositories import RecommendationsReadRepo, EventsReadRepo
-from app.cache.redis import redis_cache_manager
-from app.models.schemas import RecommendationDTO, EventDTO, OddsContextDTO
+from app.infrastructure.db.repositories.recommendations_repo import RecommendationsReadRepo
+from app.infrastructure.db.repositories.events_repo import EventsReadRepo
+from app.infrastructure.cache.redis import redis_cache_manager
+from app.api.schemas.insights import RecommendationDTO, EventDTO, OddsContextDTO
 
 logger = structlog.get_logger()
 

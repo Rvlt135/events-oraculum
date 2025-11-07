@@ -1,0 +1,4 @@
+"""
+Common API schemas.
+"""
+
