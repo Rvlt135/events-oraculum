@@ -10,8 +10,8 @@ from starlette.requests import Request
 import structlog
 
 from app.config.settings import settings
-from app.infra.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
-from app.routes import public, admin
+from app.infrastructure.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
+from app.api.routes import admin, public
 
 structlog.configure(
     processors=[

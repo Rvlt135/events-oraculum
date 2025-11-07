@@ -1,7 +1,7 @@
 import asyncio
 import structlog
 
-from app.infra.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
+from app.infrastructure.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
 from app.tasks.broker import broker
 # from app.tasks.collector import collect_odds_task, collect_sports_task
 from app.tasks import collector

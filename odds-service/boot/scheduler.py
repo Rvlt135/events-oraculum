@@ -3,7 +3,7 @@ import structlog
 from taskiq import TaskiqScheduler
 from taskiq.schedule_sources import LabelScheduleSource
 
-from app.infra.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
+from app.infrastructure.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
 from app.tasks.broker import broker
 from app.config import settings
 

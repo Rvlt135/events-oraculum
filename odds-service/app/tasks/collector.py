@@ -3,11 +3,11 @@ import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
-from app.infra.http.odds_api import OddsAPIClient
-from app.infra.di.dependencies import get_task_session
-from app.domain.utils.time_utils import now_utc
-from app.infra.di.dependencies import get_sports_service
-from app.infra.repositories import SportRepository, CompetitionsRepository
+from app.infrastructure.http.odds_api import OddsAPIClient
+from app.infrastructure.di.dependencies import get_task_session
+from app.utils.time_utils import now_utc
+from app.infrastructure.di.dependencies import get_sports_service
+from app.infrastructure.repositories import SportRepository, CompetitionsRepository
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
 
