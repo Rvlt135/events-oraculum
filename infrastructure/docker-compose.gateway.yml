@@ -12,8 +12,8 @@ services:
     env_file:
       - ../gateway-service/.env
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - POSTGRES_HOST=postgres
+      - REDIS_URL=redis://layerbit-redis:6379/0
+      - POSTGRES_HOST=layerbit-postgres
       - POSTGRES_PORT=5432
     networks:
       - layerbit-net
