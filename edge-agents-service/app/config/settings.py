@@ -21,11 +21,7 @@ class Settings(BaseSettings):
 
     redis_url: str = Field(default="redis://localhost:6379/0")
 
-    postgres_host: str = Field(default="localhost")
-    postgres_port: int = Field(default=5432)
-    postgres_user: str = Field(default="postgres")
-    postgres_password: str = Field(default="postgres")
-    postgres_db: str = Field(default="layerbit")
+    postgres_url: str
 
     llm_client: Literal["instructor", "langchain", "litellm"] = Field(default="instructor")
 
@@ -42,13 +38,6 @@ class Settings(BaseSettings):
 
     default_leagues: List[str] = Field(default=["soccer_uefa_champs_league"])
     min_confidence_threshold: float = Field(default=0.0)
-
-    @property
-    def postgres_url(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
 
     @property
     def models_config_full_path(self) -> Path:

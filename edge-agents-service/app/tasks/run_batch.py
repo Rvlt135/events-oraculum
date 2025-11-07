@@ -4,8 +4,8 @@ from uuid import UUID
 import structlog
 
 from app.config.settings import settings
-from app.config.model_loader import load_model_config
 from app.db.pg import AsyncSessionLocal
+from app.services.clients.factory import create_llm_client
 from app.cache.redis import recommendation_cache
 from app.models.recommendation import RecommendationCreate
 from app.services.agents.persistence import RecommendationPersistence
@@ -33,10 +33,10 @@ async def run_batch_task(
         async with AsyncSessionLocal() as session:
             persistence = RecommendationPersistence(session, recommendation_cache)
 
-            model_config = load_model_config(settings.active_model_name)
+            llm_client = create_llm_client(settings.active_model_name)
 
             agent = LLMAgent(
-                model_config=model_config,
+                llm_client=llm_client,
                 prompt_template=prompt_template
             )
 
@@ -64,7 +64,7 @@ async def run_batch_task(
                             confidence=result.confidence,
                             short_explanation=result.short_explanation,
                             reasoning=result.reasoning,
-                            model_version=model_config["name"]
+                            model_version=result.model_version
                         )
 
                         saved = await persistence.save_recommendation(recommendation)

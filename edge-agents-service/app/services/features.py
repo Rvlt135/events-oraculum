@@ -3,6 +3,8 @@ from uuid import UUID
 from datetime import datetime
 import asyncpg
 import structlog
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings
 
@@ -101,3 +103,48 @@ class FeatureBuilder:
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, *params)
             return [row["id"] for row in rows]
+
+
+class FeatureService:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_event_features(self, event_id: UUID) -> Optional[Dict[str, Any]]:
+        query = text("""
+            SELECT
+                e.external_id,
+                e.commence_time,
+                l.key as league_key,
+                l.name as league_name,
+                t1.name as home_team,
+                t2.name as away_team,
+                n.home_odds_avg,
+                n.away_odds_avg,
+                n.draw_odds_avg,
+                n.home_odds_best,
+                n.away_odds_best,
+                n.draw_odds_best,
+                n.bookmakers_count,
+                n.timestamp_source,
+                n.timestamp_ingested
+            FROM events e
+            JOIN leagues l ON e.league_id = l.id
+            JOIN teams t1 ON e.home_team_id = t1.id
+            JOIN teams t2 ON e.away_team_id = t2.id
+            LEFT JOIN normalized_odds n ON e.id = n.event_id AND n.market_type = 'h2h'
+            WHERE e.id = :event_id
+            ORDER BY n.created_at DESC
+            LIMIT 1
+        """)
+
+        result = await self.session.execute(query, {"event_id": event_id})
+        row = result.fetchone()
+
+        if not row:
+            logger.warning("event_not_found", event_id=str(event_id))
+            return None
+
+        features = dict(row._mapping)
+        logger.info("features_built", event_id=str(event_id), home=features.get("home_team"))
+
+        return features
