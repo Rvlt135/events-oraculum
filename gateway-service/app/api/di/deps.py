@@ -52,4 +52,5 @@ async def get_auth_service(
     google_oauth: GoogleOAuthService = Depends(get_google_oauth_service),
     telegram_validator: TelegramValidator | None = Depends(get_telegram_validator),
 ) -> AuthService:
+
     return AuthService(db, redis, jwt_service, password_service, google_oauth, telegram_validator)

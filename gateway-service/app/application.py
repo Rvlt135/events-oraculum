@@ -26,8 +26,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_gateway_service")
     await redis_cache_manager.initialize()
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await engine.connect()
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(Base.metadata.create_all)
 
     yield
     await redis_cache_manager.dispose()
