@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from sqlalchemy import text
 
 import redis.asyncio as redis
 from app.config.settings import settings
@@ -30,9 +31,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.redis_client = redis_client
     app.state.redis_cache = RedisCache(redis_client, ttl=settings.cache_ttl_seconds)
 
-    # await engine.connect()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
 
     yield
     await redis_client.close()
