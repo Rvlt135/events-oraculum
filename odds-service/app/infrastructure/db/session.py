@@ -13,7 +13,6 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Get session factory (create if not exists)."""
     global _session_factory
     if _session_factory is None:
-        from sqlalchemy.ext.asyncio import async_sessionmaker
         _session_factory = async_sessionmaker(
             get_engine(),
             class_=AsyncSession,

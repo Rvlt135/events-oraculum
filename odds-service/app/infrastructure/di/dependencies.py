@@ -1,26 +1,12 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.config.settings import settings as _settings, Settings
-from app.infrastructure.db.session import get_db_session
 
 
 def get_settings() -> Settings:
     return _settings
 
 
-async def get_task_session() -> AsyncSession:
-    """
-    Get database session for tasks.
-    
-    Since TaskIQ doesn't support FastAPI Depends, we create a helper
-    that uses the same dependency logic as FastAPI routes.
-    """
-    async for session in get_db_session():
-        return session
-
-
 # Re-export from sub-modules for convenience
-from app.infrastructure.di.session import get_session, get_sessionmaker
+from app.infrastructure.db.session import get_db_session, get_session_factory
 from app.infrastructure.сache.redis_client import get_redis
 from app.infrastructure.di.services import get_sports_service
 from app.infrastructure.di.http import get_odds_api_client
@@ -28,9 +14,8 @@ from app.infrastructure.di.lifecycle import initialize as initialize_infrastruct
 
 __all__ = [
     "get_settings",
-    "get_task_session",
-    "get_session",
-    "get_sessionmaker",
+    "get_db_session",
+    "get_session_factory",
     "get_redis",
     "get_sports_service",
     "get_odds_api_client",

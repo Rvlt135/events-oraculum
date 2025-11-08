@@ -4,7 +4,8 @@ from prometheus_client import Counter, Histogram
 
 from app.config import settings
 from app.infrastructure.http.odds_api import OddsAPIClient
-from app.infrastructure.di.dependencies import get_task_session
+from app.infrastructure.db.session import get_session_factory
+from app.infrastructure.di.http import get_odds_api_client
 from app.utils.time_utils import now_utc
 from app.infrastructure.di.dependencies import get_sports_service
 from app.infrastructure.repositories import SportRepository, CompetitionsRepository
@@ -23,54 +24,46 @@ async def collect_odds_task() -> Dict[str, str]:
     start_time = now_utc()
     logger.info("collection_task_started", timestamp=start_time.isoformat())
 
-    api_adapter = OddsAPIClient(
-        api_key=settings.odds_api_key,
-        base_url=settings.odds_api_base_url,
-        regions=settings.odds_api_regions,
-        markets=settings.odds_api_markets,
-    )
+    api_adapter = get_odds_api_client()
 
     try:
-        # Use dependency injection for database session
-        session = await get_task_session()
-        try:
-            sport_repo = SportRepository(session)
-            competition_repo = CompetitionsRepository(session)
-            normalizer = OddsNormalizer(session)
+        # Use session factory directly with context manager
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            async with session.begin():
+                sport_repo = SportRepository(session)
+                competition_repo = CompetitionsRepository(session)
+                normalizer = OddsNormalizer(session)
 
-            sport_id = await sport_repo.get_or_create("soccer")
+                sport_id = await sport_repo.get_or_create("soccer")
 
-            total_processed = 0
+                total_processed = 0
 
-            for competition_key in settings.odds_api_competitions:
-                logger.info("collecting_competition", competition=competition_key)
+                for competition_key in settings.odds_api_competitions:
+                    logger.info("collecting_competition", competition=competition_key)
 
-                competition_id = await competition_repo.get_or_create(
-                    sport_id=sport_id,
-                    provider_key=competition_key,
-                    title=competition_key.replace("_", " ").title(),
-                    description=f"Competition for {competition_key}",
-                )
+                    competition_id = await competition_repo.get_or_create(
+                        sport_id=sport_id,
+                        provider_key=competition_key,
+                        title=competition_key.replace("_", " ").title(),
+                        description=f"Competition for {competition_key}",
+                    )
 
-                odds_data = await api_adapter.get_odds(
-                    sport=competition_key,
-                    regions=settings.odds_api_regions,
-                    markets=settings.odds_api_markets,
-                )
+                    odds_data = await api_adapter.get_odds(
+                        sport=competition_key,
+                        regions=settings.odds_api_regions,
+                        markets=settings.odds_api_markets,
+                    )
 
-                events_processed = 0
-                for event_data in odds_data:
-                    event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
-                    if event_id:
-                        events_processed += 1
+                    events_processed = 0
+                    for event_data in odds_data:
+                        event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
+                        if event_id:
+                            events_processed += 1
 
-                logger.info("competition_processed", competition=competition_key, events_count=events_processed)
-                events_processed_total.inc(events_processed)
-                total_processed += events_processed
-
-            await session.commit()
-        finally:
-            await session.close()
+                    logger.info("competition_processed", competition=competition_key, events_count=events_processed)
+                    events_processed_total.inc(events_processed)
+                    total_processed += events_processed
 
         duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)
