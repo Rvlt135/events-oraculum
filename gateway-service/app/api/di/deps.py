@@ -39,7 +39,7 @@ def get_telegram_validator() -> TelegramValidator | None:
 async def get_google_auth_service(
     db: AsyncSession = Depends(get_session),
 ) -> GoogleAuthService:
-    return GoogleAuthService(db_session=db)
+    return GoogleAuthService(db_session=db, redirect_uri=settings.google_redirect_uri)
 
 
 async def get_token_service(
@@ -47,13 +47,12 @@ async def get_token_service(
 ) -> TokenService:
     return TokenService(db_session=db)
 
-
+# TO DO - remove this method with the refactoring AuthService 
 async def get_auth_service(
     db: AsyncSession = Depends(get_session),
     redis: RedisCache = Depends(get_redis_cache),
     jwt_service: JWTService = Depends(get_jwt_service),
     password_service: PasswordService = Depends(get_password_service),
-    google_oauth: GoogleAuthService = Depends(get_google_auth_service),
     telegram_validator: TelegramValidator | None = Depends(get_telegram_validator),
 ) -> AuthService:
-    return AuthService(db, redis, jwt_service, password_service, google_oauth, telegram_validator)
+    return AuthService(db, redis, jwt_service, password_service, telegram_validator)
