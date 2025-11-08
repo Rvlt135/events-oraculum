@@ -1,15 +1,21 @@
 """
-FastAPI dependencies for database sessions and services.
+FastAPI-specific dependency wrappers.
+
+This module provides thin wrappers around framework-agnostic DI functions
+from app.infrastructure.di.dependencies. These wrappers adapt the DI functions
+to work with FastAPI's dependency injection system.
 """
 from typing import AsyncGenerator, TYPE_CHECKING
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.services.sports_service import SportsService
-from app.infrastructure.cache.sports import SportsCache
+from app.infrastructure.di.dependencies import (
+    get_db_session_from_factory,
+    get_sports_service_from_container,
+)
 
 if TYPE_CHECKING:
-    from app.infrastructure.di.container import Container
+    from app.services.sports_service import SportsService
 
 
 def get_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -31,26 +37,29 @@ async def get_db_session(
     """
     FastAPI dependency for database session.
     
+    This is a thin wrapper around get_db_session_from_factory that integrates
+    with FastAPI's dependency injection system.
+    
     Usage:
         async def handler(session: AsyncSession = Depends(get_db_session)):
             ...
     
     Args:
-        session_factory: Session factory from container
+        session_factory: Session factory from container (injected by FastAPI)
     
     Yields:
         AsyncSession instance
     """
-    async with session_factory() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    async for session in get_db_session_from_factory(session_factory):
+        yield session
 
 
-def get_sports_service(request: Request) -> SportsService:
+def get_sports_service(request: Request) -> "SportsService":
     """
     Get SportsService with injected dependencies from container.
+    
+    This is a thin wrapper around get_sports_service_from_container that
+    extracts the container from FastAPI's request object.
     
     Args:
         request: FastAPI request object
@@ -58,11 +67,6 @@ def get_sports_service(request: Request) -> SportsService:
     Returns:
         SportsService instance with dependencies from container
     """
-    container: "Container" = request.app.state.container
-    
-    return SportsService(
-        odds_client=container.odds_client,
-        session_factory=container.session_factory,
-        sports_cache=SportsCache(container.redis),
-    )
+    container = request.app.state.container
+    return get_sports_service_from_container(container)
 

@@ -21,7 +21,7 @@ from app.api.schemas.schemas import (
 )
 from app.api.dependencies import get_db_session
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task # collect_odds_task
+from app.tasks.collector import collect_sports_task, collect_odds_task
 from app.infrastructure.repositories import NormalizedOddsRepository
 
 logger = structlog.get_logger()

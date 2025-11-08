@@ -1,14 +1,19 @@
 """
 Dependency injection container and factory functions.
 """
+from typing import TYPE_CHECKING
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
 from app.config.settings import settings
+from app.infrastructure.cache.sports import SportsCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
+
+if TYPE_CHECKING:
+    from app.services.sports_service import SportsService
 
 logger = structlog.get_logger()
 
@@ -20,6 +25,21 @@ class Container:
         self.session_factory: async_sessionmaker[AsyncSession] | None = None
         self.redis: redis.Redis | None = None
         self.odds_client: OddsAPIClient | None = None
+    
+    def create_sports_service(self) -> "SportsService":
+        """
+        Factory method for SportsService.
+        
+        Returns:
+            SportsService instance with dependencies from container
+        """
+
+        
+        return SportsService(
+            odds_client=self.odds_client,
+            session_factory=self.session_factory,
+            sports_cache=SportsCache(self.redis),
+        )
 
 
 def create_container() -> Container:
