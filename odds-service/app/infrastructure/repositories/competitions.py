@@ -15,28 +15,48 @@ class CompetitionsRepository(BaseRepository[Competition]):
         super().__init__(Competition, session)
 
     async def get_or_create(
-        self, sport_id: UUID, provider_key: str, title: str, description: str = None
+        self,
+        sport_id: UUID,
+        provider_key: str,
+        title: str,
+        description: str = None,
+        plan_visibility: str = "free",
+        provider: str = "odds_api"
     ) -> UUID:
         result = await self.session.execute(
-            select(Competition).where(Competition.provider_key == provider_key)
+            select(Competition).where(
+                Competition.provider_key == provider_key,
+                Competition.provider == provider
+            )
         )
         competition = result.scalar_one_or_none()
 
         if not competition:
             competition = Competition(
                 sport_id=sport_id,
+                provider=provider,
                 provider_key=provider_key,
                 title=title,
                 description=description,
-                is_active=True
+                is_active=True,
+                plan_visibility=plan_visibility
             )
             competition = await self.create(competition)
-            logger.info("competition_created", key=provider_key, title=title, id=str(competition.id))
+            logger.info("competition_created", key=provider_key, title=title, id=str(competition.id), plan_visibility=plan_visibility)
         else:
+            updated = False
             if competition.title != title:
                 competition.title = title
-                if description:
-                    competition.description = description
+                updated = True
+            if description and competition.description != description:
+                competition.description = description
+                updated = True
+            if competition.plan_visibility != plan_visibility:
+                competition.plan_visibility = plan_visibility
+                updated = True
+                logger.info("competition_plan_visibility_updated", key=provider_key, id=str(competition.id), plan_visibility=plan_visibility)
+
+            if updated:
                 await self.session.flush()
                 logger.info("competition_updated", key=provider_key, new_title=title)
 

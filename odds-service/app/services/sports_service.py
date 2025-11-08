@@ -12,6 +12,9 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
 from app.infrastructure.cache.sports import SportsCache
+from app.infrastructure.cache.competitions import CompetitionsCache
+from app.config import policy_loader
+
 logger = structlog.get_logger()
 
 # Metrics
@@ -28,10 +31,12 @@ class SportsService:
         odds_client: OddsAPIClient,
         session_factory: async_sessionmaker[AsyncSession],
         sports_cache: SportsCache,
+        competitions_cache: CompetitionsCache,
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
         self._sports_cache = sports_cache
+        self._competitions_cache = competitions_cache
 
 
     async def sync_sports_categories(self, resp: List[Dict[str, Any]]) -> dict:
@@ -64,9 +69,10 @@ class SportsService:
                     
                     for category in sorted(unique_categories):
                         try:
-                            await sport_repository.get_or_create(category)
+                            plan_visibility = policy_loader.get_visibility_for_category("odds_api", category)
+                            await sport_repository.get_or_create(category, plan_visibility=plan_visibility, provider="odds_api")
                             synced_count += 1
-                            logger.debug("sport_category_upserted", category=category)
+                            logger.debug("sport_category_upserted", category=category, plan_visibility=plan_visibility)
                         except Exception as e:
                             logger.error("sport_category_upsert_failed", category=category, error=str(e))
                             sports_sync_errors_total.inc()
@@ -133,12 +139,17 @@ class SportsService:
                                 logger.warning("sport_not_found_for_category", category=category)
                                 continue
                             
+                            # Get plan visibility from policy
+                            plan_visibility = policy_loader.get_visibility_for_competition("odds_api", provider_key)
+
                             # Upsert competition
                             await competitions_repository.get_or_create(
                                 sport_id=sport_id,
                                 provider_key=provider_key,
                                 title=title,
-                                description=description if description else None
+                                description=description if description else None,
+                                plan_visibility=plan_visibility,
+                                provider="odds_api"
                             )
                             
                             synced_count += 1
@@ -206,6 +217,7 @@ class SportsService:
                                     "id": str(sport.id),
                                     "category": sport.category,
                                     "is_active": sport.is_active,
+                                    "plan_visibility": sport.plan_visibility,
                                 }
                                 for sport in sports
                             ],
@@ -217,6 +229,29 @@ class SportsService:
                             await self._sports_cache.set_catalog(cache_data)
 
                         logger.info("sports_cache_updated", count=len(sports))
+
+                        # Update competitions cache by category
+                        competitions_repo = CompetitionsRepository(session)
+                        for sport in sports:
+                            competitions = await competitions_repo.get_active_by_sport(sport.id)
+                            comp_cache_data = {
+                                "competitions": [
+                                    {
+                                        "id": str(comp.id),
+                                        "provider_key": comp.provider_key,
+                                        "title": comp.title,
+                                        "description": comp.description,
+                                        "plan_visibility": comp.plan_visibility,
+                                        "is_active": comp.is_active,
+                                    }
+                                    for comp in competitions
+                                ],
+                                "updated_at": str(competitions[0].created_at) if competitions else None,
+                            }
+                            if self._competitions_cache:
+                                await self._competitions_cache.set_catalog(sport.category, comp_cache_data)
+
+                        logger.info("competitions_cache_updated", categories_count=len(sports))
 
                 except Exception as e:
                     logger.error("sports_cache_update_failed", error=str(e))

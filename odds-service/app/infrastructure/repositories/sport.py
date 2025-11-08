@@ -14,19 +14,26 @@ class SportRepository(BaseRepository[Sport]):
     def __init__(self, session: AsyncSession):
         super().__init__(Sport, session)
 
-    async def get_or_create(self, category: str) -> UUID:
+    async def get_or_create(self, category: str, plan_visibility: str = "free", provider: str = "odds_api") -> UUID:
         result = await self.session.execute(
-            select(Sport).where(Sport.category == category)
+            select(Sport).where(Sport.category == category, Sport.provider == provider)
         )
         sport = result.scalar_one_or_none()
 
         if not sport:
             sport = Sport(
                 category=category,
-                is_active=True
+                provider=provider,
+                is_active=True,
+                plan_visibility=plan_visibility
             )
             sport = await self.create(sport)
-            logger.info("sport_created", category=category, id=str(sport.id))
+            logger.info("sport_created", category=category, id=str(sport.id), plan_visibility=plan_visibility)
+        else:
+            if sport.plan_visibility != plan_visibility:
+                sport.plan_visibility = plan_visibility
+                await self.session.flush()
+                logger.info("sport_plan_visibility_updated", category=category, id=str(sport.id), plan_visibility=plan_visibility)
 
         return sport.id
 
