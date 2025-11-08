@@ -8,7 +8,7 @@ from app.config.settings import settings
 from app.infrastructure.cache.redis import redis_cache_manager
 from app.infrastructure.db.engine import engine
 from app.infrastructure.db.orm import Base
-from app.utils.logging import configure_logging
+from app.observability.logging import configure_logging
 from app.api.routes import auth, insights, stats
 from fastapi.openapi.utils import get_openapi
 from app.api.di.auth_deps import get_current_user
