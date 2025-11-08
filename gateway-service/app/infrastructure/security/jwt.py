@@ -18,7 +18,7 @@ class JWTService:
         self,
         secret: str,
         algorithm: str = "HS256",
-        access_ttl: int = 900,
+        access_ttl: int = 3600,
         refresh_ttl: int = 1209600,
     ):
         # Ensure secret is a string
