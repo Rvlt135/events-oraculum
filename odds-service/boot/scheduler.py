@@ -3,7 +3,6 @@ import structlog
 from taskiq import TaskiqScheduler
 from taskiq.schedule_sources import LabelScheduleSource
 
-from app.infrastructure.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
 from app.tasks.broker import broker
 from app.config import settings
 
@@ -20,9 +19,7 @@ logger = structlog.get_logger()
 async def main() -> None:
     logger.info("starting_taskiq_scheduler", schedules=settings.schedule_crons)
 
-    # Initialize shared infrastructure
-    await initialize_infrastructure()
-
+    # Container will be created automatically in broker.on_event(TaskiqEvents.WORKER_STARTUP)
     scheduler = TaskiqScheduler(
         broker=broker,
         sources=[LabelScheduleSource(broker)],
@@ -37,7 +34,7 @@ async def main() -> None:
     except KeyboardInterrupt:
         logger.info("shutting_down_scheduler")
         await scheduler.shutdown()
-        await dispose_infrastructure()
+        # Container disposal is handled automatically in broker.on_event(TaskiqEvents.WORKER_SHUTDOWN)
 
 
 if __name__ == "__main__":

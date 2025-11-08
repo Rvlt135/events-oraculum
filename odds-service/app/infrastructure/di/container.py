@@ -1,0 +1,88 @@
+"""
+Dependency injection container and factory functions.
+"""
+import structlog
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+import redis.asyncio as redis
+
+from app.config.settings import settings
+from app.infrastructure.db.engine import create_engine
+from app.infrastructure.db.session import make_session_factory
+from app.infrastructure.http.odds_api import OddsAPIClient
+
+logger = structlog.get_logger()
+
+
+class Container:
+    """Dependency injection container."""
+    def __init__(self):
+        self.engine: AsyncEngine | None = None
+        self.session_factory: async_sessionmaker[AsyncSession] | None = None
+        self.redis: redis.Redis | None = None
+        self.odds_client: OddsAPIClient | None = None
+
+
+def create_container() -> Container:
+    """
+    Create and initialize dependency injection container.
+    
+    This function creates all infrastructure dependencies:
+    - Database engine and session factory
+    - Redis client
+    - Odds API client
+    
+    Returns:
+        Initialized Container instance
+    """
+    logger.info("creating_container")
+    
+    container = Container()
+    
+    # Create database engine
+    container.engine = create_engine(
+        settings.postgres_url,
+        echo=False,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+    )
+    
+    # Create session factory
+    container.session_factory = make_session_factory(container.engine)
+    
+    # Create Redis client
+    container.redis = redis.from_url(settings.redis_url, decode_responses=True)
+    
+    # Create Odds API client
+    container.odds_client = OddsAPIClient(
+        api_key=settings.odds_api_key,
+        base_url=settings.odds_api_base_url,
+        regions=settings.odds_api_regions,
+        markets=settings.odds_api_markets,
+    )
+    
+    logger.info("container_created")
+    return container
+
+
+async def dispose_container(container: Container) -> None:
+    """
+    Dispose all resources in container.
+    
+    Args:
+        container: Container instance to dispose
+    """
+    logger.info("disposing_container")
+    
+    # Shutdown: close Redis, close odds client, and dispose engine
+    if container.redis:
+        await container.redis.close()
+    
+    if container.odds_client:
+        await container.odds_client.close()
+    
+    if container.engine:
+        await container.engine.dispose()
+    
+    logger.info("container_disposed")
+

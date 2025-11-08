@@ -14,7 +14,6 @@ class Competition(Base):
 
     title = Column(Text, nullable=False, comment='Напр.: UEFA Champions League или EPL')
     description = Column(Text, nullable=True, comment='Напр.: English Premier League, Опционально, из провайдера')
-    test_field = Column(Text, nullable=True, comment='Напр.: English Premier League, Опционально, из провайдера')
     provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, (mvp - odds_api)')
     provider_key = Column(Text, nullable=False, comment='Из sports.key, напр.: "soccer_uefa_champs_league"')
 

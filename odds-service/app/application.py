@@ -10,8 +10,8 @@ from starlette.requests import Request
 import structlog
 
 from app.config.settings import settings
-from app.infrastructure.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
 from app.api.routes import admin, public
+from app.infrastructure.di.container import Container, create_container, dispose_container
 
 structlog.configure(
     processors=[
@@ -21,6 +21,8 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+
 
 
 class MetricsMiddleware(BaseHTTPMiddleware):
@@ -40,13 +42,20 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Lifespan context manager for FastAPI application.
+    Creates dependencies and stores them in app.state.container.
+    """
     logger.info("starting_odds_service", admin_enabled=settings.admin_enabled)
 
-    await initialize_infrastructure()
-
-    registry = CollectorRegistry()
+    # Create container
+    container = create_container()
+    
+    # Store container in app state
+    app.state.container = container
 
     # Metrics
+    registry = CollectorRegistry()
     http_requests_total = Counter(
         "odds_service_http_requests_total",
         "Total HTTP requests",
@@ -58,7 +67,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    await dispose_infrastructure()
+    # Dispose container
+    await dispose_container(container)
 
     logger.info("shutting_down_odds_service")
 

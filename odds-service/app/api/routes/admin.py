@@ -19,7 +19,7 @@ from app.api.schemas.schemas import (
     SnapshotsResponse,
     SnapshotSummary,
 )
-from app.infrastructure.db.session import get_db_session
+from app.api.dependencies import get_db_session
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_odds_task, collect_sports_task
 from app.infrastructure.repositories import NormalizedOddsRepository

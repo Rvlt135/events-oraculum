@@ -1,16 +1,16 @@
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
-from app.infrastructure.http.odds_api import OddsAPIClient
-from app.infrastructure.db.session import get_session_factory
-from app.infrastructure.di.http import get_odds_api_client
 from app.utils.time_utils import now_utc
 from app.infrastructure.di.dependencies import get_sports_service
 from app.infrastructure.repositories import SportRepository, CompetitionsRepository
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
+
+if TYPE_CHECKING:
+    from app.infrastructure.di.container import Container
 
 logger = structlog.get_logger()
 
@@ -24,12 +24,16 @@ async def collect_odds_task() -> Dict[str, str]:
     start_time = now_utc()
     logger.info("collection_task_started", timestamp=start_time.isoformat())
 
-    api_adapter = get_odds_api_client()
+    # Get container from broker state
+    if not hasattr(broker.state, 'container'):
+        raise RuntimeError("Container not found in broker.state. Make sure worker/scheduler initialized container.")
+    
+    container: "Container" = broker.state.container
+    api_adapter = container.odds_client
 
     try:
-        # Use session factory directly with context manager
-        session_factory = get_session_factory()
-        async with session_factory() as session:
+        # Use session factory from container
+        async with container.session_factory() as session:
             async with session.begin():
                 sport_repo = SportRepository(session)
                 competition_repo = CompetitionsRepository(session)
@@ -84,9 +88,9 @@ async def collect_odds_task() -> Dict[str, str]:
         logger.error("collection_task_failed", error=str(e))
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
-
-    finally:
-        await api_adapter.close()
+    
+    # Note: api_adapter (odds_client) lifecycle is managed by container
+    # No need to close it here - it will be closed in dispose_container()
 
 @broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
 async def collect_sports_task() -> Dict[str, str]:
