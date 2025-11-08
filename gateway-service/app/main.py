@@ -1,11 +1,11 @@
 from app.application import create_app
 from app.config.settings import settings
+import uvicorn
 
 app = create_app(settings.environment)
 
 
 if __name__ == "__main__":
-    import uvicorn
 
     uvicorn.run(
         "app.main:app",
