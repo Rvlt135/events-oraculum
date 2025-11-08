@@ -5,7 +5,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.infrastructure.db.orm.orm_models import OddsSnapshot
+from app.infrastructure.db.orm.odds import OddsSnapshot
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
 

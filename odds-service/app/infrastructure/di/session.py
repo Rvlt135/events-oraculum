@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.infrastructure.db.session import get_session_factory
+from app.infrastructure.db.session import get_db_session
 
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
@@ -19,6 +20,5 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     This function wraps app.infrastructure.db.session.get_db_session()
     to provide a clean interface for dependency injection.
     """
-    from app.infrastructure.db.session import get_db_session
     async for session in get_db_session():
         yield session

@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.infrastructure.redis_client import RedisManager
+from app.infrastructure.сache.redis_client import RedisManager
 
 logger = structlog.get_logger()
 

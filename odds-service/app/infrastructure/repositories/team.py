@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.infrastructure.db.orm.orm_models import Team
+from app.infrastructure.db.orm.teams import Team
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
 

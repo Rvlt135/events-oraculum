@@ -1,5 +1,7 @@
 from enum import Enum
-
+from datetime import datetime
+from typing import Dict, List
+from pydantic import BaseModel
 
 class Provider(str, Enum):
     THE_ODDS_API = "the_odds_api"
@@ -28,3 +30,16 @@ class EventStatus(str, Enum):
     LIVE = "live"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+
+class Quote(BaseModel):
+    bookmaker: str
+    bookmaker_key: str
+    odds: float
+    ts_src: datetime
+    ts_ingest: datetime
+
+
+class Market(BaseModel):
+    market_type: MarketType
+    outcomes: Dict[str, List[Quote]]

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.infrastructure.db.orm.orm_models import Bookmaker
+from app.infrastructure.db.orm.bookmakers import Bookmaker
 from app.infrastructure.repositories.base import BaseRepository
 
 logger = structlog.get_logger()

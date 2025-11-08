@@ -11,7 +11,7 @@ from uuid import UUID
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
-from app.infrastructure.redis_client import RedisManager
+from app.infrastructure.сache.redis_client import RedisManager
 
 logger = structlog.get_logger()
 
