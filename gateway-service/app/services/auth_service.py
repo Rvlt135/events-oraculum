@@ -2,6 +2,8 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.cache.session_cache import SessionCache
+from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.security.jwt import JWTService
 from app.infrastructure.security.password import PasswordService
 from app.infrastructure.db.repositories.user_repo import UserRepository
@@ -30,6 +32,8 @@ class AuthService:
         self.password = password_service
         self.google = google_oauth
         self.telegram = telegram_validator
+        self.user_cache_repo = UserCache(self.redis.client)
+        self.session_cache_repo = SessionCache(self.redis.client)
         self.user_repo = UserRepository(db_session)
         self.identity_repo = IdentityRepository(db_session)
         self.session_repo = SessionRepository(db_session)
@@ -68,7 +72,7 @@ class AuthService:
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -93,7 +97,7 @@ class AuthService:
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -146,7 +150,7 @@ class AuthService:
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -218,7 +222,7 @@ class AuthService:
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self._cache_user_with_account_id(user, account_id)
         await self.db.commit()
 
@@ -229,7 +233,7 @@ class AuthService:
         jti = UUID(token_payload.jti)
         user_id = UUID(token_payload.sub)
 
-        cached = await self._get_cached_session(jti)
+        cached = await self.session_cache_repo.get_cached_session(jti)
         if not cached:
             db_session = await self.session_repo.get_by_jti(jti)
             if not db_session or db_session.expires_at < datetime.now(UTC):
@@ -247,62 +251,23 @@ class AuthService:
         jti = UUID(token_payload.jti)
 
         await self.session_repo.delete_by_jti(jti)
-        await self._invalidate_session(jti)
+        await self.session_cache_repo.invalidate_session(jti)
         await self.db.commit()
 
     async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
         if use_cache:
-            cached = await self._get_cached_user(user_id)
+            cached = await self.user_cache_repo.get_cached_user(user_id)
             if cached:
                 return cached
 
         user = await self.user_repo.get_by_id(user_id)
         if user and use_cache:
-            await self._cache_user(user)
+            await self.user_cache_repo.cache_user(user)
         return user
 
-    async def _cache_user(self, user: User) -> None:
-        key = f"user:{user.id}"
-        data = {
-            "id": str(user.id),
-            "email": user.email,
-            "email_verified": user.email_verified,
-            "plan_type": user.plan_type.value,
-            "trial_end_at": user.trial_end_at.isoformat() if user.trial_end_at else None,
-            "created_at": user.created_at.isoformat(),
-        }
-        await self.redis.set(key, data, ttl=300)
-
-    async def _get_cached_user(self, user_id: UUID) -> User | None:
-        key = f"user:{user_id}"
-        data = await self.redis.get(key)
-        if not data:
-            return None
-        return None
-
-    async def _cache_session(self, jti: UUID, user_id: UUID, expires_at: datetime) -> None:
-        key = f"session:{jti}"
-        data = {
-            "user_id": str(user_id),
-            "expires_at": expires_at.isoformat(),
-        }
-        ttl = int((expires_at - datetime.now(UTC)).total_seconds())
-        if ttl > 0:
-            await self.redis.set(key, data, ttl=ttl)
-
-    async def _get_cached_session(self, jti: UUID) -> dict | None:
-        key = f"session:{jti}"
-        data = await self.redis.get(key)
-        if not data:
-            return None
-        return data
-
-    async def _invalidate_session(self, jti: UUID) -> None:
-        key = f"session:{jti}"
-        await self.redis.delete(key)
 
     async def _cache_user_with_account_id(self, user: User, account_id: int) -> None:
-        await self._cache_user(user)
+        await self.user_cache_repo.cache_user(user)
 
         account_key = f"account:{account_id}"
         data = {

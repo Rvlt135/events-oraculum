@@ -4,8 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
 
+import redis.asyncio as redis
 from app.config.settings import settings
-from app.infrastructure.cache.redis import redis_cache_manager
+from app.infrastructure.cache.redis import RedisCache
 from app.infrastructure.db.engine import engine
 from app.infrastructure.db.orm import Base
 from app.utils.logging import configure_logging
@@ -24,14 +25,17 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_gateway_service")
-    await redis_cache_manager.initialize()
+    # TODO: update in future use multiple cache databases
+    redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+    app.state.redis_client = redis_client
+    app.state.redis_cache = RedisCache(redis_client, ttl=settings.cache_ttl_seconds)
 
-    await engine.connect()
-    # async with engine.begin() as conn:
-    #     await conn.run_sync(Base.metadata.create_all)
+    # await engine.connect()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     yield
-    await redis_cache_manager.dispose()
+    await redis_client.close()
     await engine.dispose()
     logger.info("shutting_down_gateway_service")
 

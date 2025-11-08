@@ -5,7 +5,7 @@ import structlog
 
 from app.infrastructure.db.repositories.recommendations_repo import RecommendationsReadRepo
 from app.infrastructure.db.repositories.events_repo import EventsReadRepo
-from app.infrastructure.cache.redis import redis_cache_manager
+from app.infrastructure.cache.redis import RedisCache
 from app.api.schemas.insights import RecommendationDTO, EventDTO, OddsContextDTO
 
 logger = structlog.get_logger()
@@ -16,9 +16,11 @@ class InsightsService:
         self,
         recommendations_repo: RecommendationsReadRepo,
         events_repo: EventsReadRepo,
+        redis_cache: RedisCache,
     ):
         self.recommendations_repo = recommendations_repo
         self.events_repo = events_repo
+        self.redis_cache = redis_cache
 
     async def get_recommendations(
         self,
@@ -51,7 +53,7 @@ class InsightsService:
 
     async def get_event_details(self, event_id: UUID) -> Optional[EventDTO]:
         cache_key = f"event:{event_id}"
-        cached = await redis_cache_manager.get(cache_key)
+        cached = await self.redis_cache.get(cache_key)
 
         if cached:
             logger.info("event_from_cache", event_id=str(event_id))
@@ -73,7 +75,7 @@ class InsightsService:
             odds_context=odds_context,
         )
 
-        await redis_cache_manager.set(cache_key, event_dto.model_dump(mode="json"))
+        await self.redis_cache.set(cache_key, event_dto.model_dump(mode="json"))
 
         logger.info("event_details_retrieved", event_id=str(event_id))
 

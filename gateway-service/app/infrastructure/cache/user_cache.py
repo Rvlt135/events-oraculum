@@ -1,33 +1,41 @@
-from __future__ import annotations
 from typing import Any, Dict, Optional
 import json
+from uuid import UUID
+
 from redis.asyncio import Redis
 
-CATALOG_TTL_SEC = 600  # 10 минут
-KEY_PREFIX = "catalog:sports"  # можно версионировать: v1:catalog:sports
+from app.infrastructure.db.orm import User
 
-def _key_catalog() -> str:
-    return KEY_PREFIX  # если появится мультитенанси/планы — добавляй сегменты тут
+CATALOG_TTL_SEC = 300
+KEY_USER_BY_USER_ID = "user:{user_id}"
+
+def _key_user() -> str:
+    return KEY_USER_BY_USER_ID  # если появится мультитенанси/планы — добавляй сегменты тут
 
 
-class AuthCache:
-    """Тонкий слой вокруг Redis с доменными методами для Sports."""
+class UserCache:
+    """User cache repository"""
 
     def __init__(self, redis: Redis) -> None:
         self._r = redis
 
-    async def set_catalog(self, items: Dict, ttl: int = CATALOG_TTL_SEC) -> None:
-        await self._r.setex(_key_catalog(), ttl, json.dumps(items))
+    async def cache_user(self, user: User) -> None:
+        # TODO: change User orm to DTO User
+        key = _key_user().format(user_id=user.id)
+        data = {
+            "id": str(user.id),
+            "email": user.email,
+            "email_verified": user.email_verified,
+            "plan_type": user.plan_type.value,
+            "trial_end_at": user.trial_end_at.isoformat() if user.trial_end_at else None,
+            "created_at": user.created_at.isoformat(),
+        }
 
-    async def get_catalog(self) -> Optional[Dict[str, Any]]:
-        raw = await self._r.get(_key_catalog())
-        if not raw:
-            return None
-        try:
-            return json.loads(raw)
-        except Exception:
-            await self.invalidate_catalog()
-            return None
+        await self._r.set(key, json.dumps(data), ex=300)
 
-    async def invalidate_catalog(self) -> None:
-        await self._r.delete(_key_catalog())
+    async def get_cached_user(self, user_id: UUID) -> User | None: # TODO: здесь как будто дефект, get возвращает строку
+        key = f"user:{user_id}"
+        data = await self._r.get(key)
+        if not data:
+            return None
+        return None

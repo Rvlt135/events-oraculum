@@ -12,6 +12,8 @@ from app.infrastructure.db.repositories.events_repo import EventsReadRepo
 from app.api.schemas.insights import EventDTO, PaginatedResponse
 from app.infrastructure.security.apikey import verify_api_key
 from app.services.insights_service import InsightsService
+from app.api.di.deps import get_redis_cache
+from app.infrastructure.cache.redis import RedisCache
 
 logger = structlog.get_logger()
 
@@ -28,6 +30,7 @@ async def get_recommendations(
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
     api_key: str = Depends(verify_api_key),
+    redis_cache: RedisCache = Depends(get_redis_cache),
 ) -> PaginatedResponse:
     logger.info(
         "get_recommendations_request",
@@ -41,7 +44,7 @@ async def get_recommendations(
 
     recommendations_repo = RecommendationsReadRepo(session)
     events_repo = EventsReadRepo(session)
-    service = InsightsService(recommendations_repo, events_repo)
+    service = InsightsService(recommendations_repo, events_repo, redis_cache)
 
     recommendations, total = await service.get_recommendations(
         league=league,
@@ -65,12 +68,13 @@ async def get_event_details(
     event_id: UUID,
     session: AsyncSession = Depends(get_session),
     api_key: str = Depends(verify_api_key),
+    redis_cache: RedisCache = Depends(get_redis_cache),
 ) -> EventDTO:
     logger.info("get_event_details_request", event_id=str(event_id))
 
     recommendations_repo = RecommendationsReadRepo(session)
     events_repo = EventsReadRepo(session)
-    service = InsightsService(recommendations_repo, events_repo)
+    service = InsightsService(recommendations_repo, events_repo, redis_cache)
 
     event = await service.get_event_details(event_id)
 
