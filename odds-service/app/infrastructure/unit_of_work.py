@@ -1,8 +1,10 @@
 from typing import Optional
+
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.infrastructure.сache.redis_client import RedisManager
+from app.infrastructure.сache.redis_client import get_redis
 
 logger = structlog.get_logger()
 
@@ -20,7 +22,7 @@ class UnitOfWork:
             await uow.commit()
     """
 
-    def __init__(self, session: AsyncSession, redis: Optional[RedisManager] = None):
+    def __init__(self, session: AsyncSession, redis: Optional[Redis] = None):
         self.session = session
         self.redis = redis
         self._transaction = None

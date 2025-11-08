@@ -21,7 +21,7 @@ async def get_task_session() -> AsyncSession:
 
 # Re-export from sub-modules for convenience
 from app.infrastructure.di.session import get_session, get_sessionmaker
-from app.infrastructure.сache.redis_client import get_redis_client
+from app.infrastructure.сache.redis_client import get_redis
 from app.infrastructure.di.services import get_sports_service
 from app.infrastructure.di.http import get_odds_api_client
 from app.infrastructure.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
@@ -31,7 +31,7 @@ __all__ = [
     "get_task_session",
     "get_session",
     "get_sessionmaker",
-    "get_redis_client",
+    "get_redis",
     "get_sports_service",
     "get_odds_api_client",
     "initialize_infrastructure",

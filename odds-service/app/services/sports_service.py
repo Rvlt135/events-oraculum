@@ -11,8 +11,7 @@ from uuid import UUID
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
-from app.infrastructure.сache.redis_client import RedisManager
-
+from app.infrastructure.сache.sports import SportsCache
 logger = structlog.get_logger()
 
 # Metrics
@@ -28,11 +27,11 @@ class SportsService:
         self,
         odds_client: OddsAPIClient,
         session_factory: async_sessionmaker[AsyncSession],
-        redis_manager: RedisManager,
+        sports_cache: SportsCache,
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
-        self._redis_manager = redis_manager
+        self._cache = sports_cache
 
 
     async def sync_sports_categories(self, resp: List[Dict[str, Any]]) -> dict:
@@ -242,12 +241,8 @@ class SportsService:
                 }
                 
                 # Set cache with TTL
-                if self._redis_manager:
-                    await self._redis_manager.setex(
-                        "catalog:sports",
-                        600,  # 10 minutes TTL
-                        json.dumps(cache_data)
-                    )
+                if self._cache:
+                    await self._cache.set_catalog(cache_data)
                 
                 logger.info("sports_cache_updated", count=len(sports))
             
