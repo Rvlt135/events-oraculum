@@ -16,6 +16,7 @@ class Competition(Base):
     description = Column(Text, nullable=True, comment='Напр.: English Premier League, Опционально, из провайдера')
     provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, (mvp - odds_api)')
     provider_key = Column(Text, nullable=False, comment='Из sports.key, напр.: "soccer_uefa_champs_league"')
+    plan_visibility = Column(Text, nullable=False, default="free")
 
     is_active = Column(Boolean, nullable=False, comment='payload.active из провайдера; без default, ставим явно в инжесте')
 
