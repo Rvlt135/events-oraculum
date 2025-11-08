@@ -19,15 +19,19 @@ events_processed_total = Counter("odds_events_processed_total", "Total number of
 collection_errors_total = Counter("odds_collection_errors_total", "Total number of collection errors")
 
 
-@broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
+_task_schedule = [{"cron": cron} for cron in settings.schedule_crons]
+_sports_task_schedule = [{"cron": cron} for cron in settings.schedule_sports_crons]
+
+
+@broker.task(schedule=_task_schedule)
 async def collect_odds_task() -> Dict[str, str]:
     start_time = now_utc()
-    logger.info("collection_task_started", timestamp=start_time.isoformat())
+    logger.info("collection_task_started", timestamp=start_time.isoformat(), schedule=_task_schedule)
 
     # Get container from broker state
     if not hasattr(broker.state, 'container'):
         raise RuntimeError("Container not found in broker.state. Make sure worker/scheduler initialized container.")
-    
+
     container: "Container" = broker.state.container
     api_adapter = container.odds_client
 
@@ -88,11 +92,11 @@ async def collect_odds_task() -> Dict[str, str]:
         logger.error("collection_task_failed", error=str(e))
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
-    
+
     # Note: api_adapter (odds_client) lifecycle is managed by container
     # No need to close it here - it will be closed in dispose_container()
 
-@broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
+@broker.task(schedule=_sports_task_schedule)
 async def collect_sports_task() -> Dict[str, str]:
     """
     Collect and sync sports data from external provider.
@@ -100,7 +104,6 @@ async def collect_sports_task() -> Dict[str, str]:
     This task is now thin and delegates to SportsService.
     """
     start_time = now_utc()
-    logger.info("sports_collection_task_started", timestamp=start_time.isoformat())
 
     try:
         # Get sports service - it manages its own session lifecycle

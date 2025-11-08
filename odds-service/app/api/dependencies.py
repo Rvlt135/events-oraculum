@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.services.sports_service import SportsService
-from app.infrastructure.сache.sports import SportsCache
+from app.infrastructure.cache.sports import SportsCache
 
 if TYPE_CHECKING:
     from app.infrastructure.di.container import Container

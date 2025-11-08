@@ -11,7 +11,7 @@ from uuid import UUID
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
-from app.infrastructure.сache.sports import SportsCache
+from app.infrastructure.cache.sports import SportsCache
 logger = structlog.get_logger()
 
 # Metrics
@@ -106,12 +106,12 @@ class SportsService:
             # Fetch sports data from external provider
             logger.info("sports_data_fetched", count=len(resp))
             
-            # Create mapping of category -> sport_id
-            category_to_sport_id = await self._get_category_to_sport_id_mapping()
-            
             # Create session and upsert competitions
             synced_count = 0
             async with self._session_factory() as session:
+                # Create mapping of category -> sport_id within the same session
+                category_to_sport_id = await self._get_category_to_sport_id_mapping(session)
+                
                 async with session.begin():
                     competitions_repository = CompetitionsRepository(session)
                     
@@ -168,16 +168,14 @@ class SportsService:
                 "synced_count": 0,
             }
 
-    async def _get_category_to_sport_id_mapping(self) -> Dict[str, UUID]:
-        """Build a mapping of category -> sport_id."""
+    async def _get_category_to_sport_id_mapping(self, session) -> Dict[str, UUID]:
+        """Build a mapping of category -> sport_id using provided session."""
         category_to_sport_id = {}
+        sport_repository = SportRepository(session)
+        all_sports = await sport_repository.get_all()
         
-        async with self._session_factory() as session:
-            sport_repository = SportRepository(session)
-            all_sports = await sport_repository.get_all()
-            
-            for sport in all_sports:
-                category_to_sport_id[sport.category] = sport.id
+        for sport in all_sports:
+            category_to_sport_id[sport.category] = sport.id
         
         return category_to_sport_id
 

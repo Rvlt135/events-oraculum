@@ -20,6 +20,7 @@ async def main() -> None:
 
     # Container will be created automatically in broker.on_event(TaskiqEvents.WORKER_STARTUP)
     await broker.startup()
+    logger.info("worker_started")
 
     try:
         while True:

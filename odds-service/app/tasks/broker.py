@@ -1,6 +1,7 @@
 from typing import Any
 import structlog
-from taskiq import TaskiqEvents
+from taskiq import TaskiqEvents, TaskiqScheduler
+from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_redis import RedisAsyncResultBackend, ListQueueBroker
 
 from app.config import settings
@@ -10,6 +11,17 @@ logger = structlog.get_logger()
 
 redis_backend = RedisAsyncResultBackend(settings.redis_url)
 broker = ListQueueBroker(url=settings.redis_url).with_result_backend(redis_backend)
+
+# Create scheduler for TaskIQ CLI
+# Import tasks to ensure they're registered with broker
+from app.tasks import collector  # noqa: F401
+
+# Create LabelScheduleSource and scheduler
+label_source = LabelScheduleSource(broker)
+scheduler = TaskiqScheduler(
+    broker=broker,
+    sources=[label_source],
+)
 
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)

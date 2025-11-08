@@ -4,7 +4,7 @@ Infrastructure lifecycle management.
 import structlog
 
 from app.infrastructure.db.engine import dispose_engine, create_engine
-from app.infrastructure.сache.redis_client import initialize_redis, dispose_redis
+from app.infrastructure.cache.redis_client import initialize_redis, dispose_redis
 
 logger = structlog.get_logger()
 

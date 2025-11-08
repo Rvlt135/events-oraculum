@@ -5,6 +5,8 @@ from taskiq.schedule_sources import LabelScheduleSource
 
 from app.tasks.broker import broker
 from app.config import settings
+# Import tasks module to ensure tasks are registered with broker
+from app.tasks import collector  # noqa: F401
 
 structlog.configure(
     processors=[
@@ -17,12 +19,12 @@ logger = structlog.get_logger()
 
 
 async def main() -> None:
-    logger.info("starting_taskiq_scheduler", schedules=settings.schedule_crons)
+    logger.info("starting_taskiq_scheduler")
 
-    # Container will be created automatically in broker.on_event(TaskiqEvents.WORKER_STARTUP)
+    label_source = LabelScheduleSource(broker)
     scheduler = TaskiqScheduler(
         broker=broker,
-        sources=[LabelScheduleSource(broker)],
+        sources=[label_source],
     )
 
     await scheduler.startup()

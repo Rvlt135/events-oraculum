@@ -4,7 +4,7 @@ DI for sports services (for tasks and non-request contexts).
 from typing import TYPE_CHECKING
 
 from app.services.sports_service import SportsService
-from app.infrastructure.сache.sports import SportsCache
+from app.infrastructure.cache.sports import SportsCache
 from app.tasks.broker import broker
 
 if TYPE_CHECKING:
