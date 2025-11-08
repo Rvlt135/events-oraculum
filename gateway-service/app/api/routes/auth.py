@@ -1,9 +1,10 @@
 from datetime import datetime, UTC
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import RedirectResponse
 
-from app.infrastructure.clients.google_oauth import GoogleOAuthService
+from app.infrastructure.clients.google_oauth import GoogleOAuthClient, google_oauth_client
 from app.api.schemas.auth import (
     EmailRegisterRequest,
     EmailLoginRequest,
@@ -20,24 +21,31 @@ from app.api.schemas.user import (
 from app.services.auth_service import AuthService
 from app.infrastructure.db.orm.user import User
 from app.api.di.auth_deps import get_current_user
-from app.api.di.deps import get_auth_service, get_google_oauth_service
+from app.api.di.deps import get_auth_service, get_google_auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-
 @router.get("/google/start")
 async def google_oauth_start(
-    google_oauth: GoogleOAuthService = Depends(get_google_oauth_service),
-):
-    auth_url = google_oauth.get_authorization_url()
+    request: Request,
+    return_to: Optional[str] = Query(None, description="Конечный маршрут после логина"),
+) -> RedirectResponse:
+    user_agent = request.headers.get("user-agent")
+    x_request_id = request.headers.get("X-Request-ID", None)
+
+    auth_url = await google_oauth_client.get_authorization_url(
+        header=request.headers, return_to=return_to)
+    # logger.info("New authorization via Google", user_agent=user_agent, x_request_id=x_request_id)
+
     return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/google/callback")
 async def google_oauth_callback(
     code: str,
+    state: str,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(get_google_auth_service),
 ):
     try:
         user_agent = request.headers.get("user-agent")
@@ -62,6 +70,7 @@ async def google_oauth_callback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OAuth failed: {str(e)}",
         )
+
 
 @router.post("/email/register", response_model=AuthResponse)
 async def register_with_email(
