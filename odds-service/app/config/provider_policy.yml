@@ -1,0 +1,36 @@
+odds_api:
+  sports:
+    free:
+      - Soccer
+    pro:
+      - Tennis
+      - Basketball
+      - Ice Hockey
+
+  competitions:
+    free:
+      - soccer_uefa_champs_league
+      - soccer_uefa_europa_league
+      - soccer_uefa_champs_league_qualification
+      - soccer_epl
+    pro:
+      - tennis_atp_wimbledon
+      - basketball_nba
+      - icehockey_nhl
+
+  events_window:
+    period: 30  # окно вперёд, дней (E2)
+    rate_limit:
+      delay_between_competitions_sec: 10  # пауза между опросами разных provider_key
+      max_concurrency: 1                  # 1 = последовательная обработка (MVP)
+    retry_policy:
+      retriable_statuses: [429, 500, 502, 503, 504]
+      max_attempts: 3
+      base_delay_sec: 2
+      max_delay_sec: 10
+      jitter: true
+
+  overload:
+    max_events_per_competition_hint: 1000  # порог для chunking
+    batch_size_events: 250                 # размер порции записи в БД
+    max_competitions_per_run: 10           # (опц.) ограничить число competitions за прогон
