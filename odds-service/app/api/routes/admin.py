@@ -22,13 +22,10 @@ from app.api.schemas.schemas import (
     SportDTO,
     CompetitionDTO,
 )
-from app.api.dependencies import get_db_session, get_redis
+from app.api.dependencies import get_db_session, get_sports_service
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_odds_task
 from app.infrastructure.repositories import NormalizedOddsRepository
-from app.infrastructure.cache.sports import SportsCache
-from app.infrastructure.cache.competitions import CompetitionsCache
-from app.infrastructure.cache.catalog_cache_helper import CatalogCacheHelper
 
 logger = structlog.get_logger()
 
@@ -139,8 +136,7 @@ async def get_sports_catalog(
         default="all_available",
         description="Filter by plan type: free, pro, or all_available"
     ),
-    session: AsyncSession = Depends(get_db_session),
-    redis: Redis = Depends(get_redis),
+    sports_service = Depends(get_sports_service),
     _auth: None = Depends(verify_admin_token),
 ) -> List[SportDTO]:
     """
@@ -156,13 +152,7 @@ async def get_sports_catalog(
     logger.info("get_sports_catalog_endpoint", plan=plan)
 
     try:
-        helper = CatalogCacheHelper(
-            session=session,
-            sports_cache=SportsCache(redis),
-            competitions_cache=CompetitionsCache(redis),
-        )
-
-        sports = await helper.get_sports_catalog(plan)
+        sports = await sports_service.get_sports_catalog(plan)
 
         logger.info("sports_catalog_returned", plan=plan, count=len(sports))
         return sports
@@ -179,8 +169,7 @@ async def get_competitions_catalog(
         default="all_available",
         description="Filter by plan type: free, pro, or all_available"
     ),
-    session: AsyncSession = Depends(get_db_session),
-    redis: Redis = Depends(get_redis),
+    sports_service = Depends(get_sports_service),
     _auth: None = Depends(verify_admin_token),
 ) -> List[CompetitionDTO]:
     """
@@ -203,13 +192,7 @@ async def get_competitions_catalog(
         raise HTTPException(status_code=400, detail="category parameter is required")
 
     try:
-        helper = CatalogCacheHelper(
-            session=session,
-            sports_cache=SportsCache(redis),
-            competitions_cache=CompetitionsCache(redis),
-        )
-
-        competitions = await helper.get_competitions_catalog(category, plan)
+        competitions = await sports_service.get_competitions_catalog(category, plan)
 
         logger.info("competitions_catalog_returned", category=category, plan=plan, count=len(competitions))
         return competitions

@@ -294,3 +294,56 @@ class SportsService:
                 "status": "error",
                 "message": str(e),
             }
+
+    async def get_sports_catalog(self, plan: str) -> List:
+        """
+        Get sports catalog with cache-first strategy and plan filtering.
+
+        Args:
+            plan: Filter by plan type (free, pro, all_available)
+
+        Returns:
+            List of SportDTO filtered by plan
+        """
+        from app.api.schemas.schemas import SportDTO
+        from app.infrastructure.cache.catalog_cache_helper import CatalogCacheHelper
+
+        logger.info("get_sports_catalog_service", plan=plan)
+
+        async with self._session_factory() as session:
+            helper = CatalogCacheHelper(
+                session=session,
+                sports_cache=self._sports_cache,
+                competitions_cache=self._competitions_cache,
+            )
+
+            sports = await helper.get_sports_catalog(plan)
+            logger.info("sports_catalog_service_completed", plan=plan, count=len(sports))
+            return sports
+
+    async def get_competitions_catalog(self, category: str, plan: str) -> List:
+        """
+        Get competitions catalog with cache-first strategy and plan filtering.
+
+        Args:
+            category: Sport category (e.g., 'soccer')
+            plan: Filter by plan type (free, pro, all_available)
+
+        Returns:
+            List of CompetitionDTO filtered by plan
+        """
+        from app.api.schemas.schemas import CompetitionDTO
+        from app.infrastructure.cache.catalog_cache_helper import CatalogCacheHelper
+
+        logger.info("get_competitions_catalog_service", category=category, plan=plan)
+
+        async with self._session_factory() as session:
+            helper = CatalogCacheHelper(
+                session=session,
+                sports_cache=self._sports_cache,
+                competitions_cache=self._competitions_cache,
+            )
+
+            competitions = await helper.get_competitions_catalog(category, plan)
+            logger.info("competitions_catalog_service_completed", category=category, plan=plan, count=len(competitions))
+            return competitions
