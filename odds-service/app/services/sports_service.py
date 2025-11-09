@@ -52,12 +52,14 @@ class SportsService:
             # Fetch sports data from external provider
             logger.info("sports_data_fetched", count=len(resp))
             
-            # Extract unique categories (groups)
+            # Extract unique categories (groups) and normalize (replace spaces with underscores)
             unique_categories = set()
             for item in resp:
                 group = item.get("group", "").lower().strip()
                 if group:
-                    unique_categories.add(group)
+                    # Normalize category: replace spaces with underscores
+                    normalized_category = group.replace(" ", "_")
+                    unique_categories.add(normalized_category)
             
             logger.info("unique_categories_extracted", count=len(unique_categories))
             
@@ -128,16 +130,18 @@ class SportsService:
                             title = item.get("title", "")
                             description = item.get("description", "")
                             category = item.get("group", "").lower().strip()
+                            # Normalize category: replace spaces with underscores
+                            normalized_category = category.replace(" ", "_")
                             is_active = item.get("active", True)
                             
-                            if not provider_key or not category:
+                            if not provider_key or not normalized_category:
                                 logger.warning("invalid_competition_data", data=item)
                                 continue
                             
-                            # Get sport_id for this category
-                            sport_id = category_to_sport_id.get(category)
+                            # Get sport_id for this category (use normalized category)
+                            sport_id = category_to_sport_id.get(normalized_category)
                             if not sport_id:
-                                logger.warning("sport_not_found_for_category", category=category)
+                                logger.warning("sport_not_found_for_category", category=normalized_category)
                                 continue
                             
                             # Get plan visibility from policy
@@ -208,54 +212,71 @@ class SportsService:
                 
                 # Step 2: Sync competitions
                 competitions_result = await self.sync_competitions(resp_raw_data)
+                
+                # Step 3: Update Redis cache
                 try:
+                    if not self._sports_cache:
+                        logger.warning("sports_cache_not_initialized")
+                    if not self._competitions_cache:
+                        logger.warning("competitions_cache_not_initialized")
+                    
                     async with self._session_factory() as session:
                         sport_repository = SportRepository(session)
                         sports = await sport_repository.get_all()
-                        cache_data = {
-                            "sports": [
-                                {
-                                    "id": str(sport.id),
-                                    "category": sport.category,
-                                    "is_active": sport.is_active,
-                                    "plan_visibility": sport.plan_visibility,
-                                }
-                                for sport in sports
-                            ],
-                            "updated_at": str(sports[0].created_at) if sports else None,
-                        }
-
-                        # Set cache with TTL
-                        if self._sports_cache:
-                            await self._sports_cache.set_catalog(cache_data)
-
-                        logger.info("sports_cache_updated", count=len(sports))
-
-                        # Update competitions cache by category
-                        competitions_repo = CompetitionsRepository(session)
-                        for sport in sports:
-                            competitions = await competitions_repo.get_active_by_sport(sport.id)
-                            comp_cache_data = {
-                                "competitions": [
+                        
+                        if not sports:
+                            logger.warning("no_sports_found_for_cache")
+                        else:
+                            cache_data = {
+                                "sports": [
                                     {
-                                        "id": str(comp.id),
-                                        "provider_key": comp.provider_key,
-                                        "title": comp.title,
-                                        "description": comp.description,
-                                        "plan_visibility": comp.plan_visibility,
-                                        "is_active": comp.is_active,
+                                        "id": str(sport.id),
+                                        "category": sport.category,
+                                        "is_active": sport.is_active,
+                                        "plan_visibility": sport.plan_visibility,
                                     }
-                                    for comp in competitions
+                                    for sport in sports
                                 ],
-                                "updated_at": str(competitions[0].created_at) if competitions else None,
+                                "updated_at": str(sports[0].created_at) if sports else None,
                             }
-                            if self._competitions_cache:
-                                await self._competitions_cache.set_catalog(sport.category, comp_cache_data)
 
-                        logger.info("competitions_cache_updated", categories_count=len(sports))
+                            # Set cache with TTL
+                            if self._sports_cache:
+                                await self._sports_cache.set_catalog(cache_data)
+                                logger.info("sports_cache_updated", count=len(sports))
+                            else:
+                                logger.warning("sports_cache_skipped_not_initialized")
+
+                            # Update competitions cache by category
+                            competitions_repo = CompetitionsRepository(session)
+                            competitions_cached_count = 0
+                            for sport in sports:
+                                competitions = await competitions_repo.get_active_by_sport(sport.id)
+                                comp_cache_data = {
+                                    "competitions": [
+                                        {
+                                            "id": str(comp.id),
+                                            "provider_key": comp.provider_key,
+                                            "title": comp.title,
+                                            "description": comp.description,
+                                            "plan_visibility": comp.plan_visibility,
+                                            "is_active": comp.is_active,
+                                        }
+                                        for comp in competitions
+                                    ],
+                                    "updated_at": str(competitions[0].created_at) if competitions else None,
+                                }
+                                if self._competitions_cache:
+                                    await self._competitions_cache.set_catalog(sport.category, comp_cache_data)
+                                    competitions_cached_count += 1
+                                    logger.debug("competition_category_cached", category=sport.category, competitions_count=len(competitions))
+                                else:
+                                    logger.warning("competitions_cache_skipped_not_initialized", category=sport.category)
+
+                            logger.info("competitions_cache_updated", categories_count=competitions_cached_count, total_sports=len(sports))
 
                 except Exception as e:
-                    logger.error("sports_cache_update_failed", error=str(e))
+                    logger.error("sports_cache_update_failed", error=str(e), exc_info=True)
             
             result = {
                 "status": "success",

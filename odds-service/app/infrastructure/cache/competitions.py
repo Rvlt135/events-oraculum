@@ -7,9 +7,15 @@ CATALOG_TTL_SEC = 600  # 10 minutes
 KEY_PREFIX = "catalog:competitions"
 
 
+def _normalize_category(category: str) -> str:
+    """Normalize category name by replacing spaces with underscores."""
+    return category.replace(" ", "_")
+
+
 def _key_catalog(category: str) -> str:
     """Generate Redis key for competitions catalog by category."""
-    return f"{KEY_PREFIX}:{category}"
+    normalized = _normalize_category(category)
+    return f"{KEY_PREFIX}:{normalized}"
 
 
 class CompetitionsCache:
