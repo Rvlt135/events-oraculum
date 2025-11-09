@@ -112,12 +112,13 @@ class SportsService:
             # Fetch sports data from external provider
             logger.info("sports_data_fetched", count=len(resp))
             
+            # Get category -> sport_id mapping using a separate read-only session
+            async with self._session_factory() as read_session:
+                category_to_sport_id = await self._get_category_to_sport_id_mapping(read_session)
+            
             # Create session and upsert competitions
             synced_count = 0
             async with self._session_factory() as session:
-                # Create mapping of category -> sport_id within the same session
-                category_to_sport_id = await self._get_category_to_sport_id_mapping(session)
-                
                 async with session.begin():
                     competitions_repository = CompetitionsRepository(session)
                     

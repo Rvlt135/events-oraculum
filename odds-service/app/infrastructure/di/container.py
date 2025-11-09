@@ -34,7 +34,7 @@ class Container:
         Returns:
             SportsService instance with dependencies from container
         """
-
+        from app.services.sports_service import SportsService
         
         return SportsService(
             odds_client=self.odds_client,

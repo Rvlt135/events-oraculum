@@ -20,7 +20,8 @@ class CompetitionsCache:
 
     async def set_catalog(self, category: str, items: Dict, ttl: int = CATALOG_TTL_SEC) -> None:
         """Store competitions catalog for a specific category."""
-        await self._r.setex(_key_catalog(category), ttl, json.dumps(items))
+        json_str = json.dumps(items, ensure_ascii=False)
+        await self._r.setex(_key_catalog(category), ttl, json_str)
 
     async def get_catalog(self, category: str) -> Optional[Dict[str, Any]]:
         """Retrieve competitions catalog for a specific category."""
@@ -28,8 +29,15 @@ class CompetitionsCache:
         if not raw:
             return None
         try:
+            # Handle both string and bytes responses
+            if isinstance(raw, bytes):
+                raw = raw.decode('utf-8')
             return json.loads(raw)
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as e:
+            # Log error and invalidate corrupted cache
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("cache_decode_error", error=str(e), raw_type=type(raw).__name__, category=category)
             await self.invalidate_catalog(category)
             return None
 
