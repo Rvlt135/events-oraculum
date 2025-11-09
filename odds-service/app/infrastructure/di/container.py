@@ -12,6 +12,7 @@ from app.infrastructure.cache.competitions import CompetitionsCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
+from app.services.sports_service import SportsService
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
@@ -34,8 +35,6 @@ class Container:
         Returns:
             SportsService instance with dependencies from container
         """
-        from app.services.sports_service import SportsService
-        
         return SportsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
