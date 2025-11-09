@@ -294,34 +294,3 @@ class SportsService:
                 "status": "error",
                 "message": str(e),
             }
-    
-    # async def _update_categories_sport_redis_cache(self) -> None:
-    #     """Update Redis cache with sports catalog."""
-    #     try:
-    #         # Get all sports for cache using a fresh session
-    #         async with self._session_factory() as session:
-    #             sport_repository = SportRepository(session)
-    #             sports = await sport_repository.get_all()
-    #
-    #             # Update Redis key with TTL
-    #             cache_data = {
-    #                 "sports": [
-    #                     {
-    #                         "id": str(sport.id),
-    #                         "category": sport.category,
-    #                         "is_active": sport.is_active,
-    #                     }
-    #                     for sport in sports
-    #                 ],
-    #                 "updated_at": str(sports[0].created_at) if sports else None,
-    #             }
-    #
-    #             # Set cache with TTL
-    #             if self._sports_cache:
-    #                 await self._sports_cache.set_catalog(cache_data)
-    #
-    #             logger.info("sports_cache_updated", count=len(sports))
-    #
-    #     except Exception as e:
-    #         logger.error("sports_cache_update_failed", error=str(e))
-    #         # Don't fail the main operation if cache update fails
