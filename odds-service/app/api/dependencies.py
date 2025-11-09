@@ -8,6 +8,7 @@ to work with FastAPI's dependency injection system.
 from typing import AsyncGenerator, TYPE_CHECKING
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from redis.asyncio import Redis
 
 from app.infrastructure.di.dependencies import (
     get_db_session_from_factory,
@@ -57,16 +58,29 @@ async def get_db_session(
 def get_sports_service(request: Request) -> "SportsService":
     """
     Get SportsService with injected dependencies from container.
-    
+
     This is a thin wrapper around get_sports_service_from_container that
     extracts the container from FastAPI's request object.
-    
+
     Args:
         request: FastAPI request object
-    
+
     Returns:
         SportsService instance with dependencies from container
     """
     container = request.app.state.container
     return get_sports_service_from_container(container)
+
+
+def get_redis(request: Request) -> Redis:
+    """
+    Get Redis client from app state container.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        Redis client instance from container
+    """
+    return request.app.state.container.redis
 

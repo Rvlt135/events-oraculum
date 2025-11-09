@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
 
@@ -132,3 +132,26 @@ class ServiceInfoResponse(BaseModel):
     version: str
     status: str
     environment: str
+
+
+class SportDTO(BaseModel):
+    """DTO for Sport catalog entry."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    category: str
+    plan_visibility: Literal["free", "pro", "unavailable"]
+    is_active: bool
+
+
+class CompetitionDTO(BaseModel):
+    """DTO for Competition catalog entry."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    sport_id: UUID
+    title: str
+    provider: str
+    provider_key: str
+    plan_visibility: Literal["free", "pro", "unavailable"]
+    is_active: bool

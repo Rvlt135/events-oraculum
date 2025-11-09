@@ -9,20 +9,26 @@ These routes are mounted under /_admin prefix and provide:
 Security: Should be protected at network level (ingress/proxy) or via admin token.
 """
 
-from typing import Optional
-from fastapi import APIRouter, Query, Depends
+from typing import Optional, List, Literal
+from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from redis.asyncio import Redis
 
 from app.api.schemas.schemas import (
     TaskTriggerResponse,
     SnapshotsResponse,
     SnapshotSummary,
+    SportDTO,
+    CompetitionDTO,
 )
-from app.api.dependencies import get_db_session
+from app.api.dependencies import get_db_session, get_redis
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_odds_task
 from app.infrastructure.repositories import NormalizedOddsRepository
+from app.infrastructure.cache.sports import SportsCache
+from app.infrastructure.cache.competitions import CompetitionsCache
+from app.infrastructure.cache.catalog_cache_helper import CatalogCacheHelper
 
 logger = structlog.get_logger()
 
@@ -125,3 +131,89 @@ async def trigger_collection_sport(
             status="error",
             message=f"Failed to enqueue task: {str(e)}",
         )
+
+
+@router.get("/catalog/sports", response_model=List[SportDTO])
+async def get_sports_catalog(
+    plan: Literal["free", "pro", "all_available"] = Query(
+        default="all_available",
+        description="Filter by plan type: free, pro, or all_available"
+    ),
+    session: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
+    _auth: None = Depends(verify_admin_token),
+) -> List[SportDTO]:
+    """
+    Get sports catalog with cache-first strategy.
+
+    Returns sports filtered by plan visibility:
+    - free: Only sports in free tier
+    - pro: Sports in free + pro tiers
+    - all_available: All sports except unavailable
+
+    Data source: Redis cache → DB fallback with cache warming
+    """
+    logger.info("get_sports_catalog_endpoint", plan=plan)
+
+    try:
+        helper = CatalogCacheHelper(
+            session=session,
+            sports_cache=SportsCache(redis),
+            competitions_cache=CompetitionsCache(redis),
+        )
+
+        sports = await helper.get_sports_catalog(plan)
+
+        logger.info("sports_catalog_returned", plan=plan, count=len(sports))
+        return sports
+
+    except Exception as e:
+        logger.error("failed_to_get_sports_catalog", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch sports catalog")
+
+
+@router.get("/catalog/competitions", response_model=List[CompetitionDTO])
+async def get_competitions_catalog(
+    category: str = Query(..., description="Sport category (e.g., soccer, tennis)"),
+    plan: Literal["free", "pro", "all_available"] = Query(
+        default="all_available",
+        description="Filter by plan type: free, pro, or all_available"
+    ),
+    session: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
+    _auth: None = Depends(verify_admin_token),
+) -> List[CompetitionDTO]:
+    """
+    Get competitions catalog for a specific category with cache-first strategy.
+
+    Returns competitions filtered by plan visibility:
+    - free: Only competitions in free tier
+    - pro: Competitions in free + pro tiers
+    - all_available: All competitions except unavailable
+
+    Args:
+        category: Required sport category (e.g., 'soccer')
+        plan: Plan filter type
+
+    Data source: Redis cache → DB fallback with cache warming
+    """
+    logger.info("get_competitions_catalog_endpoint", category=category, plan=plan)
+
+    if not category:
+        raise HTTPException(status_code=400, detail="category parameter is required")
+
+    try:
+        helper = CatalogCacheHelper(
+            session=session,
+            sports_cache=SportsCache(redis),
+            competitions_cache=CompetitionsCache(redis),
+        )
+
+        competitions = await helper.get_competitions_catalog(category, plan)
+
+        logger.info("competitions_catalog_returned", category=category, plan=plan, count=len(competitions))
+        return competitions
+
+    except Exception as e:
+        logger.error("failed_to_get_competitions_catalog", category=category, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch competitions catalog")
