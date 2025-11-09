@@ -298,6 +298,7 @@ class SportsService:
     async def get_sports_catalog(self, plan: str) -> List:
         """
         Get sports catalog with cache-first strategy and plan filtering.
+        Uses CatalogCacheHelper for cache reads and Repository for DB fallback.
 
         Args:
             plan: Filter by plan type (free, pro, all_available)
@@ -310,20 +311,48 @@ class SportsService:
 
         logger.info("get_sports_catalog_service", plan=plan)
 
-        async with self._session_factory() as session:
-            helper = CatalogCacheHelper(
-                session=session,
-                sports_cache=self._sports_cache,
-                competitions_cache=self._competitions_cache,
-            )
+        # Try cache first using helper
+        helper = CatalogCacheHelper(
+            sports_cache=self._sports_cache,
+            competitions_cache=self._competitions_cache,
+        )
 
-            sports = await helper.get_sports_catalog(plan)
-            logger.info("sports_catalog_service_completed", plan=plan, count=len(sports))
+        sports = await helper.get_sports_from_cache(plan)
+
+        if sports is not None:
+            logger.info("sports_catalog_from_cache_service", plan=plan, count=len(sports))
             return sports
+
+        # Cache miss - fallback to DB using repository
+        logger.info("sports_catalog_cache_miss_using_db", plan=plan)
+        async with self._session_factory() as session:
+            sport_repo = SportRepository(session)
+            sports_orm = await sport_repo.get_all()
+
+            # Convert to DTOs
+            sports_dtos = [
+                SportDTO(
+                    id=sport.id,
+                    category=sport.category,
+                    plan_visibility=sport.plan_visibility,
+                    is_active=sport.is_active,
+                )
+                for sport in sports_orm
+            ]
+
+            # Filter by plan using helper
+            filtered_sports = helper.filter_sports_by_plan(sports_dtos, plan)
+
+            # Warm the cache for next time
+            await helper.warm_sports_cache(sports_dtos)
+            logger.info("sports_catalog_from_db_service", plan=plan, count=len(filtered_sports))
+
+            return filtered_sports
 
     async def get_competitions_catalog(self, category: str, plan: str) -> List:
         """
         Get competitions catalog with cache-first strategy and plan filtering.
+        Uses CatalogCacheHelper for cache reads and Repository for DB fallback.
 
         Args:
             category: Sport category (e.g., 'soccer')
@@ -337,13 +366,52 @@ class SportsService:
 
         logger.info("get_competitions_catalog_service", category=category, plan=plan)
 
-        async with self._session_factory() as session:
-            helper = CatalogCacheHelper(
-                session=session,
-                sports_cache=self._sports_cache,
-                competitions_cache=self._competitions_cache,
-            )
+        # Try cache first using helper
+        helper = CatalogCacheHelper(
+            sports_cache=self._sports_cache,
+            competitions_cache=self._competitions_cache,
+        )
 
-            competitions = await helper.get_competitions_catalog(category, plan)
-            logger.info("competitions_catalog_service_completed", category=category, plan=plan, count=len(competitions))
+        competitions = await helper.get_competitions_from_cache(category, plan)
+
+        if competitions is not None:
+            logger.info("competitions_catalog_from_cache_service", category=category, plan=plan, count=len(competitions))
             return competitions
+
+        # Cache miss - fallback to DB using repository
+        logger.info("competitions_catalog_cache_miss_using_db", category=category, plan=plan)
+        async with self._session_factory() as session:
+            # Get sport_id for category
+            sport_repo = SportRepository(session)
+            sport = await sport_repo.get_by_category(category)
+
+            if not sport:
+                logger.warning("sport_not_found_for_category", category=category)
+                return []
+
+            # Get competitions for this sport
+            comp_repo = CompetitionsRepository(session)
+            competitions_orm = await comp_repo.get_active_by_sport(sport.id)
+
+            # Convert to DTOs
+            competitions_dtos = [
+                CompetitionDTO(
+                    id=comp.id,
+                    sport_id=comp.sport_id,
+                    title=comp.title,
+                    provider=comp.provider,
+                    provider_key=comp.provider_key,
+                    plan_visibility=comp.plan_visibility,
+                    is_active=comp.is_active,
+                )
+                for comp in competitions_orm
+            ]
+
+            # Filter by plan using helper
+            filtered_competitions = helper.filter_competitions_by_plan(competitions_dtos, plan)
+
+            # Warm the cache for next time
+            await helper.warm_competitions_cache(category, competitions_dtos)
+            logger.info("competitions_catalog_from_db_service", category=category, plan=plan, count=len(filtered_competitions))
+
+            return filtered_competitions
