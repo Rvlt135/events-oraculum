@@ -229,7 +229,7 @@ class EventsService:
 
         return summary
 
-    async def check_competition_active(self, category: str, provider_key: str) -> bool:
+    async def check_competition_active(self, category: str, provider_key: str, provider: str) -> bool:
         """
         Check if competition is active using cache-first approach with DB fallback.
 
@@ -241,6 +241,7 @@ class EventsService:
         Args:
             category: Sport category (e.g., 'soccer')
             provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+            provider: Provider name (e.g., 'odds_api')
 
         Returns:
             True if active, False otherwise
@@ -263,7 +264,8 @@ class EventsService:
                             source="cache",
                             reason="active",
                             category=category,
-                            provider_key=provider_key
+                            provider_key=provider_key,
+                            provider=provider
                         )
                         return True
                     else:
@@ -273,7 +275,8 @@ class EventsService:
                             source="cache",
                             reason="inactive",
                             category=category,
-                            provider_key=provider_key
+                            provider_key=provider_key,
+                            provider=provider
                         )
                         return False
 
@@ -284,21 +287,23 @@ class EventsService:
                 source="cache",
                 reason="not_found_cache",
                 category=category,
-                provider_key=provider_key
+                provider_key=provider_key,
+                provider=provider
             )
         else:
             logger.info(
                 "comp_active_cache_miss",
                 category=category,
-                provider_key=provider_key
+                provider_key=provider_key,
+                provider=provider
             )
 
         # Step 2: DB fallback
         async with self._session_factory() as session:
             event_repo = EventRepository(session)
-            db_result = await event_repo.check_competition_active_db(
+            db_result = await event_repo.check_competition_active(
                 provider_key=provider_key,
-                provider="odds_api"
+                provider=provider
             )
 
             if db_result is None:
@@ -309,7 +314,8 @@ class EventsService:
                     source="db",
                     reason="not_found_db",
                     category=category,
-                    provider_key=provider_key
+                    provider_key=provider_key,
+                    provider=provider
                 )
                 return False
             elif db_result:
@@ -320,7 +326,8 @@ class EventsService:
                     source="db",
                     reason="active",
                     category=category,
-                    provider_key=provider_key
+                    provider_key=provider_key,
+                    provider=provider
                 )
                 return True
             else:
@@ -331,7 +338,8 @@ class EventsService:
                     source="db",
                     reason="inactive",
                     category=category,
-                    provider_key=provider_key
+                    provider_key=provider_key,
+                    provider=provider
                 )
                 return False
 
@@ -339,7 +347,8 @@ class EventsService:
         """
         Check if competition is active using cache-first approach with DB fallback.
 
-        Extracts category (sport) from provider_key and uses check_competition_active.
+        Extracts category (sport) from provider_key, gets provider from policy,
+        and uses check_competition_active.
 
         Args:
             provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
@@ -350,9 +359,14 @@ class EventsService:
         # Extract category from provider_key (e.g., 'soccer_uefa_champs_league' -> 'soccer')
         category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
 
+        # Get provider from policy
+        policy_dict = policy_loader.get_events_policy(provider="odds_api")
+        provider = policy_dict.get("provider", "odds_api")
+
         is_active = await self.check_competition_active(
             category=category,
-            provider_key=provider_key
+            provider_key=provider_key,
+            provider=provider
         )
 
         return is_active

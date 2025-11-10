@@ -237,25 +237,28 @@ class EventRepository(BaseRepository[Event]):
         )
         return list(result.scalars().all())
 
-    async def check_competition_active(self, plan: Literal["free", "pro"], name: str) -> bool:
+    async def check_competition_active(self, provider_key: str, provider: str) -> Optional[bool]:
         """
-        Check if competition is active for the given plan.
-
-        This is a stub implementation that returns True and logs a warning.
-        Real implementation would check competition status from DB.
+        Check if competition is active by querying the database.
 
         Args:
-            plan: Plan type (free or pro)
-            name: Competition provider_key
+            provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+            provider: Provider name (e.g., 'odds_api')
 
         Returns:
-            True (stub always returns True)
+            True if active, False if inactive, None if not found
         """
-        logger.warning(
-            "check_competition_active_stub_called",
-            plan=plan,
-            competition=name,
-            result=True,
-            note="stub_implementation"
+        from app.infrastructure.db.orm.competition import Competition
+
+        result = await self.session.execute(
+            select(Competition).where(
+                Competition.provider == provider,
+                Competition.provider_key == provider_key
+            )
         )
-        return True
+        competition = result.scalar_one_or_none()
+
+        if not competition:
+            return None
+
+        return competition.is_active
