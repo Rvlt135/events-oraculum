@@ -68,6 +68,16 @@ class CompetitionsRepository(BaseRepository[Competition]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_provider_key(self, provider: str, provider_key: str) -> Optional[Competition]:
+        """Get competition by provider and provider_key."""
+        result = await self.session.execute(
+            select(Competition).where(
+                Competition.provider == provider,
+                Competition.provider_key == provider_key
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_active_by_sport(self, sport_id: UUID) -> List[Competition]:
         result = await self.session.execute(
             select(Competition)

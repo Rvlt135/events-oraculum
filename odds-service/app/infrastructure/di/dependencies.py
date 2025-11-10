@@ -14,6 +14,7 @@ from app.config.settings import settings as _settings, Settings
 if TYPE_CHECKING:
     from app.infrastructure.di.container import Container
     from app.services.sports_service import SportsService
+    from app.services.events_service import EventsService
 
 
 def get_settings() -> Settings:
@@ -50,17 +51,33 @@ async def get_db_session_from_factory(
 def get_sports_service_from_container(container: "Container") -> "SportsService":
     """
     Get SportsService from container.
-    
+
     This is a framework-agnostic function that creates SportsService
     using the container's factory method.
-    
+
     Args:
         container: Container instance with initialized dependencies
-    
+
     Returns:
         SportsService instance with dependencies from container
     """
     return container.create_sports_service()
+
+
+def get_events_service_from_container(container: "Container") -> "EventsService":
+    """
+    Get EventsService from container.
+
+    This is a framework-agnostic function that creates EventsService
+    using the container's factory method.
+
+    Args:
+        container: Container instance with initialized dependencies
+
+    Returns:
+        EventsService instance with dependencies from container
+    """
+    return container.create_events_service()
 
 
 # Re-export from sub-modules for convenience
@@ -71,4 +88,5 @@ __all__ = [
     "make_session_factory",
     "get_db_session_from_factory",
     "get_sports_service_from_container",
+    "get_events_service_from_container",
 ]

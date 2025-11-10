@@ -13,10 +13,12 @@ from redis.asyncio import Redis
 from app.infrastructure.di.dependencies import (
     get_db_session_from_factory,
     get_sports_service_from_container,
+    get_events_service_from_container,
 )
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
+    from app.services.events_service import EventsService
 
 
 def get_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -70,6 +72,23 @@ def get_sports_service(request: Request) -> "SportsService":
     """
     container = request.app.state.container
     return get_sports_service_from_container(container)
+
+
+def get_events_service(request: Request) -> "EventsService":
+    """
+    Get EventsService with injected dependencies from container.
+
+    This is a thin wrapper around get_events_service_from_container that
+    extracts the container from FastAPI's request object.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        EventsService instance with dependencies from container
+    """
+    container = request.app.state.container
+    return get_events_service_from_container(container)
 
 
 def get_redis(request: Request) -> Redis:

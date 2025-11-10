@@ -14,9 +14,11 @@ from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.services.sports_service import SportsService
+from app.services.events_service import EventsService
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
+    from app.services.events_service import EventsService
 
 logger = structlog.get_logger()
 
@@ -32,7 +34,7 @@ class Container:
     def create_sports_service(self) -> "SportsService":
         """
         Factory method for SportsService.
-        
+
         Returns:
             SportsService instance with dependencies from container
         """
@@ -43,7 +45,17 @@ class Container:
             session_factory=self.session_factory,
             sports_cache=sports_cache,
             competitions_cache=competitions_cache,
-            catalog_cache_helper=CatalogCacheHelper(sports_cache, competitions_cache)
+        )
+
+    def create_events_service(self) -> "EventsService":
+        """
+        Factory method for EventsService.
+
+        Returns:
+            EventsService instance with dependencies from container
+        """
+        return EventsService(
+            session_factory=self.session_factory,
         )
 
 
