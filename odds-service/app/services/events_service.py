@@ -1,7 +1,7 @@
 """
 Events service for managing event collection targets and processing.
 """
-from typing import Literal, List
+from typing import Literal, List, Dict
 import asyncio
 import random
 import time
@@ -684,3 +684,76 @@ class EventsService:
 
         logger.debug("batches_created", total_items=len(items), batch_size=batch_size, total_batches=len(batches))
         return batches
+
+    async def get_upcoming_events_from_cache(self) -> List[Dict]:
+        """
+        Get upcoming events from cache for all enabled competitions (E10).
+
+        Aggregates events from catalog:events:{provider_key}:upcoming cache keys.
+        Returns flat list limited by provider_policy.admin.events_view_limit (default 200).
+
+        No filters, no pagination - simple cache read.
+
+        Returns:
+            List of event dictionaries from cache
+        """
+        logger.info("get_upcoming_events_from_cache_started")
+
+        # Load policy to get competitions and limit
+        policy_dict = policy_loader.get_events_policy(provider="odds_api")
+        competitions_free = policy_dict.get("competitions", {}).get("free", [])
+        competitions_pro = policy_dict.get("competitions", {}).get("pro", [])
+        all_competition_keys = list(set(competitions_free + competitions_pro))
+
+        # Get view limit from policy
+        view_limit = policy_dict.get("admin", {}).get("events_view_limit", 200)
+
+        logger.info(
+            "aggregating_events_from_cache",
+            competitions_count=len(all_competition_keys),
+            view_limit=view_limit
+        )
+
+        # Aggregate events from all competitions
+        all_events = []
+        for provider_key in all_competition_keys:
+            try:
+                events = await self._events_cache.read_upcoming(provider_key)
+                if events:
+                    # Convert EventDTO to dict for JSON serialization
+                    for event in events:
+                        all_events.append({
+                            "id": str(event.id),
+                            "provider": event.provider,
+                            "external_id": event.external_id,
+                            "sport_id": str(event.sport_id),
+                            "competition_id": str(event.competition_id),
+                            "home_team_id": str(event.home_team_id) if event.home_team_id else None,
+                            "away_team_id": str(event.away_team_id) if event.away_team_id else None,
+                            "home_team_name": event.home_team_name,
+                            "away_team_name": event.away_team_name,
+                            "commence_time": event.commence_time.isoformat() if event.commence_time else None,
+                            "status": event.status,
+                            "participant_mode": event.participant_mode,
+                            "participants": event.participants,
+                            "metadata": event.metadata,
+                        })
+            except Exception as e:
+                logger.warning(
+                    "failed_to_read_events_cache",
+                    provider_key=provider_key,
+                    error=str(e)
+                )
+                continue
+
+        # Apply limit
+        limited_events = all_events[:view_limit]
+
+        logger.info(
+            "upcoming_events_aggregated",
+            total_events=len(all_events),
+            returned_count=len(limited_events),
+            limit=view_limit
+        )
+
+        return limited_events

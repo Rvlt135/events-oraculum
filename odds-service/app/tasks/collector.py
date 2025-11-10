@@ -149,3 +149,122 @@ async def collect_sports_task() -> Dict[str, str]:
         logger.error("sports_collection_task_failed", error=str(e))
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
+
+
+@broker.task()
+async def collect_events() -> Dict[str, str]:
+    """
+    Collect events for all active competitions from provider (E10).
+
+    No runtime parameters - all configuration from provider_policy.yml:
+    - Competition list with plan_visibility and is_active filtering
+    - Time window from events_window.period
+    - Rate limits and retry policy from events_window
+    - Cache TTL from events_cache.upcoming_ttl_sec
+
+    Returns summary with inserted/updated/skipped counts and errors.
+    """
+    start_time = now_utc()
+    logger.info("collect_events_task_started", timestamp=start_time.isoformat())
+
+    if not hasattr(broker.state, 'container'):
+        raise RuntimeError("Container not found in broker.state")
+
+    container: "Container" = broker.state.container
+
+    try:
+        from app.infrastructure.di.services import get_events_service
+
+        # Get EventsService from DI
+        events_service = await get_events_service()
+
+        # Load policy
+        policy_dict = policy_loader.get_events_policy(provider="odds_api")
+        provider = policy_dict.get("provider", "odds_api")
+
+        # Get competitions from policy
+        competitions_free = policy_dict.get("competitions", {}).get("free", [])
+        competitions_pro = policy_dict.get("competitions", {}).get("pro", [])
+        all_competition_keys = list(set(competitions_free + competitions_pro))
+
+        logger.info(
+            "collect_events_policy_loaded",
+            provider=provider,
+            total_competitions=len(all_competition_keys),
+            free_count=len(competitions_free),
+            pro_count=len(competitions_pro)
+        )
+
+        # Filter active competitions using cache-first with DB fallback
+        active_keys = []
+        for key in all_competition_keys:
+            category = key.split("_")[0] if "_" in key else "unknown"
+            is_active = await events_service.check_competition_active(
+                category=category,
+                provider_key=key,
+                provider=provider
+            )
+            if is_active:
+                active_keys.append(key)
+            else:
+                logger.info("competition_filtered_inactive", provider_key=key)
+
+        logger.info("active_competitions_filtered", total=len(all_competition_keys), active=len(active_keys))
+
+        if not active_keys:
+            logger.warning("no_active_competitions_found")
+            return {
+                "status": "success",
+                "message": "No active competitions to process",
+                "timestamp": now_utc().isoformat(),
+            }
+
+        # Build time window from policy
+        period_days = policy_dict.get("events_window", {}).get("period", 30)
+        commence_time_from, commence_time_to = build_events_window(period_days)
+
+        from app.domain.entities.events_window import EventsWindowDTO
+        window = EventsWindowDTO(
+            from_iso=commence_time_from,
+            to_iso=commence_time_to
+        )
+
+        logger.info(
+            "events_window_built",
+            period_days=period_days,
+            from_iso=window.from_iso,
+            to_iso=window.to_iso
+        )
+
+        # Process competitions
+        summary = await events_service.process_competitions(
+            keys=active_keys,
+            window=window
+        )
+
+        duration = (now_utc() - start_time).total_seconds()
+        collection_duration.observe(duration)
+
+        logger.info(
+            "collect_events_task_completed",
+            duration_seconds=duration,
+            processed=summary.processed,
+            failed=summary.failed,
+            skipped=summary.skipped,
+            total_events=summary.total_events
+        )
+
+        return {
+            "status": "success",
+            "processed": str(summary.processed),
+            "failed": str(summary.failed),
+            "skipped": str(summary.skipped),
+            "total_events": str(summary.total_events),
+            "duration_seconds": str(duration),
+            "timestamp": now_utc().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("collect_events_task_failed", error=str(e), exc_info=True)
+        collection_errors_total.inc()
+        return {"status": "error", "message": str(e)}

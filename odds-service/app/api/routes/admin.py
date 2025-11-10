@@ -200,3 +200,70 @@ async def get_competitions_catalog(
     except Exception as e:
         logger.error("failed_to_get_competitions_catalog", category=category, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch competitions catalog")
+
+
+@router.post("/tasks/events/sync", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_events_sync(
+    _auth: None = Depends(verify_admin_token)
+) -> TaskTriggerResponse:
+    """
+    Manually trigger events collection task (E10).
+
+    This enqueues a `collect_events` task in TaskIQ that will:
+    1. Load provider_policy.yml configuration
+    2. Determine active competitions (cache-first with DB fallback)
+    3. Collect events for each competition with rate limits
+    4. Refresh events cache atomically per competition
+    5. Log summary with inserted/updated/skipped counts
+
+    No runtime parameters - all configuration from provider_policy.yml.
+    """
+    logger.info("events_sync_triggered_manually")
+
+    try:
+        from app.tasks.collector import collect_events
+
+        task = await collect_events.kiq()
+
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="Events collection task enqueued",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_events_sync", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )
+
+
+@router.get("/catalog/events/upcoming")
+async def get_upcoming_events_catalog(
+    _auth: None = Depends(verify_admin_token),
+):
+    """
+    Get upcoming events from process cache (E10).
+
+    Returns flat list of upcoming events aggregated from all enabled competitions.
+    Data source: catalog:events:{provider_key}:upcoming cache keys.
+
+    No filters, no pagination - returns up to limit from provider_policy.admin.events_view_limit.
+    """
+    logger.info("get_upcoming_events_catalog_endpoint")
+
+    try:
+        from app.infrastructure.di.services import get_events_service
+
+        events_service = await get_events_service()
+        events = await events_service.get_upcoming_events_from_cache()
+
+        logger.info("upcoming_events_returned", count=len(events))
+        return {
+            "count": len(events),
+            "events": events
+        }
+
+    except Exception as e:
+        logger.error("failed_to_get_upcoming_events", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch upcoming events")
