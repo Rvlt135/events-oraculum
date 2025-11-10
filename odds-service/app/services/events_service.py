@@ -229,12 +229,133 @@ class EventsService:
 
         return summary
 
-    async def _check_competition_active(self, provider_key: str) -> bool:
-        """Check if competition is active using repository."""
+    async def check_competition_active(self, category: str, provider_key: str) -> bool:
+        """
+        Check if competition is active using cache-first approach with DB fallback.
+
+        Priority:
+        1. Check competitions cache for provider_key
+        2. If cache miss, fallback to DB query
+        3. If not found, return False (treat as inactive)
+
+        Args:
+            category: Sport category (e.g., 'soccer')
+            provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+
+        Returns:
+            True if active, False otherwise
+        """
+        # Step 1: Try cache
+        cached_catalog = await self._competitions_cache.get_catalog(category)
+
+        if cached_catalog and "competitions" in cached_catalog:
+            # Cache hit - search for provider_key
+            competitions_list = cached_catalog["competitions"]
+
+            for comp_data in competitions_list:
+                if comp_data.get("provider_key") == provider_key:
+                    is_active = comp_data.get("is_active", False)
+
+                    if is_active:
+                        logger.info(
+                            "comp_active_check",
+                            result=True,
+                            source="cache",
+                            reason="active",
+                            category=category,
+                            provider_key=provider_key
+                        )
+                        return True
+                    else:
+                        logger.info(
+                            "comp_active_check",
+                            result=False,
+                            source="cache",
+                            reason="inactive",
+                            category=category,
+                            provider_key=provider_key
+                        )
+                        return False
+
+            # Found cache but not this provider_key
+            logger.info(
+                "comp_active_check",
+                result=False,
+                source="cache",
+                reason="not_found_cache",
+                category=category,
+                provider_key=provider_key
+            )
+        else:
+            logger.info(
+                "comp_active_cache_miss",
+                category=category,
+                provider_key=provider_key
+            )
+
+        # Step 2: DB fallback
         async with self._session_factory() as session:
             event_repo = EventRepository(session)
-            # Note: Using "free" as default plan for stub
-            return await event_repo.check_competition_active("free", provider_key)
+            db_result = await event_repo.check_competition_active_db(
+                provider_key=provider_key,
+                provider="odds_api"
+            )
+
+            if db_result is None:
+                # Not found in DB
+                logger.info(
+                    "comp_active_check",
+                    result=False,
+                    source="db",
+                    reason="not_found_db",
+                    category=category,
+                    provider_key=provider_key
+                )
+                return False
+            elif db_result:
+                # Active in DB
+                logger.info(
+                    "comp_active_check",
+                    result=True,
+                    source="db",
+                    reason="active",
+                    category=category,
+                    provider_key=provider_key
+                )
+                return True
+            else:
+                # Inactive in DB
+                logger.info(
+                    "comp_active_check",
+                    result=False,
+                    source="db",
+                    reason="inactive",
+                    category=category,
+                    provider_key=provider_key
+                )
+                return False
+
+    async def _check_competition_active(self, provider_key: str) -> bool:
+        """
+        Check if competition is active using cache-first approach with DB fallback.
+
+        Extracts category (sport) from provider_key and uses check_competition_active.
+
+        Args:
+            provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+
+        Returns:
+            True if active, False otherwise
+        """
+        # Extract category from provider_key (e.g., 'soccer_uefa_champs_league' -> 'soccer')
+        category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
+
+        is_active = await self.check_competition_active(
+            category=category,
+            provider_key=provider_key
+        )
+
+        return is_active
 
     async def _fetch_events_with_retry(
         self, key: str, window: EventsWindowDTO, policy: EventsPolicyDTO
