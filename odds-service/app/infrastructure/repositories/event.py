@@ -142,6 +142,8 @@ class EventRepository(BaseRepository[Event]):
         # Serialize participants to dict for JSONB storage
         participants_data = [p.model_dump() for p in dto.participants]
 
+        current_time = now_utc()
+
         if not event:
             # Create new event
             event = Event(
@@ -157,7 +159,9 @@ class EventRepository(BaseRepository[Event]):
                 status=dto.status,
                 participant_mode=dto.participant_mode,
                 participants=participants_data,
-                metadata=dto.metadata
+                metadata=dto.metadata,
+                ingested_at=current_time,
+                last_seen_at=current_time
             )
             event = await self.create(event)
             logger.info(
@@ -169,24 +173,35 @@ class EventRepository(BaseRepository[Event]):
                 participants_count=len(dto.participants)
             )
         else:
-            # Update existing event
+            # Update existing event - always update these fields
             event.commence_time = commence_time
-            event.status = dto.status
+            event.home_team_name = dto.home_team_name
+            event.away_team_name = dto.away_team_name
             event.participant_mode = dto.participant_mode
             event.participants = participants_data
             event.metadata = dto.metadata
+            event.ingested_at = current_time
+            event.last_seen_at = current_time
 
-            # Update team references if provided
+            # Update team IDs if provided (may be None for solo/field events)
             if dto.home_team_id is not None:
                 event.home_team_id = dto.home_team_id
             if dto.away_team_id is not None:
                 event.away_team_id = dto.away_team_id
-            if dto.home_team_name is not None:
-                event.home_team_name = dto.home_team_name
-            if dto.away_team_name is not None:
-                event.away_team_name = dto.away_team_name
 
-            event.updated_at = now_utc()
+            # Status handling: prevent reverting from canceled to planned
+            if dto.status != "canceled" and event.status == "canceled":
+                logger.warning(
+                    "status_revert_prevented",
+                    provider=dto.provider,
+                    external_id=dto.external_id,
+                    current_status=event.status,
+                    attempted_status=dto.status
+                )
+            else:
+                event.status = dto.status
+
+            event.updated_at = current_time
             await self.session.flush()
             logger.debug(
                 "event_updated_flexible",
@@ -198,6 +213,29 @@ class EventRepository(BaseRepository[Event]):
             )
 
         return event.id
+
+    async def get_upcoming_by_competition(
+        self, competition_id: UUID, provider: str = "odds_api"
+    ) -> List[Event]:
+        """
+        Get all upcoming events for a competition.
+
+        Args:
+            competition_id: Competition UUID
+            provider: Provider name
+
+        Returns:
+            List of Event ORM objects where commence_time >= now
+        """
+        current_time = now_utc()
+        result = await self.session.execute(
+            select(Event).where(
+                Event.competition_id == competition_id,
+                Event.provider == provider,
+                Event.commence_time >= current_time
+            ).order_by(Event.commence_time)
+        )
+        return list(result.scalars().all())
 
     async def check_competition_active(self, plan: Literal["free", "pro"], name: str) -> bool:
         """

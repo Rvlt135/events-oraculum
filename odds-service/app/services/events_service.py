@@ -21,6 +21,8 @@ from app.infrastructure.repositories.event import EventRepository
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.sports import SportsCache
+from app.infrastructure.cache.catalog.events import EventsCache
+from app.domain.entities.event import EventDTO
 from app.config import policy_loader
 
 logger = structlog.get_logger()
@@ -35,11 +37,15 @@ class EventsService:
         session_factory: async_sessionmaker[AsyncSession],
         sports_cache: SportsCache,
         competitions_cache: CompetitionsCache,
+        events_cache: EventsCache,
+        cache_ttl_sec: int = 3600,
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
         self._sports_cache = sports_cache
         self._competitions_cache = competitions_cache
+        self._events_cache = events_cache
+        self._cache_ttl_sec = cache_ttl_sec
 
     async def select_target_competitions(
         self, plan: Literal["free", "pro", "all"] = "all"
@@ -186,6 +192,18 @@ class EventsService:
                 duration_ms=result.duration_ms,
                 events_count=result.events_count,
             )
+
+            # Refresh cache atomically for this competition after successful processing
+            if result.status == "success":
+                try:
+                    await self._refresh_events_cache_for_competition(key)
+                except Exception as e:
+                    logger.error(
+                        "cache_refresh_failed",
+                        key=key,
+                        error=str(e),
+                        exc_info=True
+                    )
 
             # Rate limit: delay between competitions (except after last one)
             if idx < len(keys) - 1:
@@ -441,6 +459,74 @@ class EventsService:
                     )
 
         return valid_keys, filtered_out
+
+    async def _refresh_events_cache_for_competition(self, provider_key: str) -> None:
+        """
+        Refresh events cache for a competition atomically.
+
+        Fetches all upcoming events from DB and writes them to cache atomically.
+
+        Args:
+            provider_key: Competition provider_key
+        """
+        async with self._session_factory() as session:
+            # Get competition to find competition_id
+            comp_repo = CompetitionsRepository(session)
+            competition = await comp_repo.get_by_provider_key(
+                provider="odds_api", provider_key=provider_key
+            )
+
+            if not competition:
+                logger.warning(
+                    "cache_refresh_skip_no_competition",
+                    provider_key=provider_key
+                )
+                return
+
+            # Get all upcoming events for this competition
+            event_repo = EventRepository(session)
+            events_orm = await event_repo.get_upcoming_by_competition(
+                competition_id=competition.id,
+                provider="odds_api"
+            )
+
+            # Convert ORM to DTO
+            events_dto = []
+            for event in events_orm:
+                dto = EventDTO(
+                    id=event.id,
+                    provider=event.provider,
+                    external_id=event.external_id,
+                    sport_id=event.sport_id,
+                    competition_id=event.competition_id,
+                    home_team_id=event.home_team_id,
+                    away_team_id=event.away_team_id,
+                    home_team_name=event.home_team_name,
+                    away_team_name=event.away_team_name,
+                    commence_time=event.commence_time,
+                    status=event.status,
+                    participant_mode=event.participant_mode,
+                    participants=event.participants or [],
+                    metadata=event.metadata or {},
+                    created_at=event.created_at,
+                    updated_at=event.updated_at,
+                    ingested_at=event.ingested_at,
+                    last_seen_at=event.last_seen_at
+                )
+                events_dto.append(dto)
+
+            # Write to cache atomically
+            await self._events_cache.write_upcoming_atomic(
+                provider_key=provider_key,
+                items=events_dto,
+                ttl_sec=self._cache_ttl_sec
+            )
+
+            logger.info(
+                "events_cache_refreshed",
+                provider_key=provider_key,
+                upcoming_count=len(events_dto)
+            )
 
     def _create_batches(self, items: List[str], batch_size: int) -> List[List[str]]:
         """

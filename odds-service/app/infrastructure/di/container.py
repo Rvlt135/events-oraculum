@@ -56,13 +56,20 @@ class Container:
         Returns:
             EventsService instance with dependencies from container
         """
+        from app.infrastructure.cache.catalog.events import EventsCache
+        from app.config.settings import settings
+
         sports_cache = SportsCache(self.redis)
         competitions_cache = CompetitionsCache(self.redis)
+        events_cache = EventsCache(self.redis)
+
         return EventsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
             sports_cache=sports_cache,
             competitions_cache=competitions_cache,
+            events_cache=events_cache,
+            cache_ttl_sec=settings.catalog_cache_ttl,
         )
 
 

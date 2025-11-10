@@ -30,6 +30,8 @@ class Event(Base):
     metadata = Column(JSONB, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    ingested_at = Column(DateTime(timezone=True), nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
 
     sport = relationship("Sport", back_populates="events")
     competition = relationship("Competition", back_populates="events")
