@@ -208,3 +208,30 @@ def get_batch_size_competitions(provider: str, default: int = 10) -> int:
     except Exception as e:
         logger.error("batch_size_lookup_error", provider=provider, error=str(e))
         return default
+
+
+def get_events_window_period(provider: str, default: int = 30) -> int:
+    """
+    Get events window period in days from policy.
+
+    Args:
+        provider: Provider name (e.g., 'odds_api')
+        default: Default period if not found in policy
+
+    Returns:
+        Period in days for events window
+    """
+    _initialize_policy()
+
+    if not _policy_cache:
+        logger.warning("policy_cache_empty_period", provider=provider, default=default)
+        return default
+
+    try:
+        provider_config = _policy_cache.get(provider, {})
+        events_window = provider_config.get("events_window", {})
+        period = events_window.get("period", default)
+        return int(period)
+    except Exception as e:
+        logger.error("period_lookup_error", provider=provider, error=str(e))
+        return default

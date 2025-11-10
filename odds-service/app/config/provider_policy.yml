@@ -32,6 +32,6 @@ odds_api:
       jitter: true
 
   overload:
-    max_events_per_competition_hint: 1000  # порог для chunking
-    batch_size_events: 250                 # размер порции записи в БД
-    max_competitions_per_run: 10           # (опц.) ограничить число competitions за прогон
+    max_events_per_competition_hint: 500  # порог для chunking
+    batch_size_events: 20                 # размер порции записи в БД
+    max_competitions_per_run: 15           # (опц.) ограничить число competitions за прогон

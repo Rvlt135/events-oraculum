@@ -3,7 +3,8 @@ import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
-from app.utils.time_utils import now_utc
+from app.config import policy_loader
+from app.utils.time_utils import now_utc, build_events_window
 from app.infrastructure.repositories import SportRepository, CompetitionsRepository
 from app.infrastructure.di.services import get_sports_service
 from app.tasks.normalizer import OddsNormalizer
@@ -45,6 +46,16 @@ async def collect_odds_task() -> Dict[str, str]:
 
                 sport_id = await sport_repo.get_or_create("soccer")
 
+                # Get events window period from policy and build time window
+                period_days = policy_loader.get_events_window_period("odds_api", default=30)
+                commence_time_from, commence_time_to = build_events_window(period_days)
+                logger.info(
+                    "events_window_configured",
+                    period_days=period_days,
+                    commence_time_from=commence_time_from,
+                    commence_time_to=commence_time_to
+                )
+
                 total_processed = 0
 
                 for competition_key in settings.odds_api_competitions:
@@ -61,6 +72,8 @@ async def collect_odds_task() -> Dict[str, str]:
                         sport=competition_key,
                         regions=settings.odds_api_regions,
                         markets=settings.odds_api_markets,
+                        commence_time_from=commence_time_from,
+                        commence_time_to=commence_time_to,
                     )
 
                     events_processed = 0

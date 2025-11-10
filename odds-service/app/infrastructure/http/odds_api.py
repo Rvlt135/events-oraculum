@@ -63,7 +63,22 @@ class OddsAPIClient:
         sport: str,
         regions: List[str] | None = None,
         markets: List[str] | None = None,
+        commence_time_from: str | None = None,
+        commence_time_to: str | None = None,
     ) -> List[Dict[str, Any]]:
+        """
+        Get odds for a sport from The Odds API.
+
+        Args:
+            sport: Sport key (e.g., 'soccer_uefa_champs_league')
+            regions: List of regions (defaults to instance regions)
+            markets: List of markets (defaults to instance markets)
+            commence_time_from: ISO-8601 datetime string with Z suffix (optional)
+            commence_time_to: ISO-8601 datetime string with Z suffix (optional)
+
+        Returns:
+            List of odds data dictionaries
+        """
         path = f"sports/{sport}/odds"
         url = self.base.build_url(path)
         
@@ -73,7 +88,21 @@ class OddsAPIClient:
             "dateFormat": "iso",
         }
 
-        logger.info("fetching_odds", sport=sport, regions=regions, markets=markets, url=url)
+        # Add time window parameters if provided
+        if commence_time_from:
+            params["commenceTimeFrom"] = commence_time_from
+        if commence_time_to:
+            params["commenceTimeTo"] = commence_time_to
+
+        logger.info(
+            "fetching_odds",
+            sport=sport,
+            regions=regions,
+            markets=markets,
+            commence_time_from=commence_time_from,
+            commence_time_to=commence_time_to,
+            url=url
+        )
         data = await self.base.get_json(path, params=params)
         logger.info("fetched_odds", sport=sport, count=len(data))
         return data
