@@ -47,14 +47,14 @@ class EventRepository(BaseRepository[Event]):
                 away_team_id=away_team_id,
                 commence_time=commence_time,
                 status=status,
-                metadata=event_metadata
+                event_metadata=event_metadata
             )
             event = await self.create(event)
             logger.info("event_created", provider=provider, external_id=external_id, id=str(event.id))
         else:
             event.commence_time = commence_time
             event.status = status
-            event.metadata = event_metadata
+            event.event_metadata = event_metadata
             event.updated_at = now_utc()
             await self.session.flush()
             logger.debug("event_updated", provider=provider, external_id=external_id, id=str(event.id))
@@ -159,7 +159,7 @@ class EventRepository(BaseRepository[Event]):
                 status=dto.status,
                 participant_mode=dto.participant_mode,
                 participants=participants_data,
-                metadata=dto.metadata,
+                event_metadata=dto.metadata,
                 ingested_at=current_time,
                 last_seen_at=current_time
             )
@@ -179,7 +179,7 @@ class EventRepository(BaseRepository[Event]):
             event.away_team_name = dto.away_team_name
             event.participant_mode = dto.participant_mode
             event.participants = participants_data
-            event.metadata = dto.metadata
+            event.event_metadata = dto.metadata
             event.ingested_at = current_time
             event.last_seen_at = current_time
 
