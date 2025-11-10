@@ -2,8 +2,9 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 import json
 from redis.asyncio import Redis
+from app.config.settings import settings
 
-CATALOG_TTL_SEC = 600  # 10 минут
+CATALOG_TTL_SEC = settings.catalog_cache_ttl
 KEY_PREFIX = "catalog:sports"  # можно версионировать: v1:catalog:sports
 
 def _key_catalog() -> str:

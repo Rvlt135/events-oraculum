@@ -143,8 +143,8 @@ async def get_sports_catalog(
     Get sports catalog with cache-first strategy.
 
     Returns sports filtered by plan visibility:
-    - free: Only sports in free tier
-    - pro: Sports in free + pro tiers
+    - free: Only sports with plan_visibility == "free"
+    - pro: Only sports with plan_visibility == "pro"
     - all_available: All sports except unavailable
 
     Data source: Redis cache → DB fallback with cache warming
@@ -176,8 +176,8 @@ async def get_competitions_catalog(
     Get competitions catalog for a specific category with cache-first strategy.
 
     Returns competitions filtered by plan visibility:
-    - free: Only competitions in free tier
-    - pro: Competitions in free + pro tiers
+    - free: Only competitions with plan_visibility == "free"
+    - pro: Only competitions with plan_visibility == "pro"
     - all_available: All competitions except unavailable
 
     Args:

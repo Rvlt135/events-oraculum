@@ -64,148 +64,138 @@ Table user_sessions {
 // =============================================================================
 
 Table sports {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  name text [unique, not null]
-  display_name text [not null]
-  is_active bool [default: true]
+  id uuid [primary key, default: `uuid_generate_v4()`]
+  key text [not null, unique]
+  title text [not null]
+  description text
+  active boolean [default: true]
   created_at timestamptz [default: `now()`]
-  
-  Note: 'Sports categories (football, basketball, etc.)'
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (key) [name: 'idx_sports_key']
+    (active) [name: 'idx_sports_active']
+  }
 }
 
 Table competitions {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  sport_id uuid [ref: > sports.id, not null, note: 'CASCADE delete']
-  key text [unique, not null]
-  name text [not null]
-  region text [not null]
-  is_active bool [default: true]
+  id uuid [primary key, default: `uuid_generate_v4()`]
+  sport_id uuid [ref: > sports.id, on delete: CASCADE]
+  key text [not null]
+  title text [not null]
+  description text
+  test_field text
+  provider text [not null, default: 'odds_api']
+  provider_key text [not null]
   created_at timestamptz [default: `now()`]
-  
-  Note: 'Sports competitions with regional information'
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (sport_id) [name: 'idx_competitions_sport_id']
+    (key) [name: 'idx_competitions_key']
+    (provider, provider_key) [name: 'idx_competitions_provider']
+  }
 }
 
 Table teams {
-  id uuid [pk, default: `uuid_generate_v4()`]
+  id uuid [primary key, default: `uuid_generate_v4()`]
   name text [not null]
-  normalized_name text [unique, not null]
-  sport_id uuid [ref: > sports.id, not null, note: 'CASCADE delete']
-  external_ids jsonb [default: `{}`]
+  normalized_name text [not null, unique]
+  sport_id uuid [ref: > sports.id, on delete: CASCADE]
+  external_ids jsonb [default: '{}']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
-  
-  Note: 'Sports teams with external ID mappings'
+
+  indexes {
+    (sport_id) [name: 'idx_teams_sport_id']
+    (normalized_name) [name: 'idx_teams_normalized_name']
+  }
 }
 
 Table events {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  external_id text [unique, not null]
-  sport_id uuid [ref: > sports.id, not null, note: 'CASCADE delete']
-  competition_id uuid [ref: > competitions.id, not null, note: 'CASCADE delete']
-  home_team_id uuid [ref: > teams.id, not null, note: 'CASCADE delete']
-  away_team_id uuid [ref: > teams.id, not null, note: 'CASCADE delete']
+  id uuid [primary key, default: `uuid_generate_v4()`]
+  external_id text [not null, unique]
+  sport_id uuid [ref: > sports.id, on delete: CASCADE]
+  competition_id uuid [ref: > competitions.id, on delete: CASCADE]
+  home_team_id uuid [ref: > teams.id, on delete: CASCADE]
+  away_team_id uuid [ref: > teams.id, on delete: CASCADE]
   commence_time timestamptz [not null]
-  status text [default: 'upcoming', note: 'enum: upcoming, live, completed, cancelled']
-  event_metadata jsonb [default: `{}`]
+  status text [default: 'upcoming']
+  event_metadata jsonb [default: '{}']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
-  
-  Note: 'Sports events with team matchups'
+
+  indexes {
+    (sport_id) [name: 'idx_events_sport_id']
+    (competition_id) [name: 'idx_events_competition_id']
+    (commence_time) [name: 'idx_events_commence_time']
+    (status) [name: 'idx_events_status']
+    (external_id) [name: 'idx_events_external_id']
+  }
 }
 
 Table bookmakers {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  key text [unique, not null]
+  id uuid [primary key, default: `uuid_generate_v4()`]
+  key text [not null, unique]
   name text [not null]
   region text [not null]
-  is_active bool [default: true]
+  is_active boolean [default: true]
   created_at timestamptz [default: `now()`]
-  
-  Note: 'Betting bookmakers and their regions'
+
+  indexes {
+    (key) [name: 'idx_bookmakers_key']
+    (is_active) [name: 'idx_bookmakers_is_active']
+  }
 }
 
 Table odds_snapshots {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  event_id uuid [ref: > events.id, not null, note: 'CASCADE delete']
-  bookmaker_id uuid [ref: > bookmakers.id, not null, note: 'CASCADE delete']
-  market_type text [not null, note: 'enum: h2h, spreads, totals']
+  id uuid [primary key, default: `uuid_generate_v4()`]
+  event_id uuid [ref: > events.id, on delete: CASCADE]
+  bookmaker_id uuid [ref: > bookmakers.id, on delete: CASCADE]
+  market_type text [not null]
   outcomes jsonb [not null]
   timestamp_source timestamptz [not null]
   timestamp_ingested timestamptz [default: `now()`]
   created_at timestamptz [default: `now()`]
-  
-  Note: 'Raw odds data from bookmakers'
+
+  indexes {
+    (event_id) [name: 'idx_odds_snapshots_event_id']
+    (bookmaker_id) [name: 'idx_odds_snapshots_bookmaker_id']
+    (market_type) [name: 'idx_odds_snapshots_market_type']
+    (timestamp_ingested) [name: 'idx_odds_snapshots_timestamp_ingested', type: 'btree', order: 'desc']
+  }
 }
 
 Table normalized_odds {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  event_id uuid [ref: > events.id, not null, note: 'CASCADE delete']
+  id uuid [primary key, default: `uuid_generate_v4()`]
+  event_id uuid [ref: > events.id, on delete: CASCADE]
   market_type text [not null]
-  home_odds_avg decimal(10,2) [not null]
-  away_odds_avg decimal(10,2) [not null]
-  draw_odds_avg decimal(10,2) [note: 'nullable for non-draw sports']
-  home_odds_best decimal(10,2) [not null]
-  away_odds_best decimal(10,2) [not null]
-  draw_odds_best decimal(10,2) [note: 'nullable for non-draw sports']
-  bookmakers_count int [not null, default: 0]
+  home_odds_avg numeric(10,2) [not null]
+  away_odds_avg numeric(10,2) [not null]
+  draw_odds_avg numeric(10,2)
+  home_odds_best numeric(10,2) [not null]
+  away_odds_best numeric(10,2) [not null]
+  draw_odds_best numeric(10,2)
+  bookmakers_count integer [not null, default: 0]
   timestamp_source timestamptz [not null]
   timestamp_ingested timestamptz [not null]
   timestamp_normalized timestamptz [default: `now()`]
   created_at timestamptz [default: `now()`]
-  
-  Note: 'Normalized odds with aggregated statistics'
+
+  indexes {
+    (event_id) [name: 'idx_normalized_odds_event_id']
+    (market_type) [name: 'idx_normalized_odds_market_type']
+    (timestamp_normalized) [name: 'idx_normalized_odds_timestamp_normalized', type: 'btree', order: 'desc']
+  }
 }
 
-// =============================================================================
-// MISSING TABLES (Not found in current codebase)
-// =============================================================================
-
-Table prediction_history {
-  id uuid [pk, default: `uuid_generate_v4()`]
-  event_id uuid [ref: > events.id, not null, note: 'CASCADE delete']
-  predicted text [not null, note: 'enum: home, draw, away']
-  actual text [not null, note: 'enum: home, draw, away']
-  edge_at_prediction decimal(10,2) [not null]
-  accuracy_flag bool [not null]
-  created_at timestamptz [default: `now()`]
-  
-  Note: 'MISSING TABLE - Referenced in focus_entities but not found in codebase'
-}
-
-// =============================================================================
-// INDEXES (Based on SQLAlchemy __table_args__)
-// =============================================================================
-
-// User indexes
-// - users.email (unique index)
-// - users.telegram_account_id (unique index)
-
-// competition indexes
-// - idx_competitions_sport_id ON competitions(sport_id)
-// - idx_competitions_is_active ON competitions(is_active)
-
-// Team indexes
-// - idx_teams_sport_id ON teams(sport_id)
-// - idx_teams_normalized_name ON teams(normalized_name)
-
-// Event indexes
-// - idx_events_sport_id ON events(sport_id)
-// - idx_events_competition_id ON events(competition_id)
-// - idx_events_commence_time ON events(commence_time)
-// - idx_events_status ON events(status)
-// - idx_events_external_id ON events(external_id)
-
-// Bookmaker indexes
-// - idx_bookmakers_key ON bookmakers(key)
-// - idx_bookmakers_is_active ON bookmakers(is_active)
-
-// Odds snapshot indexes
-// - idx_odds_snapshots_event_id ON odds_snapshots(event_id)
-// - idx_odds_snapshots_bookmaker_id ON odds_snapshots(bookmaker_id)
-// - idx_odds_snapshots_market_type ON odds_snapshots(market_type)
-// - idx_odds_snapshots_timestamp_ingested ON odds_snapshots(timestamp_ingested DESC)
-
-// Normalized odds indexes
-// - idx_normalized_odds_event_id ON normalized_odds(event_id)
-// - idx_normalized_odds_market_type ON normalized_odds(market_type)
-// - idx_normalized_odds_timestamp_normalized ON normalized_odds(timestamp_normalized DESC)
+// Relationships
+Ref: events.sport_id > sports.id
+Ref: events.competition_id > competitions.id
+Ref: events.home_team_id > teams.id
+Ref: events.away_team_id > teams.id
+Ref: odds_snapshots.event_id > events.id
+Ref: odds_snapshots.bookmaker_id > bookmakers.id
+Ref: normalized_odds.event_id > events.id
+Ref: teams.sport_id > sports.id
+Ref: competitions.sport_id > sports.id

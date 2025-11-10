@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     schedule_crons: List[str]
     schedule_sports_crons: List[str]
+    catalog_cache_ttl: int
+
 
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8083)

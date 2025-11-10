@@ -1,15 +1,8 @@
-from typing import Dict, Any, List
 import structlog
-from prometheus_client import Counter, Histogram
-import json
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from uuid import UUID
 
 from app.infrastructure.http.odds_api import OddsAPIClient
-from app.infrastructure.repositories import NormalizedOddsRepository
-from app.infrastructure.repositories.competitions import CompetitionsRepository
-from app.infrastructure.repositories.sport import SportRepository
-from app.infrastructure.cache.sports import SportsCache
+from app.infrastructure.cache.catalog.sports import SportsCache
 logger = structlog.get_logger()
 
 

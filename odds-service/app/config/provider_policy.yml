@@ -20,6 +20,7 @@ odds_api:
 
   events_window:
     period: 30  # окно вперёд, дней (E2)
+    batch_size_competitions: 10
     rate_limit:
       delay_between_competitions_sec: 10  # пауза между опросами разных provider_key
       max_concurrency: 1                  # 1 = последовательная обработка (MVP)

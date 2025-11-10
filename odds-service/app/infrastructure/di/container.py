@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
 from app.config.settings import settings
-from app.infrastructure.cache.sports import SportsCache
-from app.infrastructure.cache.competitions import CompetitionsCache
+from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
+from app.infrastructure.cache.catalog.sports import SportsCache
+from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
@@ -35,11 +36,14 @@ class Container:
         Returns:
             SportsService instance with dependencies from container
         """
+        sports_cache = SportsCache(self.redis)
+        competitions_cache = CompetitionsCache(self.redis)
         return SportsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
-            sports_cache=SportsCache(self.redis),
-            competitions_cache=CompetitionsCache(self.redis),
+            sports_cache=sports_cache,
+            competitions_cache=competitions_cache,
+            catalog_cache_helper=CatalogCacheHelper(sports_cache, competitions_cache)
         )
 
 

@@ -6,9 +6,8 @@ from typing import List, Literal, Optional
 import structlog
 
 from app.api.schemas.schemas import SportDTO, CompetitionDTO
-from app.infrastructure.cache.sports import SportsCache
-from app.infrastructure.cache.competitions import CompetitionsCache
-from app.config import policy_loader
+from app.infrastructure.cache.catalog.sports import SportsCache
+from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 
 logger = structlog.get_logger()
 
@@ -93,7 +92,7 @@ class CatalogCacheHelper:
             sports_dtos: List of SportDTO to cache
         """
         cache_data = {
-            "sports": [dto.model_dump() for dto in sports_dtos],
+            "sports": [dto.model_dump(mode="json") for dto in sports_dtos],
             "updated_at": None,
         }
         await self.sports_cache.set_catalog(cache_data)
@@ -108,54 +107,48 @@ class CatalogCacheHelper:
             competitions_dtos: List of CompetitionDTO to cache
         """
         cache_data = {
-            "competitions": [dto.model_dump() for dto in competitions_dtos],
+            "competitions": [dto.model_dump(mode="json") for dto in competitions_dtos],
             "updated_at": None,
         }
         await self.competitions_cache.set_catalog(category, cache_data)
         logger.info("competitions_cache_warmed", category=category, count=len(competitions_dtos))
 
     def filter_sports_by_plan(self, sports: List[SportDTO], plan: PlanFilter) -> List[SportDTO]:
-        """Filter sports by plan using policy loader."""
+        """
+        Filter sports by plan using plan_visibility from DTO.
+        
+        - free: Only sports with plan_visibility == "free"
+        - pro: Only sports with plan_visibility == "pro"
+        - all_available: All sports except unavailable
+        """
         if plan == "all_available":
             return [s for s in sports if s.plan_visibility != "unavailable"]
 
-        # Get the list of categories for this plan from policy
-        result = []
-        for sport in sports:
-            visibility = policy_loader.get_visibility_for_category("odds_api", sport.category)
+        # Filter by plan_visibility directly from DTO (optimized, no policy_loader calls)
+        if plan == "free":
+            return [s for s in sports if s.plan_visibility == "free"]
+        elif plan == "pro":
+            return [s for s in sports if s.plan_visibility == "pro"]
 
-            # Exclude unavailable
-            if visibility == "unavailable":
-                continue
-
-            # Filter by requested plan
-            if plan == "free" and visibility == "free":
-                result.append(sport)
-            elif plan == "pro" and visibility in ["free", "pro"]:
-                result.append(sport)
-
-        return result
+        return []
 
     def filter_competitions_by_plan(
         self, competitions: List[CompetitionDTO], plan: PlanFilter
     ) -> List[CompetitionDTO]:
-        """Filter competitions by plan using policy loader."""
+        """
+        Filter competitions by plan using plan_visibility from DTO.
+        
+        - free: Only competitions with plan_visibility == "free"
+        - pro: Only competitions with plan_visibility == "pro"
+        - all_available: All competitions except unavailable
+        """
         if plan == "all_available":
             return [c for c in competitions if c.plan_visibility != "unavailable"]
 
-        # Get the list of competitions for this plan from policy
-        result = []
-        for comp in competitions:
-            visibility = policy_loader.get_visibility_for_competition("odds_api", comp.provider_key)
+        # Filter by plan_visibility directly from DTO (optimized, no policy_loader calls)
+        if plan == "free":
+            return [c for c in competitions if c.plan_visibility == "free"]
+        elif plan == "pro":
+            return [c for c in competitions if c.plan_visibility == "pro"]
 
-            # Exclude unavailable
-            if visibility == "unavailable":
-                continue
-
-            # Filter by requested plan
-            if plan == "free" and visibility == "free":
-                result.append(comp)
-            elif plan == "pro" and visibility in ["free", "pro"]:
-                result.append(comp)
-
-        return result
+        return []

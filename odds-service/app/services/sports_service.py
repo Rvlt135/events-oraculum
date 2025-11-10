@@ -1,19 +1,22 @@
 """
 Sports service for managing sports data synchronization.
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 import structlog
 from prometheus_client import Counter, Histogram
-import json
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from uuid import UUID
 
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
-from app.infrastructure.cache.sports import SportsCache
-from app.infrastructure.cache.competitions import CompetitionsCache
+from app.infrastructure.cache.catalog.sports import SportsCache
+from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.config import policy_loader
+from app.domain.entities.sport import SportEntity
+from app.domain.entities.competition import CompetitionEntity
+from app.api.schemas.schemas import SportDTO, CompetitionDTO
+from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 
 logger = structlog.get_logger()
 
@@ -32,11 +35,13 @@ class SportsService:
         session_factory: async_sessionmaker[AsyncSession],
         sports_cache: SportsCache,
         competitions_cache: CompetitionsCache,
+        catalog_cache_helper: CatalogCacheHelper,
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
         self._sports_cache = sports_cache
         self._competitions_cache = competitions_cache
+        self._catalog_cache_helper = catalog_cache_helper
 
 
     async def sync_sports_categories(self, resp: List[Dict[str, Any]]) -> dict:
@@ -227,16 +232,19 @@ class SportsService:
                         if not sports:
                             logger.warning("no_sports_found_for_cache")
                         else:
+                            # Use domain entities for cache serialization
+                            sports_entities = [
+                                SportEntity(
+                                    id=sport.id,
+                                    category=sport.category,
+                                    is_active=sport.is_active,
+                                    plan_visibility=sport.plan_visibility,
+                                )
+                                for sport in sports
+                            ]
+                            
                             cache_data = {
-                                "sports": [
-                                    {
-                                        "id": str(sport.id),
-                                        "category": sport.category,
-                                        "is_active": sport.is_active,
-                                        "plan_visibility": sport.plan_visibility,
-                                    }
-                                    for sport in sports
-                                ],
+                                "sports": [entity.model_dump(mode="json") for entity in sports_entities],
                                 "updated_at": str(sports[0].created_at) if sports else None,
                             }
 
@@ -247,29 +255,36 @@ class SportsService:
                             else:
                                 logger.warning("sports_cache_skipped_not_initialized")
 
-                            # Update competitions cache by category
+                            # Update competitions cache by category using domain entities
                             competitions_repo = CompetitionsRepository(session)
                             competitions_cached_count = 0
                             for sport in sports:
                                 competitions = await competitions_repo.get_active_by_sport(sport.id)
+                                competitions_entities = [
+                                    CompetitionEntity(
+                                        id=comp.id,
+                                        sport_id=comp.sport_id,
+                                        provider=comp.provider,
+                                        provider_key=comp.provider_key,
+                                        title=comp.title,
+                                        plan_visibility=comp.plan_visibility,
+                                        is_active=comp.is_active,
+                                    )
+                                    for comp in competitions
+                                ]
+                                
+                                # Use model_dump to serialize entities - UUIDs will be converted to strings via field_serializer
                                 comp_cache_data = {
                                     "competitions": [
-                                        {
-                                            "id": str(comp.id),
-                                            "provider_key": comp.provider_key,
-                                            "title": comp.title,
-                                            "description": comp.description,
-                                            "plan_visibility": comp.plan_visibility,
-                                            "is_active": comp.is_active,
-                                        }
-                                        for comp in competitions
+                                        entity.model_dump(mode="json") 
+                                        for entity in competitions_entities
                                     ],
                                     "updated_at": str(competitions[0].created_at) if competitions else None,
                                 }
                                 if self._competitions_cache:
                                     await self._competitions_cache.set_catalog(sport.category, comp_cache_data)
                                     competitions_cached_count += 1
-                                    logger.debug("competition_category_cached", category=sport.category, competitions_count=len(competitions))
+                                    logger.info("competition_category_cached", category=sport.category, competitions_count=len(competitions))
                                 else:
                                     logger.warning("competitions_cache_skipped_not_initialized", category=sport.category)
 
@@ -295,7 +310,7 @@ class SportsService:
                 "message": str(e),
             }
 
-    async def get_sports_catalog(self, plan: str) -> List:
+    async def get_sports_catalog(self, plan: Literal["free", "pro", "all_available"]) -> List:
         """
         Get sports catalog with cache-first strategy and plan filtering.
         Uses CatalogCacheHelper for cache reads and Repository for DB fallback.
@@ -306,18 +321,10 @@ class SportsService:
         Returns:
             List of SportDTO filtered by plan
         """
-        from app.api.schemas.schemas import SportDTO
-        from app.infrastructure.cache.catalog_cache_helper import CatalogCacheHelper
 
         logger.info("get_sports_catalog_service", plan=plan)
 
-        # Try cache first using helper
-        helper = CatalogCacheHelper(
-            sports_cache=self._sports_cache,
-            competitions_cache=self._competitions_cache,
-        )
-
-        sports = await helper.get_sports_from_cache(plan)
+        sports = await self._catalog_cache_helper.get_sports_from_cache(plan)
 
         if sports is not None:
             logger.info("sports_catalog_from_cache_service", plan=plan, count=len(sports))
@@ -341,15 +348,15 @@ class SportsService:
             ]
 
             # Filter by plan using helper
-            filtered_sports = helper.filter_sports_by_plan(sports_dtos, plan)
+            filtered_sports = self._catalog_cache_helper.filter_sports_by_plan(sports_dtos, plan)
 
             # Warm the cache for next time
-            await helper.warm_sports_cache(sports_dtos)
+            await self._catalog_cache_helper.warm_sports_cache(sports_dtos)
             logger.info("sports_catalog_from_db_service", plan=plan, count=len(filtered_sports))
 
             return filtered_sports
 
-    async def get_competitions_catalog(self, category: str, plan: str) -> List:
+    async def get_competitions_catalog(self, category: str, plan: Literal["free", "pro", "all_available"]) -> List:
         """
         Get competitions catalog with cache-first strategy and plan filtering.
         Uses CatalogCacheHelper for cache reads and Repository for DB fallback.
@@ -361,18 +368,11 @@ class SportsService:
         Returns:
             List of CompetitionDTO filtered by plan
         """
-        from app.api.schemas.schemas import CompetitionDTO
-        from app.infrastructure.cache.catalog_cache_helper import CatalogCacheHelper
 
         logger.info("get_competitions_catalog_service", category=category, plan=plan)
 
-        # Try cache first using helper
-        helper = CatalogCacheHelper(
-            sports_cache=self._sports_cache,
-            competitions_cache=self._competitions_cache,
-        )
 
-        competitions = await helper.get_competitions_from_cache(category, plan)
+        competitions = await self._catalog_cache_helper.get_competitions_from_cache(category, plan)
 
         if competitions is not None:
             logger.info("competitions_catalog_from_cache_service", category=category, plan=plan, count=len(competitions))
@@ -406,12 +406,12 @@ class SportsService:
                 )
                 for comp in competitions_orm
             ]
-
+            # com_dto = [comp.model_dump(mode="json") for comp in competitions_dtos]
             # Filter by plan using helper
-            filtered_competitions = helper.filter_competitions_by_plan(competitions_dtos, plan)
+            filtered_competitions = self._catalog_cache_helper.filter_competitions_by_plan(competitions_dtos, plan)
 
             # Warm the cache for next time
-            await helper.warm_competitions_cache(category, competitions_dtos)
+            await self._catalog_cache_helper.warm_competitions_cache(category, competitions_dtos)
             logger.info("competitions_catalog_from_db_service", category=category, plan=plan, count=len(filtered_competitions))
 
             return filtered_competitions

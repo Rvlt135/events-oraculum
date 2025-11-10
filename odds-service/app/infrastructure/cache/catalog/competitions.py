@@ -2,8 +2,10 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 import json
 from redis.asyncio import Redis
+from app.config.settings import settings
+import structlog
 
-CATALOG_TTL_SEC = 600  # 10 minutes
+CATALOG_TTL_SEC = settings.catalog_cache_ttl
 KEY_PREFIX = "catalog:competitions"
 
 
@@ -36,12 +38,9 @@ class CompetitionsCache:
             return None
         try:
             # Handle both string and bytes responses
-            if isinstance(raw, bytes):
-                raw = raw.decode('utf-8')
             return json.loads(raw)
         except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as e:
             # Log error and invalidate corrupted cache
-            import structlog
             logger = structlog.get_logger()
             logger.warning("cache_decode_error", error=str(e), raw_type=type(raw).__name__, category=category)
             await self.invalidate_catalog(category)
