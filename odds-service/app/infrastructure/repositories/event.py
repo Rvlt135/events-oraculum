@@ -26,14 +26,19 @@ class EventRepository(BaseRepository[Event]):
         commence_time: datetime,
         status: str,
         event_metadata: Dict[str, Any],
+        provider: str = "odds_api",
     ) -> UUID:
         result = await self.session.execute(
-            select(Event).where(Event.external_id == external_id)
+            select(Event).where(
+                Event.provider == provider,
+                Event.external_id == external_id
+            )
         )
         event = result.scalar_one_or_none()
 
         if not event:
             event = Event(
+                provider=provider,
                 external_id=external_id,
                 sport_id=sport_id,
                 competition_id=competition_id,
@@ -44,20 +49,23 @@ class EventRepository(BaseRepository[Event]):
                 metadata=event_metadata
             )
             event = await self.create(event)
-            logger.info("event_created", external_id=external_id, id=str(event.id))
+            logger.info("event_created", provider=provider, external_id=external_id, id=str(event.id))
         else:
             event.commence_time = commence_time
             event.status = status
             event.metadata = event_metadata
             event.updated_at = now_utc()
             await self.session.flush()
-            logger.debug("event_updated", external_id=external_id, id=str(event.id))
+            logger.debug("event_updated", provider=provider, external_id=external_id, id=str(event.id))
 
         return event.id
 
-    async def get_by_external_id(self, external_id: str) -> Optional[Event]:
+    async def get_by_external_id(self, external_id: str, provider: str = "odds_api") -> Optional[Event]:
         result = await self.session.execute(
-            select(Event).where(Event.external_id == external_id)
+            select(Event).where(
+                Event.provider == provider,
+                Event.external_id == external_id
+            )
         )
         return result.scalar_one_or_none()
 
