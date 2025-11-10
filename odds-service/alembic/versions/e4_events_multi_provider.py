@@ -22,11 +22,11 @@ depends_on = None
 def upgrade():
     """Apply E4 events table changes."""
 
-    # Step 1: Add provider column with default 'odds_api' if it doesn't exist
     conn = op.get_bind()
     inspector = sa.inspect(conn)
-    columns = [col['name'] for col in inspector.get_columns('events')]
 
+    # Step 1: Add provider column with default 'odds_api' if it doesn't exist
+    columns = [col['name'] for col in inspector.get_columns('events')]
     if 'provider' not in columns:
         op.add_column('events',
             sa.Column('provider', sa.Text(), nullable=False, server_default='odds_api')
@@ -34,26 +34,33 @@ def upgrade():
         # Remove server_default after adding (keep default in ORM only)
         op.alter_column('events', 'provider', server_default=None)
 
-    # Step 2: Drop old unique constraint on external_id if it exists
+    # Step 2: Drop old unique constraint/index on external_id if it exists
+    # Check for unique constraints on external_id only
     constraints = inspector.get_unique_constraints('events')
-    indexes = inspector.get_indexes('events')
-
-    # Check if there's a unique constraint or unique index on external_id
     for constraint in constraints:
         if constraint['column_names'] == ['external_id']:
-            op.drop_constraint(constraint['name'], 'events', type_='unique')
+            # Use SQL DROP IF EXISTS to avoid transaction errors
+            conn.execute(sa.text(
+                f"ALTER TABLE events DROP CONSTRAINT IF EXISTS {constraint['name']}"
+            ))
             break
 
-    # Also check for unique index (SQLAlchemy unique=True creates an index)
+    # Check for unique indexes on external_id
+    indexes = inspector.get_indexes('events')
     for index in indexes:
         if index['column_names'] == ['external_id'] and index.get('unique'):
-            op.drop_index(index['name'], table_name='events')
+            # Use SQL DROP IF EXISTS to avoid transaction errors
+            conn.execute(sa.text(
+                f"DROP INDEX IF EXISTS {index['name']}"
+            ))
             break
 
     # Step 3: Create new composite unique constraint on (provider, external_id)
-    # Check if it already exists
+    # Re-inspect after changes
+    inspector = sa.inspect(conn)
+    constraints = inspector.get_unique_constraints('events')
     has_composite_unique = False
-    for constraint in inspector.get_unique_constraints('events'):
+    for constraint in constraints:
         if set(constraint['column_names']) == {'provider', 'external_id'}:
             has_composite_unique = True
             break
@@ -66,7 +73,9 @@ def upgrade():
         )
 
     # Step 4: Add composite index (competition_id, commence_time) for window queries
-    # Check if it already exists
+    # Re-inspect after changes
+    inspector = sa.inspect(conn)
+    indexes = inspector.get_indexes('events')
     has_composite_index = False
     for index in indexes:
         if index['column_names'] == ['competition_id', 'commence_time']:

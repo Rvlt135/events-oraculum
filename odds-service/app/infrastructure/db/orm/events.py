@@ -27,7 +27,7 @@ class Event(Base):
     participant_mode = Column(Text, nullable=False, default='unknown')
     participants = Column(JSONB, nullable=False, default=list)
 
-    metadata = Column(JSONB, default=dict)
+    event_metadata = Column("event_metadata", JSONB, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     ingested_at = Column(DateTime(timezone=True), nullable=True)

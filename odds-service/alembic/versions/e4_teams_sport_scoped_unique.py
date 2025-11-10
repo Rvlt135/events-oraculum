@@ -30,13 +30,19 @@ def upgrade():
     # Check for unique constraint on normalized_name
     for constraint in constraints:
         if constraint['column_names'] == ['normalized_name']:
-            op.drop_constraint(constraint['name'], 'teams', type_='unique')
+            # Use SQL DROP IF EXISTS to avoid transaction errors
+            conn.execute(sa.text(
+                f"ALTER TABLE teams DROP CONSTRAINT IF EXISTS {constraint['name']}"
+            ))
             break
 
     # Also check for unique index (SQLAlchemy unique=True creates an index)
     for index in indexes:
         if index['column_names'] == ['normalized_name'] and index.get('unique'):
-            op.drop_index(index['name'], table_name='teams')
+            # Use SQL DROP IF EXISTS to avoid transaction errors
+            conn.execute(sa.text(
+                f"DROP INDEX IF EXISTS {index['name']}"
+            ))
             break
 
     # Step 2: Create new composite unique constraint on (sport_id, normalized_name)
@@ -56,9 +62,15 @@ def upgrade():
 
     # Step 3: Update index on normalized_name to be composite if needed
     # Drop old single-column index if it exists
+    # Re-inspect after previous changes
+    inspector = sa.inspect(conn)
+    indexes = inspector.get_indexes('teams')
     for index in indexes:
         if index['column_names'] == ['normalized_name'] and not index.get('unique'):
-            op.drop_index(index['name'], table_name='teams')
+            # Use SQL DROP IF EXISTS to avoid transaction errors
+            conn.execute(sa.text(
+                f"DROP INDEX IF EXISTS {index['name']}"
+            ))
             break
 
     # Create composite index if it doesn't exist
