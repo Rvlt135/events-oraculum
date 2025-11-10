@@ -210,6 +210,48 @@ def get_batch_size_competitions(provider: str, default: int = 10) -> int:
         return default
 
 
+def get_events_policy(provider: str) -> Dict:
+    """
+    Get events collection policy configuration.
+
+    Args:
+        provider: Provider name (e.g., 'odds_api')
+
+    Returns:
+        Dictionary with events policy configuration
+    """
+    _initialize_policy()
+
+    if not _policy_cache:
+        logger.warning("policy_cache_empty_events_policy", provider=provider)
+        return {}
+
+    try:
+        provider_config = _policy_cache.get(provider, {})
+        events_window = provider_config.get("events_window", {})
+        rate_limit = events_window.get("rate_limit", {})
+        retry_policy = events_window.get("retry_policy", {})
+
+        policy = {
+            "period": events_window.get("period", 30),
+            "batch_size_competitions": events_window.get("batch_size_competitions", 10),
+            "delay_between_competitions_sec": rate_limit.get("delay_between_competitions_sec", 10),
+            "max_concurrency": rate_limit.get("max_concurrency", 1),
+            "retriable_statuses": retry_policy.get("retriable_statuses", [429, 500, 502, 503, 504]),
+            "max_attempts": retry_policy.get("max_attempts", 3),
+            "base_delay_sec": retry_policy.get("base_delay_sec", 2),
+            "max_delay_sec": retry_policy.get("max_delay_sec", 10),
+            "jitter": retry_policy.get("jitter", True),
+        }
+
+        logger.debug("events_policy_loaded", provider=provider)
+        return policy
+
+    except Exception as e:
+        logger.error("events_policy_lookup_error", provider=provider, error=str(e))
+        return {}
+
+
 def get_events_window_period(provider: str, default: int = 30) -> int:
     """
     Get events window period in days from policy.

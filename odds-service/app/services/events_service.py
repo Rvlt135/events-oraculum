@@ -1,28 +1,45 @@
 """
-Events service for managing event collection targets.
+Events service for managing event collection targets and processing.
 """
 from typing import Literal, List
+import asyncio
+import random
+import time
 import structlog
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from httpx import HTTPStatusError
 
 from app.domain.entities.events_targets import EventsTargetsDTO, FilteredReasonDTO
-from app.infrastructure.http.odds_api import OddsAPIClient
+from app.domain.entities.events_window import (
+    EventsPolicyDTO,
+    EventsWindowDTO,
+    EventKeyResultDTO,
+    EventsRunSummaryDTO,
+)
 from app.infrastructure.repositories.competitions import CompetitionsRepository
+from app.infrastructure.repositories.event import EventRepository
+from app.infrastructure.http.odds_api import OddsAPIClient
+from app.infrastructure.cache.catalog.competitions import CompetitionsCache
+from app.infrastructure.cache.catalog.sports import SportsCache
 from app.config import policy_loader
 
 logger = structlog.get_logger()
 
 
 class EventsService:
-    """Service for managing event collection targets and validation."""
+    """Service for managing event collection targets and processing."""
 
     def __init__(
-            self,
-            session_factory: async_sessionmaker[AsyncSession],
-            odds_client: OddsAPIClient
+        self,
+        odds_client: OddsAPIClient,
+        session_factory: async_sessionmaker[AsyncSession],
+        sports_cache: SportsCache,
+        competitions_cache: CompetitionsCache,
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
+        self._sports_cache = sports_cache
+        self._competitions_cache = competitions_cache
 
     async def select_target_competitions(
         self, plan: Literal["free", "pro", "all"] = "all"
@@ -92,6 +109,273 @@ class EventsService:
             filtered_out=filtered_out,
             batches=batches,
         )
+
+    async def process_competitions(
+        self, keys: List[str], window: EventsWindowDTO
+    ) -> EventsRunSummaryDTO:
+        """
+        Process competitions with rate limiting and retry logic.
+
+        Args:
+            keys: List of provider_keys in exact order to process (no sorting)
+            window: Time window for events collection
+
+        Returns:
+            EventsRunSummaryDTO with processing results
+        """
+        logger.info(
+            "process_competitions_started",
+            total_keys=len(keys),
+            from_iso=window.from_iso,
+            to_iso=window.to_iso,
+        )
+
+        # Load policy
+        provider = "odds_api"
+        policy_dict = policy_loader.get_events_policy(provider)
+        policy = EventsPolicyDTO(**policy_dict)
+
+        # Initialize results
+        per_key: dict[str, EventKeyResultDTO] = {}
+        processed = 0
+        failed = 0
+        skipped = 0
+        total_events = 0
+
+        # Process each key sequentially (max_concurrency=1)
+        for idx, key in enumerate(keys):
+            logger.info(
+                "processing_competition",
+                key=key,
+                index=idx + 1,
+                total=len(keys),
+            )
+
+            # Check if competition is active
+            is_active = await self._check_competition_active(key)
+            if not is_active:
+                logger.warning("competition_skipped_inactive", key=key)
+                per_key[key] = EventKeyResultDTO(
+                    provider_key=key,
+                    status="skipped",
+                    attempts=0,
+                    duration_ms=0,
+                    events_count=0,
+                )
+                skipped += 1
+                continue
+
+            # Fetch events with retry
+            result = await self._fetch_events_with_retry(key, window, policy)
+            per_key[key] = result
+
+            # Update counters
+            if result.status == "success":
+                processed += 1
+                total_events += result.events_count
+            elif result.status == "failed":
+                failed += 1
+            elif result.status == "skipped":
+                skipped += 1
+
+            logger.info(
+                "competition_processed",
+                key=key,
+                status=result.status,
+                attempts=result.attempts,
+                duration_ms=result.duration_ms,
+                events_count=result.events_count,
+            )
+
+            # Rate limit: delay between competitions (except after last one)
+            if idx < len(keys) - 1:
+                delay = policy.delay_between_competitions_sec
+                logger.debug("rate_limit_delay", delay_sec=delay)
+                await asyncio.sleep(delay)
+
+        summary = EventsRunSummaryDTO(
+            processed=processed,
+            failed=failed,
+            skipped=skipped,
+            total_events=total_events,
+            per_key=per_key,
+        )
+
+        logger.info(
+            "process_competitions_completed",
+            processed=processed,
+            failed=failed,
+            skipped=skipped,
+            total_events=total_events,
+        )
+
+        return summary
+
+    async def _check_competition_active(self, provider_key: str) -> bool:
+        """Check if competition is active using repository."""
+        async with self._session_factory() as session:
+            event_repo = EventRepository(session)
+            # Note: Using "free" as default plan for stub
+            return await event_repo.check_competition_active("free", provider_key)
+
+    async def _fetch_events_with_retry(
+        self, key: str, window: EventsWindowDTO, policy: EventsPolicyDTO
+    ) -> EventKeyResultDTO:
+        """
+        Fetch events with exponential backoff retry logic.
+
+        Args:
+            key: Competition provider_key
+            window: Time window for events
+            policy: Retry policy configuration
+
+        Returns:
+            EventKeyResultDTO with fetch result
+        """
+        start_time = time.time()
+        attempts = 0
+        last_error = None
+
+        for attempt in range(policy.max_attempts):
+            attempts = attempt + 1
+
+            try:
+                logger.debug(
+                    "fetch_attempt",
+                    key=key,
+                    attempt=attempts,
+                    max_attempts=policy.max_attempts,
+                )
+
+                events = await self._odds_client.get_events(
+                    provider_key=key,
+                    from_iso=window.from_iso,
+                    to_iso=window.to_iso,
+                )
+
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                logger.info(
+                    "fetch_success",
+                    key=key,
+                    attempts=attempts,
+                    events_count=len(events),
+                    duration_ms=duration_ms,
+                )
+
+                return EventKeyResultDTO(
+                    provider_key=key,
+                    status="success",
+                    attempts=attempts,
+                    duration_ms=duration_ms,
+                    events_count=len(events),
+                )
+
+            except HTTPStatusError as e:
+                status_code = e.response.status_code
+                last_error = f"HTTP {status_code}: {str(e)}"
+
+                logger.warning(
+                    "fetch_http_error",
+                    key=key,
+                    attempt=attempts,
+                    status_code=status_code,
+                    error=str(e),
+                )
+
+                # Check if status is retriable
+                if status_code not in policy.retriable_statuses:
+                    logger.error(
+                        "fetch_non_retriable_status",
+                        key=key,
+                        status_code=status_code,
+                        attempts=attempts,
+                    )
+                    duration_ms = int((time.time() - start_time) * 1000)
+                    return EventKeyResultDTO(
+                        provider_key=key,
+                        status="failed",
+                        attempts=attempts,
+                        duration_ms=duration_ms,
+                        events_count=0,
+                        error=last_error,
+                    )
+
+                # Calculate backoff delay for next attempt
+                if attempt < policy.max_attempts - 1:
+                    delay = self._calculate_backoff_delay(
+                        attempt=attempt,
+                        base_delay=policy.base_delay_sec,
+                        max_delay=policy.max_delay_sec,
+                        jitter=policy.jitter,
+                    )
+                    logger.info("retry_backoff_delay", key=key, delay_sec=delay, attempt=attempts)
+                    await asyncio.sleep(delay)
+
+            except Exception as e:
+                last_error = str(e)
+                logger.error(
+                    "fetch_unexpected_error",
+                    key=key,
+                    attempt=attempts,
+                    error=str(e),
+                    exc_info=True,
+                )
+
+                # Calculate backoff delay for next attempt
+                if attempt < policy.max_attempts - 1:
+                    delay = self._calculate_backoff_delay(
+                        attempt=attempt,
+                        base_delay=policy.base_delay_sec,
+                        max_delay=policy.max_delay_sec,
+                        jitter=policy.jitter,
+                    )
+                    logger.info("retry_backoff_delay", key=key, delay_sec=delay, attempt=attempts)
+                    await asyncio.sleep(delay)
+
+        # All attempts exhausted
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.error(
+            "fetch_all_attempts_exhausted",
+            key=key,
+            attempts=attempts,
+            error=last_error,
+        )
+
+        return EventKeyResultDTO(
+            provider_key=key,
+            status="failed",
+            attempts=attempts,
+            duration_ms=duration_ms,
+            events_count=0,
+            error=last_error,
+        )
+
+    def _calculate_backoff_delay(
+        self, attempt: int, base_delay: int, max_delay: int, jitter: bool
+    ) -> float:
+        """
+        Calculate exponential backoff delay with optional jitter.
+
+        Args:
+            attempt: Current attempt number (0-indexed)
+            base_delay: Base delay in seconds
+            max_delay: Maximum delay in seconds
+            jitter: Whether to add random jitter
+
+        Returns:
+            Delay in seconds
+        """
+        # Exponential backoff: base * 2^attempt
+        delay = min(base_delay * (2 ** attempt), max_delay)
+
+        # Add jitter if enabled
+        if jitter:
+            # Jitter: +/- 10% of delay
+            jitter_amount = delay * 0.1
+            delay = delay + random.uniform(-jitter_amount, jitter_amount)
+
+        return max(0, delay)
 
     async def _validate_competitions(
         self, provider_keys: List[str]

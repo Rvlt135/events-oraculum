@@ -56,9 +56,13 @@ class Container:
         Returns:
             EventsService instance with dependencies from container
         """
+        sports_cache = SportsCache(self.redis)
+        competitions_cache = CompetitionsCache(self.redis)
         return EventsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
+            sports_cache=sports_cache,
+            competitions_cache=competitions_cache,
         )
 
 

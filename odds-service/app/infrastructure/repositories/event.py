@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from uuid import UUID
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -98,3 +98,26 @@ class EventRepository(BaseRepository[Event]):
             event.updated_at = now_utc()
             await self.session.flush()
             logger.info("event_status_updated", id=str(event_id), status=status)
+
+    async def check_competition_active(self, plan: Literal["free", "pro"], name: str) -> bool:
+        """
+        Check if competition is active for the given plan.
+
+        This is a stub implementation that returns True and logs a warning.
+        Real implementation would check competition status from DB.
+
+        Args:
+            plan: Plan type (free or pro)
+            name: Competition provider_key
+
+        Returns:
+            True (stub always returns True)
+        """
+        logger.warning(
+            "check_competition_active_stub_called",
+            plan=plan,
+            competition=name,
+            result=True,
+            note="stub_implementation"
+        )
+        return True
