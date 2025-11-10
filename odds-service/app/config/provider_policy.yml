@@ -35,3 +35,14 @@ odds_api:
     max_events_per_competition_hint: 500  # порог для chunking
     batch_size_events: 20                 # размер порции записи в БД
     max_competitions_per_run: 15           # (опц.) ограничить число competitions за прогон
+
+  participants:
+    participant_mode_by_sport:
+      soccer: duel
+      tennis: duel
+      basketball: duel
+      icehockey: duel
+      golf: solo
+    teams:
+      normalization:
+        enabled: true  # Whether to resolve team aliases to team_id

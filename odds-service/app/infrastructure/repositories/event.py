@@ -8,6 +8,7 @@ import structlog
 from app.infrastructure.db.orm.events import Event
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
+from app.domain.entities.participant import EventUpsertDTO, ParticipantItemDTO
 
 logger = structlog.get_logger()
 
@@ -106,6 +107,97 @@ class EventRepository(BaseRepository[Event]):
             event.updated_at = now_utc()
             await self.session.flush()
             logger.info("event_status_updated", id=str(event_id), status=status)
+
+    async def upsert_event(self, dto: EventUpsertDTO) -> UUID:
+        """
+        Create or update an event using flexible EventUpsertDTO.
+
+        This method supports:
+        - Optional team references (nullable home_team_id/away_team_id)
+        - Flexible participant modes (duel, solo, field, unknown)
+        - Deferred team normalization via participants list
+
+        Args:
+            dto: EventUpsertDTO with all event data
+
+        Returns:
+            UUID of created or updated event
+        """
+        # Parse commence_time if it's a string
+        if isinstance(dto.commence_time, str):
+            from dateutil import parser
+            commence_time = parser.parse(dto.commence_time)
+        else:
+            commence_time = dto.commence_time
+
+        # Look up existing event by (provider, external_id)
+        result = await self.session.execute(
+            select(Event).where(
+                Event.provider == dto.provider,
+                Event.external_id == dto.external_id
+            )
+        )
+        event = result.scalar_one_or_none()
+
+        # Serialize participants to dict for JSONB storage
+        participants_data = [p.model_dump() for p in dto.participants]
+
+        if not event:
+            # Create new event
+            event = Event(
+                provider=dto.provider,
+                external_id=dto.external_id,
+                sport_id=dto.sport_id,
+                competition_id=dto.competition_id,
+                home_team_id=dto.home_team_id,
+                away_team_id=dto.away_team_id,
+                home_team_name=dto.home_team_name,
+                away_team_name=dto.away_team_name,
+                commence_time=commence_time,
+                status=dto.status,
+                participant_mode=dto.participant_mode,
+                participants=participants_data,
+                metadata=dto.metadata
+            )
+            event = await self.create(event)
+            logger.info(
+                "event_created_flexible",
+                provider=dto.provider,
+                external_id=dto.external_id,
+                id=str(event.id),
+                participant_mode=dto.participant_mode,
+                participants_count=len(dto.participants)
+            )
+        else:
+            # Update existing event
+            event.commence_time = commence_time
+            event.status = dto.status
+            event.participant_mode = dto.participant_mode
+            event.participants = participants_data
+            event.metadata = dto.metadata
+
+            # Update team references if provided
+            if dto.home_team_id is not None:
+                event.home_team_id = dto.home_team_id
+            if dto.away_team_id is not None:
+                event.away_team_id = dto.away_team_id
+            if dto.home_team_name is not None:
+                event.home_team_name = dto.home_team_name
+            if dto.away_team_name is not None:
+                event.away_team_name = dto.away_team_name
+
+            event.updated_at = now_utc()
+            await self.session.flush()
+            logger.debug(
+                "event_updated_flexible",
+                provider=dto.provider,
+                external_id=dto.external_id,
+                id=str(event.id),
+                participant_mode=dto.participant_mode,
+                participants_count=len(dto.participants)
+            )
+
+        return event.id
 
     async def check_competition_active(self, plan: Literal["free", "pro"], name: str) -> bool:
         """

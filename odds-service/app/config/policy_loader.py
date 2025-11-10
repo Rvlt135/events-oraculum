@@ -252,6 +252,70 @@ def get_events_policy(provider: str) -> Dict:
         return {}
 
 
+def get_participant_mode_for_sport(provider: str, sport_key: str) -> str:
+    """
+    Get participant mode for a sport from policy.
+
+    Args:
+        provider: Provider name (e.g., 'odds_api')
+        sport_key: Sport key (e.g., 'soccer', 'tennis', 'golf')
+
+    Returns:
+        Participant mode ('duel', 'solo', 'field', or 'unknown')
+    """
+    _initialize_policy()
+
+    if not _policy_cache:
+        logger.warning("policy_cache_empty_participant_mode", provider=provider, sport_key=sport_key)
+        return "unknown"
+
+    try:
+        provider_config = _policy_cache.get(provider, {})
+        participants_config = provider_config.get("participants", {})
+        mode_by_sport = participants_config.get("participant_mode_by_sport", {})
+
+        # Normalize sport_key for lookup
+        normalized_sport = sport_key.lower()
+        mode = mode_by_sport.get(normalized_sport, "unknown")
+
+        logger.debug("participant_mode_resolved", provider=provider, sport=sport_key, mode=mode)
+        return mode
+
+    except Exception as e:
+        logger.error("participant_mode_lookup_error", provider=provider, sport_key=sport_key, error=str(e))
+        return "unknown"
+
+
+def is_team_normalization_enabled(provider: str) -> bool:
+    """
+    Check if team normalization is enabled in policy.
+
+    Args:
+        provider: Provider name (e.g., 'odds_api')
+
+    Returns:
+        True if team normalization is enabled, False otherwise
+    """
+    _initialize_policy()
+
+    if not _policy_cache:
+        return True  # Default to enabled
+
+    try:
+        provider_config = _policy_cache.get(provider, {})
+        participants_config = provider_config.get("participants", {})
+        teams_config = participants_config.get("teams", {})
+        normalization_config = teams_config.get("normalization", {})
+
+        enabled = normalization_config.get("enabled", True)
+        logger.debug("team_normalization_check", provider=provider, enabled=enabled)
+        return enabled
+
+    except Exception as e:
+        logger.error("team_normalization_check_error", provider=provider, error=str(e))
+        return True  # Default to enabled on error
+
+
 def get_events_window_period(provider: str, default: int = 30) -> int:
     """
     Get events window period in days from policy.
