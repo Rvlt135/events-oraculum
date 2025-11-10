@@ -40,11 +40,13 @@ class Container:
         """
         sports_cache = SportsCache(self.redis)
         competitions_cache = CompetitionsCache(self.redis)
+        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
         return SportsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
             sports_cache=sports_cache,
             competitions_cache=competitions_cache,
+            catalog_cache_helper=catalog_cache_helper
         )
 
     def create_events_service(self) -> "EventsService":
@@ -55,6 +57,7 @@ class Container:
             EventsService instance with dependencies from container
         """
         return EventsService(
+            odds_client=self.odds_client,
             session_factory=self.session_factory,
         )
 

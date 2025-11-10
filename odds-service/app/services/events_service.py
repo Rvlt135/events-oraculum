@@ -6,6 +6,7 @@ import structlog
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from app.domain.entities.events_targets import EventsTargetsDTO, FilteredReasonDTO
+from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.config import policy_loader
 
@@ -15,7 +16,12 @@ logger = structlog.get_logger()
 class EventsService:
     """Service for managing event collection targets and validation."""
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
+    def __init__(
+            self,
+            session_factory: async_sessionmaker[AsyncSession],
+            odds_client: OddsAPIClient
+    ):
+        self._odds_client = odds_client
         self._session_factory = session_factory
 
     async def select_target_competitions(
