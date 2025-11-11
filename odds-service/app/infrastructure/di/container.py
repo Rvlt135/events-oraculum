@@ -13,12 +13,15 @@ from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
+from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
+from app.services.llm_service import LLMService
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
+    from app.services.llm_service import LLMService
 
 logger = structlog.get_logger()
 
@@ -31,6 +34,8 @@ class Container:
         self.redis_cache: redis.Redis | None = None
         self.redis_broker: redis.Redis | None = None
         self.odds_client: OddsAPIClient | None = None
+        self.ai_config: AIConfigLoader | None = None
+        self.llm_service: LLMService | None = None
     
     def create_sports_service(self) -> "SportsService":
         """
@@ -73,6 +78,22 @@ class Container:
             cache_ttl_sec=settings.catalog_cache_ttl,
         )
 
+    def create_llm_service(self) -> "LLMService":
+        """
+        Factory method for LLMService.
+
+        Returns:
+            LLMService instance with AI config from container
+        """
+        if not self.ai_config:
+            logger.warning("ai_config_not_initialized_creating_new")
+            self.ai_config = get_ai_config_loader()
+
+        return LLMService(
+            ai_config=self.ai_config,
+            llm_client=None,
+        )
+
 
 def create_container() -> Container:
     """
@@ -113,8 +134,18 @@ def create_container() -> Container:
         regions=settings.odds_api_regions,
         markets=settings.odds_api_markets,
     )
-    
-    logger.info("container_created")
+
+    # Create AI config loader
+    container.ai_config = get_ai_config_loader()
+
+    # Create LLM service
+    container.llm_service = container.create_llm_service()
+
+    logger.info(
+        "container_created",
+        has_ai_config=container.ai_config is not None,
+        has_llm_service=container.llm_service is not None
+    )
     return container
 
 
@@ -127,18 +158,21 @@ async def dispose_container(container: Container) -> None:
     """
     logger.info("disposing_container")
     
-    # Shutdown: close Redis, close odds client, and dispose engine
+    # Shutdown: close LLM service, Redis, odds client, and dispose engine
+    if container.llm_service:
+        await container.llm_service.close()
+
     if container.redis_broker:
         await container.redis_broker.close()
 
     if container.redis_cache:
         await container.redis_cache.close()
-    
+
     if container.odds_client:
         await container.odds_client.close()
-    
+
     if container.engine:
         await container.engine.dispose()
-    
+
     logger.info("container_disposed")
 
