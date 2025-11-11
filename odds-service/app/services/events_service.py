@@ -2,6 +2,7 @@
 Events service for managing event collection targets and processing.
 """
 from typing import Literal, List, Dict
+from uuid import UUID
 import asyncio
 import random
 import time
@@ -23,6 +24,8 @@ from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.domain.entities.event import EventDTO
+from app.domain.entities.participant import EventUpsertDTO
+from app.services.participants_helper import build_participants
 from app.config import policy_loader
 
 logger = structlog.get_logger()
@@ -38,7 +41,7 @@ class EventsService:
         sports_cache: SportsCache,
         competitions_cache: CompetitionsCache,
         events_cache: EventsCache,
-        cache_ttl_sec: int = 3600,
+        cache_ttl_sec: int = 86400, # TODO: cache ttl from config
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
@@ -67,8 +70,19 @@ class EventsService:
         """
         logger.info("select_target_competitions_started", plan=plan)
 
-        # Step 1: Load whitelist from policy
-        provider = "odds_api"
+        # Step 1: Get provider from policy and load whitelist
+        providers = policy_loader.get_providers()
+        if not providers:
+            logger.warning("no_providers_found_in_policy")
+            return EventsTargetsDTO(
+                provider="unknown",
+                plan=plan,
+                total_in_policy=0,
+                total_valid=0,
+                filtered_out=[],
+                batches=[],
+            )
+        provider = providers[0]  # Use first provider from policy
         whitelist = policy_loader.get_competitions_whitelist(provider, plan)
         total_in_policy = len(whitelist)
 
@@ -86,7 +100,7 @@ class EventsService:
             )
 
         # Step 2: Validate against DB
-        valid_keys, filtered_out = await self._validate_competitions(whitelist)
+        valid_keys, filtered_out = await self._validate_competitions(whitelist, provider)
 
         logger.info(
             "competitions_validated",
@@ -116,8 +130,8 @@ class EventsService:
             batches=batches,
         )
 
-    async def process_competitions(
-        self, keys: List[str], window: EventsWindowDTO
+    async def process_events_and_competitions(
+        self, provider: str, policy: EventsPolicyDTO, keys: List[str], window: EventsWindowDTO
     ) -> EventsRunSummaryDTO:
         """
         Process competitions with rate limiting and retry logic.
@@ -136,11 +150,6 @@ class EventsService:
             to_iso=window.to_iso,
         )
 
-        # Load policy
-        provider = "odds_api"
-        policy_dict = policy_loader.get_events_policy(provider)
-        policy = EventsPolicyDTO(**policy_dict)
-
         # Initialize results
         per_key: dict[str, EventKeyResultDTO] = {}
         processed = 0
@@ -158,7 +167,7 @@ class EventsService:
             )
 
             # Check if competition is active
-            is_active = await self._check_competition_active(key)
+            is_active = await self._check_competition_active(provider, key)
             if not is_active:
                 logger.warning("competition_skipped_inactive", key=key)
                 per_key[key] = EventKeyResultDTO(
@@ -172,13 +181,33 @@ class EventsService:
                 continue
 
             # Fetch events with retry
-            result = await self._fetch_events_with_retry(key, window, policy)
+            result, events_data = await self._fetch_events_with_retry(key, window, policy)
             per_key[key] = result
 
             # Update counters
             if result.status == "success":
                 processed += 1
                 total_events += result.events_count
+
+                # Convert API events to EventUpsertDTO and save to DB
+                try:
+                    saved_count = await self._save_events_to_db(provider, key, events_data)
+                    logger.info(
+                        "events_saved_to_db",
+                        key=key,
+                        fetched=len(events_data),
+                        saved=saved_count
+                    )
+
+                    # Refresh cache after successful DB commit
+                    await self._refresh_events_cache_for_competition(provider, key)
+                except Exception as e:
+                    logger.error(
+                        "events_save_or_cache_failed",
+                        key=key,
+                        error=str(e),
+                        exc_info=True
+                    )
             elif result.status == "failed":
                 failed += 1
             elif result.status == "skipped":
@@ -192,18 +221,6 @@ class EventsService:
                 duration_ms=result.duration_ms,
                 events_count=result.events_count,
             )
-
-            # Refresh cache atomically for this competition after successful processing
-            if result.status == "success":
-                try:
-                    await self._refresh_events_cache_for_competition(key)
-                except Exception as e:
-                    logger.error(
-                        "cache_refresh_failed",
-                        key=key,
-                        error=str(e),
-                        exc_info=True
-                    )
 
             # Rate limit: delay between competitions (except after last one)
             if idx < len(keys) - 1:
@@ -230,6 +247,7 @@ class EventsService:
         return summary
 
     async def check_competition_active(self, category: str, provider_key: str, provider: str) -> bool:
+        # TODO: change name method
         """
         Check if competition is active using cache-first approach with DB fallback.
 
@@ -343,7 +361,7 @@ class EventsService:
                 )
                 return False
 
-    async def _check_competition_active(self, provider_key: str) -> bool:
+    async def _check_competition_active(self, provider: str, provider_key: str) -> bool:
         """
         Check if competition is active using cache-first approach with DB fallback.
 
@@ -359,9 +377,6 @@ class EventsService:
         # Extract category from provider_key (e.g., 'soccer_uefa_champs_league' -> 'soccer')
         category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
 
-        # Get provider from policy
-        policy_dict = policy_loader.get_events_policy(provider="odds_api")
-        provider = policy_dict.get("provider", "odds_api")
 
         is_active = await self.check_competition_active(
             category=category,
@@ -373,7 +388,7 @@ class EventsService:
 
     async def _fetch_events_with_retry(
         self, key: str, window: EventsWindowDTO, policy: EventsPolicyDTO
-    ) -> EventKeyResultDTO:
+    ) -> tuple[EventKeyResultDTO, List[Dict]]:
         """
         Fetch events with exponential backoff retry logic.
 
@@ -383,7 +398,7 @@ class EventsService:
             policy: Retry policy configuration
 
         Returns:
-            EventKeyResultDTO with fetch result
+            Tuple of (EventKeyResultDTO with fetch result, list of event dictionaries)
         """
         start_time = time.time()
         attempts = 0
@@ -416,12 +431,15 @@ class EventsService:
                     duration_ms=duration_ms,
                 )
 
-                return EventKeyResultDTO(
-                    provider_key=key,
-                    status="success",
-                    attempts=attempts,
-                    duration_ms=duration_ms,
-                    events_count=len(events),
+                return (
+                    EventKeyResultDTO(
+                        provider_key=key,
+                        status="success",
+                        attempts=attempts,
+                        duration_ms=duration_ms,
+                        events_count=len(events),
+                    ),
+                    events,
                 )
 
             except HTTPStatusError as e:
@@ -445,13 +463,16 @@ class EventsService:
                         attempts=attempts,
                     )
                     duration_ms = int((time.time() - start_time) * 1000)
-                    return EventKeyResultDTO(
-                        provider_key=key,
-                        status="failed",
-                        attempts=attempts,
-                        duration_ms=duration_ms,
-                        events_count=0,
-                        error=last_error,
+                    return (
+                        EventKeyResultDTO(
+                            provider_key=key,
+                            status="failed",
+                            attempts=attempts,
+                            duration_ms=duration_ms,
+                            events_count=0,
+                            error=last_error,
+                        ),
+                        [],
                     )
 
                 # Calculate backoff delay for next attempt
@@ -495,13 +516,16 @@ class EventsService:
             error=last_error,
         )
 
-        return EventKeyResultDTO(
-            provider_key=key,
-            status="failed",
-            attempts=attempts,
-            duration_ms=duration_ms,
-            events_count=0,
-            error=last_error,
+        return (
+            EventKeyResultDTO(
+                provider_key=key,
+                status="failed",
+                attempts=attempts,
+                duration_ms=duration_ms,
+                events_count=0,
+                error=last_error,
+            ),
+            [],
         )
 
     def _calculate_backoff_delay(
@@ -530,14 +554,115 @@ class EventsService:
 
         return max(0, delay)
 
+    async def _save_events_to_db(
+        self, provider: str, provider_key: str, events_data: List[Dict]
+    ) -> int:
+        """
+        Convert API events to EventUpsertDTO and save to database.
+
+        Args:
+            provider: Provider name
+            provider_key: Competition provider_key
+            events_data: List of event dictionaries from API
+
+        Returns:
+            Number of successfully saved events
+        """
+        if not events_data:
+            return 0
+
+        saved_count = 0
+
+        async with self._session_factory() as session:
+            async with session.begin():
+                # Get competition to find sport_id and competition_id
+                comp_repo = CompetitionsRepository(session)
+                competition = await comp_repo.get_by_provider_key(
+                    provider=provider, provider_key=provider_key
+                )
+
+                if not competition:
+                    logger.warning(
+                        "competition_not_found_for_save",
+                        provider=provider,
+                        provider_key=provider_key
+                    )
+                    return 0
+
+                event_repo = EventRepository(session)
+
+                # Extract category from provider_key to get participant mode
+                category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
+                participant_mode_str = policy_loader.get_participant_mode_for_sport(
+                    provider=provider, sport_key=category
+                )
+                # Ensure participant_mode is valid Literal type
+                valid_modes: Literal["duel", "solo", "field", "unknown"] = (
+                    participant_mode_str
+                    if participant_mode_str in ("duel", "solo", "field", "unknown")
+                    else "unknown"
+                )
+                participant_mode: Literal["duel", "solo", "field", "unknown"] = valid_modes
+
+                # Convert and save each event
+                for event_data in events_data:
+                    try:
+                        external_id = event_data.get("id")
+                        if not external_id:
+                            logger.warning("event_missing_id", provider_key=provider_key)
+                            continue
+
+                        # Build participants based on mode
+                        participants = build_participants(event_data, participant_mode)
+
+                        # Extract team names for duel mode
+                        home_team_name = event_data.get("home_team")
+                        away_team_name = event_data.get("away_team")
+
+                        # Create EventUpsertDTO
+                        dto = EventUpsertDTO(
+                            provider=provider,
+                            external_id=str(external_id),
+                            sport_id=competition.sport_id,
+                            competition_id=competition.id,
+                            home_team_name=home_team_name,
+                            away_team_name=away_team_name,
+                            commence_time=event_data.get("commence_time", ""),
+                            status="upcoming",
+                            participant_mode=participant_mode,
+                            participants=participants,
+                            metadata={
+                                "sport_key": event_data.get("sport_key"),
+                                "sport_title": event_data.get("sport_title"),
+                            }
+                        )
+
+                        # Save event
+                        await event_repo.upsert_event(dto)
+                        saved_count += 1
+
+                    except Exception as e:
+                        logger.error(
+                            "failed_to_save_event",
+                            provider=provider,
+                            provider_key=provider_key,
+                            external_id=event_data.get("id"),
+                            error=str(e),
+                            exc_info=True
+                        )
+                        continue
+
+        return saved_count
+
     async def _validate_competitions(
-        self, provider_keys: List[str]
+        self, provider_keys: List[str], provider: str
     ) -> tuple[List[str], List[FilteredReasonDTO]]:
         """
         Validate competitions against DB.
 
         Args:
             provider_keys: List of competition provider_keys to validate
+            provider: Provider name (e.g., 'odds_api')
 
         Returns:
             Tuple of (valid_keys, filtered_out_with_reasons)
@@ -552,7 +677,7 @@ class EventsService:
                 try:
                     # Get competition from DB
                     competition = await comp_repo.get_by_provider_key(
-                        provider="odds_api", provider_key=provider_key
+                        provider=provider, provider_key=provider_key
                     )
 
                     if not competition:
@@ -595,34 +720,63 @@ class EventsService:
 
         return valid_keys, filtered_out
 
-    async def _refresh_events_cache_for_competition(self, provider_key: str) -> None:
+    async def _refresh_events_cache_for_competition(self, provider: str, provider_key: str) -> None:
         """
         Refresh events cache for a competition atomically.
 
         Fetches all upcoming events from DB and writes them to cache atomically.
 
         Args:
+            provider: Provider name
             provider_key: Competition provider_key
         """
-        async with self._session_factory() as session:
-            # Get competition to find competition_id
-            comp_repo = CompetitionsRepository(session)
-            competition = await comp_repo.get_by_provider_key(
-                provider="odds_api", provider_key=provider_key
-            )
+        # Extract category from provider_key to get competition from cache
+        category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
 
-            if not competition:
-                logger.warning(
-                    "cache_refresh_skip_no_competition",
-                    provider_key=provider_key
+        # Try to get competition from cache first
+        competition_id = None
+        cached_catalog = await self._competitions_cache.get_catalog(category)
+        
+        if cached_catalog and "competitions" in cached_catalog:
+            competitions_list = cached_catalog["competitions"]
+            for comp_data in competitions_list:
+                if comp_data.get("provider_key") == provider_key and comp_data.get("provider") == provider:
+                    competition_id = comp_data.get("id")
+                    if competition_id:
+                        # Convert string UUID to UUID object if needed
+                        if isinstance(competition_id, str):
+                            competition_id = UUID(competition_id)
+                        logger.debug(
+                            "competition_found_in_cache",
+                            provider_key=provider_key,
+                            competition_id=str(competition_id)
+                        )
+                        break
+
+        # Fallback to DB if not found in cache
+        if not competition_id:
+            async with self._session_factory() as session:
+                comp_repo = CompetitionsRepository(session)
+                competition = await comp_repo.get_by_provider_key(
+                    provider=provider, provider_key=provider_key
                 )
-                return
 
-            # Get all upcoming events for this competition
+                if not competition:
+                    logger.warning(
+                        "cache_refresh_skip_no_competition",
+                        provider=provider,
+                        provider_key=provider_key
+                    )
+                    return
+
+                competition_id = competition.id
+
+        # Get all upcoming events for this competition from DB
+        async with self._session_factory() as session:
             event_repo = EventRepository(session)
             events_orm = await event_repo.get_upcoming_by_competition(
-                competition_id=competition.id,
-                provider="odds_api"
+                competition_id=competition_id,
+                provider=provider
             )
 
             # Convert ORM to DTO
@@ -642,7 +796,7 @@ class EventsService:
                     status=event.status,
                     participant_mode=event.participant_mode,
                     participants=event.participants or [],
-                    metadata=event.metadata or {},
+                    metadata=event.event_metadata or {},
                     created_at=event.created_at,
                     updated_at=event.updated_at,
                     ingested_at=event.ingested_at,
@@ -650,18 +804,19 @@ class EventsService:
                 )
                 events_dto.append(dto)
 
-            # Write to cache atomically
-            await self._events_cache.write_upcoming_atomic(
-                provider_key=provider_key,
-                items=events_dto,
-                ttl_sec=self._cache_ttl_sec
-            )
+        # Write to cache atomically (outside DB session)
+        await self._events_cache.write_upcoming_atomic(
+            provider_key=provider_key,
+            items=events_dto,
+            ttl_sec=self._cache_ttl_sec
+        )
 
-            logger.info(
-                "events_cache_refreshed",
-                provider_key=provider_key,
-                upcoming_count=len(events_dto)
-            )
+        logger.info(
+            "events_cache_refreshed",
+            provider=provider,
+            provider_key=provider_key,
+            upcoming_count=len(events_dto)
+        )
 
     def _create_batches(self, items: List[str], batch_size: int) -> List[List[str]]:
         """
@@ -699,8 +854,14 @@ class EventsService:
         """
         logger.info("get_upcoming_events_from_cache_started")
 
-        # Load policy to get competitions and limit
-        policy_dict = policy_loader.get_events_policy(provider="odds_api")
+        # Get provider from policy and load policy to get competitions and limit
+        providers = policy_loader.get_providers()
+        if not providers:
+            logger.warning("no_providers_found_in_policy")
+            return []
+        provider = providers[0]  # Use first provider from policy
+
+        policy_dict = policy_loader.get_events_policy(provider=provider)
         competitions_free = policy_dict.get("competitions", {}).get("free", [])
         competitions_pro = policy_dict.get("competitions", {}).get("pro", [])
         all_competition_keys = list(set(competitions_free + competitions_pro))
@@ -736,7 +897,7 @@ class EventsService:
                             "status": event.status,
                             "participant_mode": event.participant_mode,
                             "participants": event.participants,
-                            "metadata": event.metadata,
+                            "metadata": event.event_metadata or {},
                         })
             except Exception as e:
                 logger.warning(

@@ -210,15 +210,42 @@ def get_batch_size_competitions(provider: str, default: int = 10) -> int:
         return default
 
 
-def get_events_policy(provider: str) -> Dict:
+def get_providers() -> list[str]:
     """
-    Get events collection policy configuration.
+    Get list of all providers from policy cache.
+
+    Returns:
+        List of provider names (keys from top level of policy YAML)
+    """
+    _initialize_policy()
+
+    if not _policy_cache:
+        logger.warning("policy_cache_empty_providers")
+        return []
+
+    try:
+        providers = list(_policy_cache.keys())
+        logger.debug("providers_loaded", count=len(providers), providers=providers)
+        return providers
+    except Exception as e:
+        logger.error("providers_lookup_error", error=str(e))
+        return []
+
+
+def get_events_policy(provider: str) -> Dict:
+    # TODO: change method for return EventsPolicyDTO
+    """
+    Get events collection policy configuration with provider and competitions.
 
     Args:
         provider: Provider name (e.g., 'odds_api')
 
     Returns:
-        Dictionary with events policy configuration
+        Dictionary with events policy configuration including:
+        - provider: Provider name
+        - competitions: Dict with 'free' and 'pro' competition lists
+        - events_window: Dict with window configuration
+        - All other policy fields (period, batch_size_competitions, etc.)
     """
     _initialize_policy()
 
@@ -231,8 +258,17 @@ def get_events_policy(provider: str) -> Dict:
         events_window = provider_config.get("events_window", {})
         rate_limit = events_window.get("rate_limit", {})
         retry_policy = events_window.get("retry_policy", {})
+        competitions_config = provider_config.get("competitions", {})
 
         policy = {
+            "provider": provider,
+            "competitions": {
+                "free": competitions_config.get("free", []),
+                "pro": competitions_config.get("pro", []),
+            },
+            "events_window": {
+                "period": events_window.get("period", 30),
+            },
             "period": events_window.get("period", 30),
             "batch_size_competitions": events_window.get("batch_size_competitions", 10),
             "delay_between_competitions_sec": rate_limit.get("delay_between_competitions_sec", 10),

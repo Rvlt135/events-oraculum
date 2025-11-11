@@ -64,12 +64,12 @@ class EventsCache:
             pipe = self.redis.pipeline()
 
             # Delete temp key first to ensure clean state
-            pipe.delete(temp_key)
+            await pipe.delete(temp_key)
 
             # Add each event
             for event in items:
                 event_data = event.model_dump_json()
-                pipe.rpush(temp_key, event_data)
+                await pipe.rpush(temp_key, event_data)
 
             await pipe.execute()
 

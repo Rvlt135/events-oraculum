@@ -9,6 +9,7 @@ from app.infrastructure.db.orm.events import Event
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
 from app.domain.entities.participant import EventUpsertDTO, ParticipantItemDTO
+from app.infrastructure.db.orm.competition import Competition
 
 logger = structlog.get_logger()
 
@@ -248,8 +249,6 @@ class EventRepository(BaseRepository[Event]):
         Returns:
             True if active, False if inactive, None if not found
         """
-        from app.infrastructure.db.orm.competition import Competition
-
         result = await self.session.execute(
             select(Competition).where(
                 Competition.provider == provider,

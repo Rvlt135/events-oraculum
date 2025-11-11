@@ -45,3 +45,6 @@ class EventDTO(BaseModel):
     def is_elapsed(self) -> bool:
         """Check if event has already commenced."""
         return self.commence_time < now_utc()
+
+    def make(self):
+        pass

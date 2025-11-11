@@ -97,14 +97,15 @@ def build_events_window(period_days: int) -> tuple[str, str]:
             f"period_days must be between 7 and 60, got {period_days}"
         )
 
-    # Compute from = now_utc()
-    from_dt = now_utc()
+    # Compute from = now_utc() (without microseconds for API compatibility)
+    from_dt = now_utc().replace(microsecond=0)
 
     # Compute to = end_of_day_utc(now_utc() + period_days)
     to_dt = end_of_day_utc(from_dt + timedelta(days=period_days))
 
-    # Format as ISO-8601 with Z suffix
-    from_iso = from_dt.isoformat().replace("+00:00", "Z")
-    to_iso = to_dt.isoformat().replace("+00:00", "Z")
+    # Format as ISO-8601 with Z suffix (YYYY-MM-DDTHH:MM:SSZ)
+    # Remove microseconds and timezone offset, add Z suffix
+    from_iso = from_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    to_iso = to_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return (from_iso, to_iso)

@@ -127,12 +127,10 @@ class OddsAPIClient:
         Note:
             This method does NOT implement retries - retry logic should be handled by the caller.
         """
-        path = f"sports/{provider_key}/odds"
+        path = f"sports/{provider_key}/events"
         url = self.base.build_url(path)
 
         params: Dict[str, Any] = {
-            "regions": ",".join(self.regions),
-            "markets": ",".join(self.markets),
             "dateFormat": "iso",
             "commenceTimeFrom": from_iso,
             "commenceTimeTo": to_iso,

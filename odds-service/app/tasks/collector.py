@@ -6,9 +6,10 @@ from app.config import settings
 from app.config import policy_loader
 from app.utils.time_utils import now_utc, build_events_window
 from app.infrastructure.repositories import SportRepository, CompetitionsRepository
-from app.infrastructure.di.services import get_sports_service
+from app.infrastructure.di.services import get_sports_service, get_events_service
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
+from app.domain.entities.events_window import EventsWindowDTO, EventsPolicyDTO
 
 if TYPE_CHECKING:
     from app.infrastructure.di.container import Container
@@ -170,17 +171,35 @@ async def collect_events() -> Dict[str, str]:
     if not hasattr(broker.state, 'container'):
         raise RuntimeError("Container not found in broker.state")
 
-    container: "Container" = broker.state.container
-
     try:
-        from app.infrastructure.di.services import get_events_service
-
         # Get EventsService from DI
         events_service = await get_events_service()
 
-        # Load policy
-        policy_dict = policy_loader.get_events_policy(provider="odds_api")
-        provider = policy_dict.get("provider", "odds_api")
+        # Get providers from policy (in-memory cache)
+        providers = policy_loader.get_providers()
+        if not providers:
+            logger.warning("no_providers_found_in_policy")
+            return {
+                "status": "error",
+                "message": "No providers found in policy",
+                "timestamp": now_utc().isoformat(),
+            }
+
+        # For now, process first provider (can be extended to support multiple providers)
+        provider = providers[0]
+        logger.info("provider_selected_from_policy", provider=provider, total_providers=len(providers))
+
+        # Load policy for selected provider
+        policy_dict = policy_loader.get_events_policy(provider=provider)
+        policy = EventsPolicyDTO(**policy_dict)
+
+        if not policy_dict:
+            logger.warning("policy_not_found_for_provider", provider=provider)
+            return {
+                "status": "error",
+                "message": f"Policy not found for provider: {provider}",
+                "timestamp": now_utc().isoformat(),
+            }
 
         # Get competitions from policy
         competitions_free = policy_dict.get("competitions", {}).get("free", [])
@@ -219,14 +238,14 @@ async def collect_events() -> Dict[str, str]:
                 "timestamp": now_utc().isoformat(),
             }
 
-        # Build time window from policy
-        period_days = policy_dict.get("events_window", {}).get("period", 30)
+        # Build time window from policy (get period from events_window or direct period field)
+        period_days = policy_dict.get("events_window", {}).get("period") or policy_dict.get("period", 30)
         commence_time_from, commence_time_to = build_events_window(period_days)
 
-        from app.domain.entities.events_window import EventsWindowDTO
         window = EventsWindowDTO(
             from_iso=commence_time_from,
-            to_iso=commence_time_to
+            to_iso=commence_time_to,
+            period_days=period_days
         )
 
         logger.info(
@@ -235,12 +254,14 @@ async def collect_events() -> Dict[str, str]:
             from_iso=window.from_iso,
             to_iso=window.to_iso
         )
-
-        # Process competitions
-        summary = await events_service.process_competitions(
+        summary = await events_service.process_events_and_competitions(
+            provider=provider,
+            policy=policy,
             keys=active_keys,
             window=window
         )
+        # Process competitions
+
 
         duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)

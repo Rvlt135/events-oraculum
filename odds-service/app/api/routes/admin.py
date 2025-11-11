@@ -22,9 +22,11 @@ from app.api.schemas.schemas import (
     SportDTO,
     CompetitionDTO,
 )
-from app.api.dependencies import get_db_session, get_sports_service
+# from app.infrastructure.di.services import get_events_service
+
+from app.api.dependencies import get_db_session, get_sports_service, get_events_service
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_odds_task
+from app.tasks.collector import collect_sports_task, collect_odds_task, collect_events
 from app.infrastructure.repositories import NormalizedOddsRepository
 
 logger = structlog.get_logger()
@@ -221,8 +223,6 @@ async def trigger_events_sync(
     logger.info("events_sync_triggered_manually")
 
     try:
-        from app.tasks.collector import collect_events
-
         task = await collect_events.kiq()
 
         return TaskTriggerResponse(
@@ -241,6 +241,7 @@ async def trigger_events_sync(
 @router.get("/catalog/events/upcoming")
 async def get_upcoming_events_catalog(
     _auth: None = Depends(verify_admin_token),
+    events_service = Depends(get_events_service),
 ):
     """
     Get upcoming events from process cache (E10).
@@ -253,9 +254,6 @@ async def get_upcoming_events_catalog(
     logger.info("get_upcoming_events_catalog_endpoint")
 
     try:
-        from app.infrastructure.di.services import get_events_service
-
-        events_service = await get_events_service()
         events = await events_service.get_upcoming_events_from_cache()
 
         logger.info("upcoming_events_returned", count=len(events))

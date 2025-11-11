@@ -41,7 +41,7 @@ odds_api:
       soccer: duel
       tennis: duel
       basketball: duel
-      icehockey: duel
+      ice_hockey: duel
       golf: solo
     teams:
       normalization:
