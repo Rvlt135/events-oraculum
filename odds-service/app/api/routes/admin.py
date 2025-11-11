@@ -24,10 +24,12 @@ from app.api.schemas.schemas import (
 )
 # from app.infrastructure.di.services import get_events_service
 
-from app.api.dependencies import get_db_session, get_sports_service, get_events_service
+from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_redis_cache
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_odds_task, collect_events
+from app.tasks.prioritizer import prioritize_all, prioritize_events
 from app.infrastructure.repositories import NormalizedOddsRepository
+from app.config import policy_loader
 
 logger = structlog.get_logger()
 
@@ -265,3 +267,130 @@ async def get_upcoming_events_catalog(
     except Exception as e:
         logger.error("failed_to_get_upcoming_events", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch upcoming events")
+
+
+@router.post("/tasks/priorities/run", response_model=TaskTriggerResponse)
+async def trigger_prioritization(
+    _auth: None = Depends(verify_admin_token)
+) -> TaskTriggerResponse:
+    """
+    Manually trigger event prioritization.
+
+    Enqueues prioritization task(s) based on provider_policy.prioritizer.mode:
+    - per_competition: Enqueues prioritize_events for each competition
+    - all: Enqueues single prioritize_all task
+
+    Returns 202 with task_id(s).
+    """
+    logger.info("prioritization_triggered_manually")
+
+    try:
+        providers = policy_loader.get_providers()
+        provider = providers[0] if providers else "odds_api"
+
+        policy_dict = policy_loader.get_events_policy(provider=provider)
+        if not policy_dict:
+            return TaskTriggerResponse(
+                status="error",
+                message=f"Policy not found for provider: {provider}",
+            )
+
+        prioritizer_config = policy_dict.get("prioritizer", {})
+        enabled = prioritizer_config.get("enabled", True)
+        mode = prioritizer_config.get("mode", "per_competition")
+
+        if not enabled:
+            return TaskTriggerResponse(
+                status="skipped",
+                message="Prioritization disabled in policy",
+            )
+
+        if mode == "all":
+            task = await prioritize_all.kiq()
+            logger.info("prioritize_all_enqueued_manually", task_id=task.task_id)
+
+            return TaskTriggerResponse(
+                status="enqueued",
+                message="Prioritize all task enqueued",
+                task_id=str(task.task_id),
+            )
+
+        elif mode == "per_competition":
+            competitions_free = policy_dict.get("competitions", {}).get("free", [])
+            competitions_pro = policy_dict.get("competitions", {}).get("pro", [])
+            all_keys = list(set(competitions_free + competitions_pro))
+
+            if not all_keys:
+                return TaskTriggerResponse(
+                    status="error",
+                    message="No competitions found in policy",
+                )
+
+            task_ids = []
+            for provider_key in all_keys:
+                task = await prioritize_events.kiq(provider_key=provider_key)
+                task_ids.append(str(task.task_id))
+                logger.info("prioritize_events_enqueued_manually", provider_key=provider_key, task_id=task.task_id)
+
+            return TaskTriggerResponse(
+                status="enqueued",
+                message=f"Prioritization tasks enqueued for {len(all_keys)} competitions",
+                task_id=",".join(task_ids),
+            )
+
+        else:
+            return TaskTriggerResponse(
+                status="error",
+                message=f"Unknown prioritization mode: {mode}",
+            )
+
+    except Exception as e:
+        logger.error("failed_to_enqueue_prioritization", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )
+
+
+@router.get("/priority/{provider_key}")
+async def get_priority_ranked(
+    provider_key: str,
+    redis: Redis = Depends(get_redis_cache),
+    _auth: None = Depends(verify_admin_token),
+):
+    """
+    Get ranked events for a competition from Redis.
+
+    Reads priority:events:{provider_key}:ranked cache key.
+    Returns ordered list of events with priorities or empty list if not found.
+    """
+    logger.info("get_priority_ranked_endpoint", provider_key=provider_key)
+
+    cache_key = f"priority:events:{provider_key}:ranked"
+
+    try:
+        raw_events = await redis.lrange(cache_key, 0, -1)
+
+        if not raw_events:
+            logger.info("priority_ranked_not_found", provider_key=provider_key)
+            return []
+
+        import json
+        events = []
+        for raw_event in raw_events:
+            try:
+                event = json.loads(raw_event)
+                events.append({
+                    "event_id": event.get("id"),
+                    "commence_time": event.get("commence_time"),
+                    "priority": event.get("score", 0.0),
+                })
+            except Exception as e:
+                logger.warning("failed_to_parse_ranked_event", error=str(e))
+
+        logger.info("priority_ranked_returned", provider_key=provider_key, count=len(events))
+        return events
+
+    except Exception as e:
+        logger.error("failed_to_get_priority_ranked", provider_key=provider_key, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch ranked events")

@@ -103,3 +103,16 @@ def get_redis(request: Request) -> Redis:
     """
     return request.app.state.container.redis
 
+
+def get_redis_cache(request: Request) -> Redis:
+    """
+    Get Redis cache client from app state container.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        Redis client instance from container
+    """
+    return request.app.state.container.redis_cache
+
