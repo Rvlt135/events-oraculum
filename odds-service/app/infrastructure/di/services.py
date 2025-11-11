@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
     from app.services.llm_service import LLMService
+    from app.services.prioritizer_service import PrioritizerService
     from app.infrastructure.di.container import Container
 
 
@@ -84,3 +85,21 @@ async def get_llm_service() -> "LLMService":
 
     container: "Container" = broker.state.container
     return container.create_llm_service()
+
+
+async def get_prioritizer_service() -> "PrioritizerService":
+    """
+    Get PrioritizerService with injected dependencies from container.
+
+    This function is used in tasks and other non-request contexts (worker/scheduler).
+
+    Returns a service instance for event prioritization operations.
+    """
+    if not hasattr(broker, 'state') or not hasattr(broker.state, 'container'):
+        raise RuntimeError(
+            "Container not found in broker.state. "
+            "Make sure worker/scheduler initialized container before running tasks."
+        )
+
+    container: "Container" = broker.state.container
+    return container.create_prioritizer_service()

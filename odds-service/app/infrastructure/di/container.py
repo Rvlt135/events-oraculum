@@ -18,11 +18,13 @@ from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
+from app.services.prioritizer_service import PrioritizerService
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
     from app.services.llm_service import LLMService
+    from app.services.prioritizer_service import PrioritizerService
 
 logger = structlog.get_logger()
 
@@ -89,11 +91,34 @@ class Container:
         """
         if not self.ai_config:
             logger.warning("ai_config_not_initialized_creating_new")
-            self.ai_config = get_ai_config_loader(settings=settings)
+            self.ai_config = get_ai_config_loader()
 
         return LLMService(
             ai_config=self.ai_config,
             llm_client=None,
+        )
+
+    def create_prioritizer_service(self) -> "PrioritizerService":
+        """
+        Factory method for PrioritizerService.
+
+        Returns:
+            PrioritizerService instance with dependencies from container
+        """
+        from app.infrastructure.cache.catalog.events import EventsCache
+
+        events_cache = EventsCache(self.redis_cache)
+
+        ai_config = self.ai_config or get_ai_config_loader()
+        prioritizer_config = ai_config.load_models_config().get("prioritizer", {})
+        batch_size = prioritizer_config.get("batch_size", 50)
+
+        return PrioritizerService(
+            session_factory=self.session_factory,
+            redis_cache=self.redis_cache,
+            events_cache=events_cache,
+            batch_size=batch_size,
+            max_events=500,
         )
 
 
