@@ -89,7 +89,7 @@ class Container:
         """
         if not self.ai_config:
             logger.warning("ai_config_not_initialized_creating_new")
-            self.ai_config = get_ai_config_loader()
+            self.ai_config = get_ai_config_loader(settings=settings)
 
         return LLMService(
             ai_config=self.ai_config,
@@ -137,8 +137,8 @@ def create_container() -> Container:
         markets=settings.odds_api_markets,
     )
 
-    # Create AI config loader
-    container.ai_config = get_ai_config_loader()
+    # Create AI config loader with settings
+    container.ai_config = AIConfigLoader(settings=settings)
 
     # Create AI prioritizer client
     container.ai_client = PrioritizerLLMClient(container.ai_config)

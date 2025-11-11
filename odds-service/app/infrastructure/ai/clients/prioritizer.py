@@ -40,12 +40,14 @@ class PrioritizerLLMClient:
         self.batch_size = prioritizer_config.get("batch_size", 50)
         self.rate_limit_qps = prioritizer_config.get("rate_limit_qps", 5)
 
-        provider_config = ai_config.get_provider_config(self.provider)
-        self.base_url = provider_config.get("base_url")
+        self.base_url = ai_config.get_base_url(self.provider)
         self.api_key = ai_config.get_api_key(self.provider)
 
         if not self.api_key:
             raise ValueError(f"API key not found for provider: {self.provider}")
+        
+        if not self.base_url:
+            raise ValueError(f"Base URL not found for provider: {self.provider}")
 
         self._openai_client = AsyncOpenAI(
             base_url=self.base_url,
@@ -75,14 +77,14 @@ class PrioritizerLLMClient:
         """Load system and instruction prompts."""
         if self._system_prompt is None:
             try:
-                self._system_prompt = self.ai_config.load_prompt("prioritizer_system")
+                self._system_prompt = self.ai_config.load_prompt("prioritizer.system")
             except FileNotFoundError:
                 logger.warning("prioritizer_system_prompt_not_found_using_default")
                 self._system_prompt = "You are an AI assistant that prioritizes sports betting events."
 
         if self._instruction_prompt is None:
             try:
-                self._instruction_prompt = self.ai_config.load_prompt("prioritizer_instruction")
+                self._instruction_prompt = self.ai_config.load_prompt("prioritizer.instruction")
             except FileNotFoundError:
                 logger.warning("prioritizer_instruction_prompt_not_found_using_default")
                 self._instruction_prompt = (

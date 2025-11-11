@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     admin_token: str = Field(default="")
     admin_docs_enabled: bool = Field(default=False)
 
+    # AI Provider API Keys
+    openrouter_api_key: str
+    openrouter_base_url: str
+    openai_api_key: str
+    openai_base_url: str
+    anthropic_api_key: str
+    anthropic_base_url: str
+
     @property
     def postgres_url(self) -> str:
         return (

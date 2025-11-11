@@ -4,11 +4,13 @@ AI models configuration loader.
 Loads LLM configurations from app/config/ai_models/ directory.
 Separate from provider_policy to keep concerns isolated.
 """
-import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 import structlog
 import yaml
+
+if TYPE_CHECKING:
+    from app.config.settings import Settings
 
 logger = structlog.get_logger()
 
@@ -16,13 +18,15 @@ logger = structlog.get_logger()
 class AIConfigLoader:
     """Loader for AI model configurations."""
 
-    def __init__(self, config_dir: Optional[Path] = None):
+    def __init__(self, config_dir: Optional[Path] = None, settings: Optional["Settings"] = None):
         """
         Initialize AI config loader.
 
         Args:
             config_dir: Path to ai_models config directory.
                        Defaults to app/config/ai_models/
+            settings: Settings instance for API keys and base URLs.
+                     If None, will import from app.config.settings
         """
         if config_dir is None:
             app_root = Path(__file__).parent.parent.parent  # app/
@@ -31,6 +35,13 @@ class AIConfigLoader:
         self.config_dir = Path(config_dir)
         self.prompts_dir = self.config_dir / "prompts"
         self._config_cache: Optional[Dict[str, Any]] = None
+
+        # Import settings if not provided
+        if settings is None:
+            from app.config.settings import settings as app_settings
+            self.settings = app_settings
+        else:
+            self.settings = settings
 
         logger.info(
             "ai_config_loader_initialized",
@@ -130,29 +141,63 @@ class AIConfigLoader:
 
     def get_api_key(self, provider: str) -> Optional[str]:
         """
-        Get API key for provider from environment.
+        Get API key for provider from settings.
 
         Args:
             provider: Provider name
 
         Returns:
-            API key from environment variable, or None if not set
+            API key from settings, or None if not set
         """
-        provider_config = self.get_provider_config(provider)
-        env_var = provider_config.get("api_key_env")
+        key_mapping = {
+            "openrouter": "openrouter_api_key",
+            "openai": "openai_api_key",
+            "anthropic": "anthropic_api_key",
+        }
 
-        if not env_var:
-            logger.warning("no_api_key_env_var_configured", provider=provider)
+        setting_key = key_mapping.get(provider)
+        if not setting_key:
+            logger.warning("unknown_provider_for_api_key", provider=provider)
             return None
 
-        api_key = os.getenv(env_var)
+        api_key = getattr(self.settings, setting_key, None)
 
         if not api_key:
-            logger.warning("api_key_not_set", provider=provider, env_var=env_var)
+            logger.warning("api_key_not_set", provider=provider, setting_key=setting_key)
             return None
 
-        logger.debug("api_key_loaded", provider=provider, env_var=env_var)
+        logger.debug("api_key_loaded", provider=provider, setting_key=setting_key)
         return api_key
+
+    def get_base_url(self, provider: str) -> Optional[str]:
+        """
+        Get base URL for provider from settings.
+
+        Args:
+            provider: Provider name
+
+        Returns:
+            Base URL from settings, or None if not set
+        """
+        url_mapping = {
+            "openrouter": "openrouter_base_url",
+            "openai": "openai_base_url",
+            "anthropic": "anthropic_base_url",
+        }
+
+        setting_key = url_mapping.get(provider)
+        if not setting_key:
+            logger.warning("unknown_provider_for_base_url", provider=provider)
+            return None
+
+        base_url = getattr(self.settings, setting_key, None)
+
+        if not base_url:
+            logger.warning("base_url_not_set", provider=provider, setting_key=setting_key)
+            return None
+
+        logger.debug("base_url_loaded", provider=provider, setting_key=setting_key)
+        return base_url
 
     def get_retry_config(self) -> Dict[str, Any]:
         """
@@ -221,9 +266,12 @@ class AIConfigLoader:
 _ai_config_loader: Optional[AIConfigLoader] = None
 
 
-def get_ai_config_loader() -> AIConfigLoader:
+def get_ai_config_loader(settings: Optional["Settings"] = None) -> AIConfigLoader:
     """
     Get singleton AI config loader instance.
+
+    Args:
+        settings: Optional settings instance. If None, will import from app.config.settings
 
     Returns:
         AIConfigLoader instance
@@ -231,6 +279,6 @@ def get_ai_config_loader() -> AIConfigLoader:
     global _ai_config_loader
 
     if _ai_config_loader is None:
-        _ai_config_loader = AIConfigLoader()
+        _ai_config_loader = AIConfigLoader(settings=settings)
 
     return _ai_config_loader
