@@ -39,6 +39,7 @@ class Event(Base):
     away_team = relationship("Team", foreign_keys=[away_team_id])
     odds_snapshots = relationship("OddsSnapshot", back_populates="event")
     normalized_odds = relationship("NormalizedOdds", back_populates="event")
+    priorities = relationship("EventPriority", back_populates="event")
 
     __table_args__ = (
         UniqueConstraint("provider", "external_id", name="uq_events_provider_external_id"),

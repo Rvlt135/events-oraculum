@@ -32,6 +32,7 @@ def upgrade() -> None:
         sa.Column('provider', sa.Text(), nullable=False, server_default='odds_api'),
         sa.Column('category', sa.Text(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False),
+        sa.Column('plan_visibility', sa.Text(), nullable=False, server_default='free'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
         sa.PrimaryKeyConstraint('id'),
@@ -49,6 +50,7 @@ def upgrade() -> None:
         sa.Column('provider', sa.Text(), nullable=False, server_default='odds_api'),
         sa.Column('provider_key', sa.Text(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False),
+        sa.Column('plan_visibility', sa.Text(), nullable=False, server_default='free'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
         sa.ForeignKeyConstraint(['sport_id'], ['sports.id'], ondelete='CASCADE'),
@@ -70,23 +72,30 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
         sa.ForeignKeyConstraint(['sport_id'], ['sports.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('normalized_name')
+        sa.UniqueConstraint('sport_id', 'normalized_name', name='uq_teams_sport_normalized_name')
     )
     op.create_index('idx_teams_sport_id', 'teams', ['sport_id'])
-    op.create_index('idx_teams_normalized_name', 'teams', ['normalized_name'])
+    op.create_index('idx_teams_sport_normalized_name', 'teams', ['sport_id', 'normalized_name'])
     
     # Create events table
     op.create_table(
         'events',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('provider', sa.Text(), nullable=False, server_default='odds_api'),
         sa.Column('external_id', sa.Text(), nullable=False),
         sa.Column('sport_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('competition_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('home_team_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('away_team_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('home_team_id', postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column('away_team_id', postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column('home_team_name', sa.Text(), nullable=True),
+        sa.Column('away_team_name', sa.Text(), nullable=True),
         sa.Column('commence_time', sa.DateTime(timezone=True), nullable=False),
         sa.Column('status', sa.Text(), server_default='upcoming'),
+        sa.Column('participant_mode', sa.Text(), nullable=False, server_default='unknown'),
+        sa.Column('participants', postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default='[]'),
         sa.Column('event_metadata', postgresql.JSONB(astext_type=sa.Text()), server_default='{}'),
+        sa.Column('ingested_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('last_seen_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
         sa.ForeignKeyConstraint(['sport_id'], ['sports.id'], ondelete='CASCADE'),
@@ -94,13 +103,18 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['home_team_id'], ['teams.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['away_team_id'], ['teams.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('external_id')
+        sa.UniqueConstraint('provider', 'external_id', name='uq_events_provider_external_id'),
+        sa.CheckConstraint(
+            "participant_mode IN ('duel', 'solo', 'field', 'unknown')",
+            name='chk_events_participant_mode'
+        )
     )
     op.create_index('idx_events_sport_id', 'events', ['sport_id'])
     op.create_index('idx_events_competition_id', 'events', ['competition_id'])
     op.create_index('idx_events_commence_time', 'events', ['commence_time'])
     op.create_index('idx_events_status', 'events', ['status'])
     op.create_index('idx_events_external_id', 'events', ['external_id'])
+    op.create_index('idx_events_competition_commence', 'events', ['competition_id', 'commence_time'])
     
     # Create bookmakers table
     op.create_table(
@@ -160,10 +174,39 @@ def upgrade() -> None:
     op.create_index('idx_normalized_odds_event_id', 'normalized_odds', ['event_id'])
     op.create_index('idx_normalized_odds_market_type', 'normalized_odds', ['market_type'])
     op.create_index('idx_normalized_odds_timestamp_normalized', 'normalized_odds', ['timestamp_normalized'], postgresql_ops={'timestamp_normalized': 'DESC'})
+    
+    # Create event_priorities table
+    op.create_table(
+        'event_priorities',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('provider', sa.Text(), nullable=False),
+        sa.Column('provider_key', sa.Text(), nullable=False),
+        sa.Column('event_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('priority', sa.Numeric(4, 3), nullable=False),
+        sa.Column('model', sa.Text(), nullable=False),
+        sa.Column('evaluated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column('meta', postgresql.JSONB(astext_type=sa.Text()), nullable=True, server_default='{}'),
+        sa.ForeignKeyConstraint(['event_id'], ['events.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('provider_key', 'event_id', name='uq_event_priorities_provider_key_event_id')
+    )
+    op.create_index(
+        'idx_event_priorities_provider_key_priority',
+        'event_priorities',
+        ['provider_key', 'priority'],
+        postgresql_ops={'priority': 'DESC'}
+    )
+    op.create_index('idx_event_priorities_event_id', 'event_priorities', ['event_id'])
+    op.create_index('idx_event_priorities_evaluated_at', 'event_priorities', ['evaluated_at'])
 
 
 def downgrade() -> None:
     """Downgrade schema: Drop all tables."""
+    op.drop_index('idx_event_priorities_evaluated_at', table_name='event_priorities')
+    op.drop_index('idx_event_priorities_event_id', table_name='event_priorities')
+    op.drop_index('idx_event_priorities_provider_key_priority', table_name='event_priorities')
+    op.drop_table('event_priorities')
+    
     op.drop_index('idx_normalized_odds_timestamp_normalized', table_name='normalized_odds')
     op.drop_index('idx_normalized_odds_market_type', table_name='normalized_odds')
     op.drop_index('idx_normalized_odds_event_id', table_name='normalized_odds')
@@ -179,6 +222,7 @@ def downgrade() -> None:
     op.drop_index('idx_bookmakers_key', table_name='bookmakers')
     op.drop_table('bookmakers')
     
+    op.drop_index('idx_events_competition_commence', table_name='events')
     op.drop_index('idx_events_external_id', table_name='events')
     op.drop_index('idx_events_status', table_name='events')
     op.drop_index('idx_events_commence_time', table_name='events')
@@ -186,7 +230,7 @@ def downgrade() -> None:
     op.drop_index('idx_events_sport_id', table_name='events')
     op.drop_table('events')
     
-    op.drop_index('idx_teams_normalized_name', table_name='teams')
+    op.drop_index('idx_teams_sport_normalized_name', table_name='teams')
     op.drop_index('idx_teams_sport_id', table_name='teams')
     op.drop_table('teams')
     

@@ -169,3 +169,56 @@ taskiq worker app.tasks.broker:broker app.tasks.collector
 2. Все файлы миграций должны быть закоммичены в Git
 3. На новом окружении всегда применяйте: `alembic upgrade head`
 
+STRUCTURE:
+odds-service/
+└── app/
+    ├── api/                      # Внешние интерфейсы (FastAPI)
+    │   ├── http/                 # HTTP-роуты
+    │   │   ├── admin.py          # /_admin/* (ручные триггеры)
+    │   │   └── public.py         # /v1/* (если нужно)
+    │   └── schemas/              # Pydantic схемы запрос/ответ (API boundary)
+    │       ├── sports.py
+    │       └── competitions.py
+    │
+    ├── domain/                     # Доменная модель (минимум, без «портов/юзкейсов»)
+    │   ├── entities/             # ORM-агностичные сущности/DTO (не обяз. для MVP)
+    │   │   ├── sport.py
+    │   │   └── competition.py
+    │   ├── rules/                # Бизнес-правила/валидаторы/политики (чистые функции)
+    │   │   ├── visibility_policy.py
+    │   │   └── window_policy.py
+    │   └── types.py              # Общие типы/константы домена
+    │
+    ├── infrastructure/                     # Работа с данными (БД, кэш, внешние API)
+    │   ├── db/
+    │   │ . ├──orm/
+    │   │   │  ├── sports.py
+               ├──competition.py
+    │   │   ├── orm.py            # SQLAlchemy модели (Sports, Competition, …)
+    │   │   ├── engine.py         # create_async_engine, alembic bind
+    │   │   └── session.py        # async_sessionmaker + helpers
+    │   ├── repo/                 # Репозитории (тонкие, async)
+    │   │   ├── sports_repo.py
+    │   │   └── competitions_repo.py
+    │   ├── cache/
+    │   │   └── redis.py          # Client redis
+    │   └── http/                 # Внешние клиенты
+    │       ├── base_client.py    # базовый httpx клиент, retry/limiter
+    │       └── odds_api.py       # The Odds API (sports, events, odds)
+    │
+    ├── services/                 # Прикладная логика (оркестрация шагов)
+    │   ├── sports_service.py     # sync sports+competitions, обновление кэша
+    │   └── events_service.py     # сбор events per provider_key (позже)
+    │
+    ├── worker/                     # Фоновые задачи (TaskIQ)
+    │   ├── broker.py             # конфигурация брокера
+    │   ├── worker.py             # entrypoint воркера
+    │   └── schedule.py           # entrypoint планировщика (cron/LabelScheduleSource)
+    │
+    ├── config/                   # Настройки и политики
+    │   ├── settings.py           # Pydantic Settings (.env)
+    │   ├── provider_policy.yml   # YAML политика провайдера
+    │   └── policy_loader.py      # загрузка→кэш в Redis, get_policy()
+    │
+    ├── app.py                    # FastAPI app + lifespan (DI, wiring)
+    └── main.py                   # uvicorn entrypoint
