@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     environment: str = Field(default="development")
     log_level: str = Field(default="INFO")
 
-    redis_url: str = Field(default="redis://localhost:6379/0")
+    redis_broker_url: str = Field(default="redis://localhost:6379/0")
+    redis_cache_url: str = Field(default="redis://localhost:6379/1")
 
     postgres_host: str = Field(default="localhost")
     postgres_port: int = Field(default=5432)

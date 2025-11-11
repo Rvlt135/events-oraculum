@@ -10,7 +10,7 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from redis.asyncio import Redis
 
-from app.infrastructure.di.dependencies import (
+from app.infrastructure.di.factory import (
     get_db_session_from_factory,
     get_sports_service_from_container,
     get_events_service_from_container,

@@ -28,7 +28,8 @@ class Container:
     def __init__(self):
         self.engine: AsyncEngine | None = None
         self.session_factory: async_sessionmaker[AsyncSession] | None = None
-        self.redis: redis.Redis | None = None
+        self.redis_cache: redis.Redis | None = None
+        self.redis_broker: redis.Redis | None = None
         self.odds_client: OddsAPIClient | None = None
     
     def create_sports_service(self) -> "SportsService":
@@ -38,8 +39,8 @@ class Container:
         Returns:
             SportsService instance with dependencies from container
         """
-        sports_cache = SportsCache(self.redis)
-        competitions_cache = CompetitionsCache(self.redis)
+        sports_cache = SportsCache(self.redis_cache)
+        competitions_cache = CompetitionsCache(self.redis_cache)
         catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
         return SportsService(
             odds_client=self.odds_client,
@@ -59,9 +60,9 @@ class Container:
         from app.infrastructure.cache.catalog.events import EventsCache
         from app.config.settings import settings
 
-        sports_cache = SportsCache(self.redis)
-        competitions_cache = CompetitionsCache(self.redis)
-        events_cache = EventsCache(self.redis)
+        sports_cache = SportsCache(self.redis_cache)
+        competitions_cache = CompetitionsCache(self.redis_cache)
+        events_cache = EventsCache(self.redis_cache)
 
         return EventsService(
             odds_client=self.odds_client,
@@ -102,8 +103,9 @@ def create_container() -> Container:
     container.session_factory = make_session_factory(container.engine)
     
     # Create Redis client
-    container.redis = redis.from_url(settings.redis_url, decode_responses=True)
-    
+    container.redis_broker = redis.from_url(settings.redis_broker_url, decode_responses=True)
+    container.redis_cache = redis.from_url(settings.redis_cache_url, decode_responses=True)
+
     # Create Odds API client
     container.odds_client = OddsAPIClient(
         api_key=settings.odds_api_key,
@@ -126,8 +128,11 @@ async def dispose_container(container: Container) -> None:
     logger.info("disposing_container")
     
     # Shutdown: close Redis, close odds client, and dispose engine
-    if container.redis:
-        await container.redis.close()
+    if container.redis_broker:
+        await container.redis_broker.close()
+
+    if container.redis_cache:
+        await container.redis_cache.close()
     
     if container.odds_client:
         await container.odds_client.close()

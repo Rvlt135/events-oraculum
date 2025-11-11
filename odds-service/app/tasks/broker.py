@@ -9,8 +9,8 @@ from app.infrastructure.di.container import create_container, dispose_container
 
 logger = structlog.get_logger()
 
-redis_backend = RedisAsyncResultBackend(settings.redis_url)
-broker = ListQueueBroker(url=settings.redis_url).with_result_backend(redis_backend)
+redis_backend = RedisAsyncResultBackend(settings.redis_broker_url)
+broker = ListQueueBroker(url=settings.redis_broker_url).with_result_backend(redis_backend)
 
 # Create scheduler for TaskIQ CLI
 # Import tasks to ensure they're registered with broker
