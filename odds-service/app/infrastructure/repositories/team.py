@@ -60,3 +60,79 @@ class TeamRepository(BaseRepository[Team]):
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def resolve_or_create_by_alias(
+        self, sport_id: UUID, provider: str, normalized: str, raw: str
+    ) -> UUID:
+        """
+        Resolve team by normalized name or create if not exists.
+
+        Finds team by (sport_id, normalized_name), creates if not found,
+        and ensures external_ids[provider][raw]=true without overwriting other aliases.
+
+        Args:
+            sport_id: Sport UUID
+            provider: Provider name (e.g., 'odds_api')
+            normalized: Normalized team name (lower, trimmed, NFC)
+            raw: Raw team name from provider
+
+        Returns:
+            Team UUID
+        """
+        from sqlalchemy.dialects.postgresql import insert
+
+        # Try to find existing team by (sport_id, normalized_name)
+        result = await self.session.execute(
+            select(Team).where(
+                Team.sport_id == sport_id,
+                Team.normalized_name == normalized
+            )
+        )
+        team = result.scalar_one_or_none()
+
+        if team:
+            # Team exists - merge alias into external_ids[provider][raw]
+            current_external_ids = team.external_ids or {}
+
+            # Ensure provider dict exists
+            if provider not in current_external_ids:
+                current_external_ids[provider] = {}
+
+            # Add/update alias
+            current_external_ids[provider][raw] = True
+
+            team.external_ids = current_external_ids
+            team.updated_at = now_utc()
+            await self.session.flush()
+
+            logger.debug(
+                "team_alias_added",
+                team_id=str(team.id),
+                normalized=normalized,
+                provider=provider,
+                raw=raw
+            )
+
+            return team.id
+        else:
+            # Team doesn't exist - create new
+            external_ids = {provider: {raw: True}}
+
+            team = Team(
+                name=raw,
+                normalized_name=normalized,
+                sport_id=sport_id,
+                external_ids=external_ids,
+            )
+            self.session.add(team)
+            await self.session.flush()
+
+            logger.info(
+                "team_created_with_alias",
+                team_id=str(team.id),
+                name=raw,
+                normalized=normalized,
+                provider=provider
+            )
+
+            return team.id

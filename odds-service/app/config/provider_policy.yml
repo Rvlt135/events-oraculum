@@ -43,6 +43,13 @@ odds_api:
       basketball: duel
       ice_hockey: duel
       golf: solo
-    teams:
-      normalization:
-        enabled: true  # Whether to resolve team aliases to team_id
+
+  events:
+    teams_normalization:
+      enabled: true  # E5: Resolve team_id for duel/solo modes via TeamRepository
+
+  admin:
+    events_view_limit: 200  # E10: Limit for GET /catalog/events/upcoming
+
+  events_cache:
+    upcoming_ttl_sec: 300  # TTL for catalog:events:{provider_key}:upcoming cache

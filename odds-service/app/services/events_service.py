@@ -558,7 +558,12 @@ class EventsService:
         self, provider: str, provider_key: str, events_data: List[Dict]
     ) -> int:
         """
-        Convert API events to EventUpsertDTO and save to database.
+        Convert API events to EventUpsertDTO and save to database (E5).
+
+        If teams_normalization is enabled in policy:
+        - Resolves team_id for duel/solo modes via TeamRepository
+        - Accumulates aliases in teams.external_ids[provider]
+        - Fills home_team_id/away_team_id and participants[*].team_id
 
         Args:
             provider: Provider name
@@ -591,6 +596,25 @@ class EventsService:
 
                 event_repo = EventRepository(session)
 
+                # Check if teams normalization is enabled
+                policy_dict = policy_loader.get_events_policy(provider=provider)
+                teams_normalization_enabled = (
+                    policy_dict.get("events", {})
+                    .get("teams_normalization", {})
+                    .get("enabled", False)
+                )
+
+                team_repo = None
+                if teams_normalization_enabled:
+                    from app.infrastructure.repositories.team import TeamRepository
+                    team_repo = TeamRepository(session)
+
+                    logger.debug(
+                        "teams_normalization_enabled",
+                        provider=provider,
+                        provider_key=provider_key
+                    )
+
                 # Extract category from provider_key to get participant mode
                 category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
                 participant_mode_str = policy_loader.get_participant_mode_for_sport(
@@ -615,9 +639,64 @@ class EventsService:
                         # Build participants based on mode
                         participants = build_participants(event_data, participant_mode)
 
-                        # Extract team names for duel mode
+                        # Extract team names
                         home_team_name = event_data.get("home_team")
                         away_team_name = event_data.get("away_team")
+
+                        # Initialize team IDs
+                        home_team_id = None
+                        away_team_id = None
+
+                        # E5: Resolve team_id if normalization enabled
+                        if teams_normalization_enabled and team_repo:
+                            from app.utils.text_utils import normalize_name
+
+                            # Handle duel mode (home/away)
+                            if participant_mode == "duel":
+                                if home_team_name:
+                                    normalized_home = normalize_name(home_team_name)
+                                    home_team_id = await team_repo.resolve_or_create_by_alias(
+                                        sport_id=competition.sport_id,
+                                        provider=provider,
+                                        normalized=normalized_home,
+                                        raw=home_team_name
+                                    )
+
+                                    # Update participants with team_id
+                                    for p in participants:
+                                        if p.role == "home":
+                                            p.team_id = home_team_id
+
+                                if away_team_name:
+                                    normalized_away = normalize_name(away_team_name)
+                                    away_team_id = await team_repo.resolve_or_create_by_alias(
+                                        sport_id=competition.sport_id,
+                                        provider=provider,
+                                        normalized=normalized_away,
+                                        raw=away_team_name
+                                    )
+
+                                    # Update participants with team_id
+                                    for p in participants:
+                                        if p.role == "away":
+                                            p.team_id = away_team_id
+
+                            # Handle solo mode (single participant)
+                            elif participant_mode == "solo":
+                                # For solo, use first participant name
+                                if participants and len(participants) > 0:
+                                    solo_name = participants[0].name
+                                    if solo_name:
+                                        normalized_solo = normalize_name(solo_name)
+                                        solo_team_id = await team_repo.resolve_or_create_by_alias(
+                                            sport_id=competition.sport_id,
+                                            provider=provider,
+                                            normalized=normalized_solo,
+                                            raw=solo_name
+                                        )
+                                        participants[0].team_id = solo_team_id
+
+                            # field mode: no team_id resolution
 
                         # Create EventUpsertDTO
                         dto = EventUpsertDTO(
@@ -625,6 +704,8 @@ class EventsService:
                             external_id=str(external_id),
                             sport_id=competition.sport_id,
                             competition_id=competition.id,
+                            home_team_id=home_team_id,
+                            away_team_id=away_team_id,
                             home_team_name=home_team_name,
                             away_team_name=away_team_name,
                             commence_time=event_data.get("commence_time", ""),
