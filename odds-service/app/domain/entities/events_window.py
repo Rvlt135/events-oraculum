@@ -1,12 +1,19 @@
 """
 Domain entities for events collection window and policy.
 """
-from typing import Literal, Dict
+from typing import Literal, Dict, Optional
 from pydantic import BaseModel
 
 
 class EventsPolicyDTO(BaseModel):
     """DTO for events collection policy configuration."""
+    # Provider info
+    provider: str
+    
+    # Competitions
+    competitions: Dict[str, list[str]]  # {"free": [...], "pro": [...]}
+    
+    # Events window configuration
     period: int
     batch_size_competitions: int
     delay_between_competitions_sec: int
@@ -16,6 +23,15 @@ class EventsPolicyDTO(BaseModel):
     base_delay_sec: int
     max_delay_sec: int
     jitter: bool
+    
+    # Events configuration
+    teams_normalization_enabled: bool
+    
+    # Admin configuration
+    events_view_limit: int = 200
+    
+    # Cache configuration
+    events_cache_upcoming_ttl_sec: int = 300
 
 
 class EventsWindowDTO(BaseModel):

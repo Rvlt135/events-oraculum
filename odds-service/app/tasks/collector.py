@@ -191,8 +191,6 @@ async def collect_events() -> Dict[str, str]:
 
         # Load policy for selected provider
         policy_dict = policy_loader.get_events_policy(provider=provider)
-        policy = EventsPolicyDTO(**policy_dict)
-
         if not policy_dict:
             logger.warning("policy_not_found_for_provider", provider=provider)
             return {
@@ -201,9 +199,12 @@ async def collect_events() -> Dict[str, str]:
                 "timestamp": now_utc().isoformat(),
             }
 
-        # Get competitions from policy
-        competitions_free = policy_dict.get("competitions", {}).get("free", [])
-        competitions_pro = policy_dict.get("competitions", {}).get("pro", [])
+        # Create EventsPolicyDTO for easier access to policy elements
+        policy = EventsPolicyDTO(**policy_dict)
+
+        # Get competitions from policy using DTO
+        competitions_free = policy.competitions.get("free", [])
+        competitions_pro = policy.competitions.get("pro", [])
         all_competition_keys = list(set(competitions_free + competitions_pro))
 
         logger.info(
@@ -238,8 +239,8 @@ async def collect_events() -> Dict[str, str]:
                 "timestamp": now_utc().isoformat(),
             }
 
-        # Build time window from policy (get period from events_window or direct period field)
-        period_days = policy_dict.get("events_window", {}).get("period") or policy_dict.get("period", 30)
+        # Build time window from policy using DTO
+        period_days = policy.period
         commence_time_from, commence_time_to = build_events_window(period_days)
 
         window = EventsWindowDTO(

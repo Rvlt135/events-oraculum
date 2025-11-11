@@ -10,13 +10,13 @@ odds_api:
   competitions:
     free:
       - soccer_uefa_champs_league
-      - soccer_uefa_europa_league
-      - soccer_uefa_champs_league_qualification
-      - soccer_epl
+#      - soccer_uefa_europa_league
+#      - soccer_uefa_champs_league_qualification
+#      - soccer_epl
     pro:
       - tennis_atp_wimbledon
-      - basketball_nba
-      - icehockey_nhl
+#      - basketball_nba
+#      - icehockey_nhl
 
   events_window:
     period: 30  # окно вперёд, дней (E2)

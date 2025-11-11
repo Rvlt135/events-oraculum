@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+import json
 
 from app.infrastructure.db.orm.events import Event
 from app.utils.time_utils import now_utc
@@ -141,7 +142,11 @@ class EventRepository(BaseRepository[Event]):
         event = result.scalar_one_or_none()
 
         # Serialize participants to dict for JSONB storage
-        participants_data = [p.model_dump() for p in dto.participants]
+        # Use mode="json" to convert UUID to string
+        participants_data = [p.model_dump(mode="json", exclude_none=True) for p in dto.participants]
+
+        # Serialize metadata using Pydantic's JSON mode (handles UUID/datetime automatically)
+        event_metadata = dto.model_dump(mode="json").get("metadata") if dto.metadata else None
 
         current_time = now_utc()
 
@@ -160,7 +165,7 @@ class EventRepository(BaseRepository[Event]):
                 status=dto.status,
                 participant_mode=dto.participant_mode,
                 participants=participants_data,
-                event_metadata=dto.metadata,
+                event_metadata=event_metadata,
                 ingested_at=current_time,
                 last_seen_at=current_time
             )
@@ -180,7 +185,7 @@ class EventRepository(BaseRepository[Event]):
             event.away_team_name = dto.away_team_name
             event.participant_mode = dto.participant_mode
             event.participants = participants_data
-            event.event_metadata = dto.metadata
+            event.event_metadata = event_metadata
             event.ingested_at = current_time
             event.last_seen_at = current_time
 
@@ -226,14 +231,15 @@ class EventRepository(BaseRepository[Event]):
             provider: Provider name
 
         Returns:
-            List of Event ORM objects where commence_time >= now
+            List of Event ORM objects where commence_time >= now and status = 'upcoming'
         """
         current_time = now_utc()
         result = await self.session.execute(
             select(Event).where(
                 Event.competition_id == competition_id,
                 Event.provider == provider,
-                Event.commence_time >= current_time
+                Event.commence_time >= current_time,
+                Event.status == "upcoming"
             ).order_by(Event.commence_time)
         )
         return list(result.scalars().all())

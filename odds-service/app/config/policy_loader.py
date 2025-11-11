@@ -233,9 +233,10 @@ def get_providers() -> list[str]:
 
 
 def get_events_policy(provider: str) -> Dict:
-    # TODO: change method for return EventsPolicyDTO
     """
     Get events collection policy configuration with provider and competitions.
+
+    Returns dictionary compatible with EventsPolicyDTO.
 
     Args:
         provider: Provider name (e.g., 'odds_api')
@@ -244,8 +245,10 @@ def get_events_policy(provider: str) -> Dict:
         Dictionary with events policy configuration including:
         - provider: Provider name
         - competitions: Dict with 'free' and 'pro' competition lists
-        - events_window: Dict with window configuration
-        - All other policy fields (period, batch_size_competitions, etc.)
+        - events_window fields (period, batch_size_competitions, rate_limit, retry_policy)
+        - events.teams_normalization.enabled
+        - admin.events_view_limit
+        - events_cache.upcoming_ttl_sec
     """
     _initialize_policy()
 
@@ -259,15 +262,19 @@ def get_events_policy(provider: str) -> Dict:
         rate_limit = events_window.get("rate_limit", {})
         retry_policy = events_window.get("retry_policy", {})
         competitions_config = provider_config.get("competitions", {})
+        events_config = provider_config.get("events", {})
+        admin_config = provider_config.get("admin", {})
+        events_cache_config = provider_config.get("events_cache", {})
+
+        # Extract teams_normalization config
+        teams_normalization_config = events_config.get("teams_normalization", {})
+        teams_normalization_enabled = teams_normalization_config.get("enabled", False)
 
         policy = {
             "provider": provider,
             "competitions": {
                 "free": competitions_config.get("free", []),
                 "pro": competitions_config.get("pro", []),
-            },
-            "events_window": {
-                "period": events_window.get("period", 30),
             },
             "period": events_window.get("period", 30),
             "batch_size_competitions": events_window.get("batch_size_competitions", 10),
@@ -278,6 +285,9 @@ def get_events_policy(provider: str) -> Dict:
             "base_delay_sec": retry_policy.get("base_delay_sec", 2),
             "max_delay_sec": retry_policy.get("max_delay_sec", 10),
             "jitter": retry_policy.get("jitter", True),
+            "teams_normalization_enabled": teams_normalization_enabled,
+            "events_view_limit": admin_config.get("events_view_limit", 200),
+            "events_cache_upcoming_ttl_sec": events_cache_config.get("upcoming_ttl_sec", 300),
         }
 
         logger.debug("events_policy_loaded", provider=provider)

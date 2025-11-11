@@ -7,6 +7,7 @@ import structlog
 from app.infrastructure.db.orm.teams import Team
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
+from sqlalchemy.dialects.postgresql import insert
 
 logger = structlog.get_logger()
 
@@ -79,7 +80,6 @@ class TeamRepository(BaseRepository[Team]):
         Returns:
             Team UUID
         """
-        from sqlalchemy.dialects.postgresql import insert
 
         # Try to find existing team by (sport_id, normalized_name)
         result = await self.session.execute(
