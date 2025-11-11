@@ -1,4 +1,27 @@
 providers:
+  openrouter:
+    api_key_env: OPENROUTER_API_KEY
+    base_url: https://openrouter.ai/api/v1
+    models:
+      deepseek/deepseek-chat:
+        context_window: 64000
+        max_output_tokens: 8192
+        temperature: 0.3
+        supports_streaming: true
+        supports_function_calling: true
+      openai/gpt-4o-mini:
+        context_window: 128000
+        max_output_tokens: 16384
+        temperature: 0.3
+        supports_streaming: true
+        supports_function_calling: true
+      anthropic/claude-3.5-sonnet:
+        context_window: 200000
+        max_output_tokens: 8192
+        temperature: 0.3
+        supports_streaming: true
+        supports_function_calling: true
+
   openai:
     api_key_env: OPENAI_API_KEY
     base_url: https://api.openai.com/v1
@@ -33,8 +56,18 @@ providers:
         supports_streaming: true
         supports_function_calling: false
 
-default_provider: openai
-default_model: gpt-4o-mini
+default_provider: openrouter
+default_model: deepseek/deepseek-chat
+
+prioritizer:
+  provider: openrouter
+  model: deepseek/deepseek-chat
+  fallback_models:
+    - openai/gpt-4o-mini
+    - anthropic/claude-3.5-sonnet
+  timeout_ms: 30000
+  batch_size: 50
+  rate_limit_qps: 5
 
 retry_config:
   max_attempts: 3

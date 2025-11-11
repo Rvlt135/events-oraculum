@@ -14,6 +14,7 @@ from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
+from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
@@ -35,6 +36,7 @@ class Container:
         self.redis_broker: redis.Redis | None = None
         self.odds_client: OddsAPIClient | None = None
         self.ai_config: AIConfigLoader | None = None
+        self.ai_client: PrioritizerLLMClient | None = None
         self.llm_service: LLMService | None = None
     
     def create_sports_service(self) -> "SportsService":
@@ -138,12 +140,16 @@ def create_container() -> Container:
     # Create AI config loader
     container.ai_config = get_ai_config_loader()
 
+    # Create AI prioritizer client
+    container.ai_client = PrioritizerLLMClient(container.ai_config)
+
     # Create LLM service
     container.llm_service = container.create_llm_service()
 
     logger.info(
         "container_created",
         has_ai_config=container.ai_config is not None,
+        has_ai_client=container.ai_client is not None,
         has_llm_service=container.llm_service is not None
     )
     return container
@@ -158,7 +164,10 @@ async def dispose_container(container: Container) -> None:
     """
     logger.info("disposing_container")
     
-    # Shutdown: close LLM service, Redis, odds client, and dispose engine
+    # Shutdown: close AI client, LLM service, Redis, odds client, and dispose engine
+    if container.ai_client:
+        await container.ai_client.close()
+
     if container.llm_service:
         await container.llm_service.close()
 
