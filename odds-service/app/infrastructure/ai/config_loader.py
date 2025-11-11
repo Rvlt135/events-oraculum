@@ -1,7 +1,7 @@
 """
 AI models configuration loader.
 
-Loads LLM configurations from config/ai_models/ directory.
+Loads LLM configurations from app/config/ai_models/ directory.
 Separate from provider_policy to keep concerns isolated.
 """
 import os
@@ -22,11 +22,11 @@ class AIConfigLoader:
 
         Args:
             config_dir: Path to ai_models config directory.
-                       Defaults to odds-service/config/ai_models/
+                       Defaults to app/config/ai_models/
         """
         if config_dir is None:
-            service_root = Path(__file__).parent.parent.parent.parent
-            config_dir = service_root / "config" / "ai_models"
+            app_root = Path(__file__).parent.parent.parent  # app/
+            config_dir = app_root / "config" / "ai_models"  # app/config/ai_models/
 
         self.config_dir = Path(config_dir)
         self.prompts_dir = self.config_dir / "prompts"
