@@ -11,6 +11,7 @@ from app.tasks.broker import broker
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
+    from app.services.llm_service import LLMService
     from app.infrastructure.di.container import Container
 
 
@@ -60,3 +61,26 @@ async def get_events_service() -> "EventsService":
 
     container: "Container" = broker.state.container
     return container.create_events_service()
+
+
+async def get_llm_service() -> "LLMService":
+    """
+    Get LLMService with injected dependencies from container.
+
+    This function is used in tasks and other non-request contexts (worker/scheduler).
+    For FastAPI request handlers, use app.api.dependencies.get_llm_service.
+
+    Both functions use the same underlying logic via container.create_llm_service(),
+    ensuring consistency across different contexts.
+
+    Returns a service instance for LLM operations.
+    """
+    # Get container from broker.state (TaskIQ worker context)
+    if not hasattr(broker, 'state') or not hasattr(broker.state, 'container'):
+        raise RuntimeError(
+            "Container not found in broker.state. "
+            "Make sure worker/scheduler initialized container before running tasks."
+        )
+
+    container: "Container" = broker.state.container
+    return container.create_llm_service()
