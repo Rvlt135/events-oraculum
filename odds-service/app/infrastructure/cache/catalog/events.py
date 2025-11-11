@@ -143,6 +143,35 @@ class EventsCache:
             )
             return []
 
+    async def get_many(self, cache_key: str) -> list[dict]:
+        """
+        Get multiple events from cache by key.
+
+        Args:
+            cache_key: Full Redis key
+
+        Returns:
+            List of event dicts
+        """
+        try:
+            raw_events = await self.redis.lrange(cache_key, 0, -1)
+
+            events = []
+            for raw_event in raw_events:
+                try:
+                    import json
+                    event_dict = json.loads(raw_event)
+                    events.append(event_dict)
+                except Exception as e:
+                    logger.warning("failed_to_parse_cached_event", cache_key=cache_key, error=str(e))
+
+            logger.debug("events_cache_get_many", cache_key=cache_key, count=len(events))
+            return events
+
+        except Exception as e:
+            logger.error("events_cache_get_many_failed", cache_key=cache_key, error=str(e))
+            return []
+
     async def invalidate(self, provider_key: str) -> None:
         """
         Invalidate (delete) events cache for a competition.

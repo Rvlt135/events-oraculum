@@ -1,14 +1,18 @@
 """
 Prioritizer service for event prioritization.
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
+from uuid import UUID
+import json
 import structlog
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 import redis.asyncio as redis
 
 from app.infrastructure.repositories.event import EventRepository
+from app.infrastructure.repositories.event_priority import EventPriorityRepository
 from app.infrastructure.cache.catalog.events import EventsCache
+from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.utils.time_utils import now_utc
 
 logger = structlog.get_logger()
@@ -22,14 +26,20 @@ class PrioritizerService:
         session_factory: async_sessionmaker[AsyncSession],
         redis_cache: redis.Redis,
         events_cache: EventsCache,
+        ai_client: Optional[PrioritizerLLMClient] = None,
         batch_size: int = 50,
         max_events: int = 500,
+        enabled: bool = True,
+        ttl_sec: int = 3600,
     ):
         self._session_factory = session_factory
         self._redis_cache = redis_cache
         self._events_cache = events_cache
+        self._ai_client = ai_client
         self._batch_size = batch_size
         self._max_events = max_events
+        self._enabled = enabled
+        self._ttl_sec = ttl_sec
 
     async def get_upcoming_events_from_cache(self, provider_key: str) -> List[Dict[str, Any]]:
         """
@@ -231,3 +241,227 @@ class PrioritizerService:
         )
 
         return batches
+
+    async def rank(
+        self,
+        provider_key: str,
+        provider: str = "odds_api",
+        max_events: int | None = None,
+    ) -> Dict[str, Any]:
+        """
+        Rank events using LLM or fallback to date sorting.
+
+        Args:
+            provider_key: Provider key
+            provider: Provider name
+            max_events: Max events override
+
+        Returns:
+            Dict with metrics
+        """
+        metrics = {
+            "processed": 0,
+            "llm_batches": 0,
+            "errors": 0,
+            "fallback_used": False,
+        }
+
+        logger.info(
+            "ranking_started",
+            provider_key=provider_key,
+            enabled=self._enabled
+        )
+
+        events = await self.get_upcoming_events_from_cache(provider_key)
+
+        if not events:
+            logger.info("cache_empty_falling_back_to_db")
+            events = await self.get_upcoming_events_from_db(max_events or self._max_events)
+
+        if not events:
+            logger.warning("no_events_to_rank")
+            return metrics
+
+        events = self.deduplicate_events(events)
+        events = self.sort_events_by_commence_time(events)
+
+        if not self._enabled or not self._ai_client:
+            logger.info("prioritization_disabled_using_fallback")
+            metrics["fallback_used"] = True
+            ranked = self._apply_fallback_scores(events)
+        else:
+            try:
+                ranked = await self._prioritize_with_llm(events, metrics)
+            except Exception as e:
+                logger.error("llm_prioritization_failed_using_fallback", error=str(e), exc_info=True)
+                metrics["fallback_used"] = True
+                metrics["errors"] += 1
+                ranked = self._apply_fallback_scores(events)
+
+        ranked = self._stable_sort_by_priority(ranked)
+
+        await self._write_to_redis(provider_key, ranked)
+        await self._write_to_db(provider_key, provider, ranked)
+
+        metrics["processed"] = len(ranked)
+
+        logger.info(
+            "ranking_complete",
+            provider_key=provider_key,
+            processed=metrics["processed"],
+            llm_batches=metrics["llm_batches"],
+            errors=metrics["errors"],
+            fallback_used=metrics["fallback_used"]
+        )
+
+        return metrics
+
+    def _apply_fallback_scores(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Apply fallback scoring (date-based).
+
+        Args:
+            events: List of events (already sorted by commence_time)
+
+        Returns:
+            Events with score added
+        """
+        for event in events:
+            event["score"] = 0.0
+
+        return events
+
+    async def _prioritize_with_llm(
+        self,
+        events: List[Dict[str, Any]],
+        metrics: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """
+        Prioritize events using LLM.
+
+        Args:
+            events: List of events
+            metrics: Metrics dict to update
+
+        Returns:
+            Events with scores
+        """
+        batches = self.batch_events(events)
+        all_scores = {}
+
+        for batch in batches:
+            try:
+                scores = await self._ai_client.prioritize_events(batch)
+                metrics["llm_batches"] += 1
+
+                for score_item in scores:
+                    all_scores[str(score_item.event_id)] = score_item.score
+
+            except Exception as e:
+                logger.error("batch_prioritization_error", error=str(e))
+                metrics["errors"] += 1
+
+        for event in events:
+            event_id = str(event.get("id"))
+            event["score"] = all_scores.get(event_id, 0.0)
+
+        return events
+
+    def _stable_sort_by_priority(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Stable sort: priority DESC, commence_time ASC, event_id ASC.
+
+        Args:
+            events: Events with scores
+
+        Returns:
+            Sorted events
+        """
+        return sorted(
+            events,
+            key=lambda e: (
+                -e.get("score", 0.0),
+                e.get("commence_time", "9999-12-31T23:59:59"),
+                e.get("id", "")
+            )
+        )
+
+    async def _write_to_redis(self, provider_key: str, events: List[Dict[str, Any]]) -> None:
+        """
+        Write ranked events to Redis with atomic swap.
+
+        Args:
+            provider_key: Provider key
+            events: Ranked events
+        """
+        cache_key = f"priority:events:{provider_key}:ranked"
+        temp_key = f"{cache_key}:tmp"
+
+        try:
+            pipe = self._redis_cache.pipeline()
+
+            await pipe.delete(temp_key)
+
+            for event in events:
+                event_json = json.dumps(event)
+                await pipe.rpush(temp_key, event_json)
+
+            await pipe.execute()
+
+            await self._redis_cache.rename(temp_key, cache_key)
+
+            if self._ttl_sec:
+                await self._redis_cache.expire(cache_key, self._ttl_sec)
+
+            logger.info(
+                "ranked_events_written_to_redis",
+                provider_key=provider_key,
+                count=len(events),
+                ttl_sec=self._ttl_sec
+            )
+
+        except Exception as e:
+            logger.error("redis_write_failed", provider_key=provider_key, error=str(e))
+            try:
+                await self._redis_cache.delete(temp_key)
+            except Exception:
+                pass
+
+    async def _write_to_db(
+        self,
+        provider_key: str,
+        provider: str,
+        events: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Write priorities to database.
+
+        Args:
+            provider_key: Provider key
+            provider: Provider name
+            events: Events with scores
+        """
+        async with self._session_factory() as session:
+            repo = EventPriorityRepository(session)
+
+            priorities = [
+                {"event_id": e["id"], "score": e.get("score", 0.0)}
+                for e in events
+            ]
+
+            model = "fallback" if not self._enabled else "deepseek/deepseek-chat"
+
+            count = await repo.upsert_batch(
+                provider=provider,
+                provider_key=provider_key,
+                priorities=priorities,
+                model=model,
+            )
+
+            await session.commit()
+
+            logger.info(
+                "priorities_written_to_db",
+                provider_key=provider_key,
+                count=count
+            )

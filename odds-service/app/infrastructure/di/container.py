@@ -117,8 +117,11 @@ class Container:
             session_factory=self.session_factory,
             redis_cache=self.redis_cache,
             events_cache=events_cache,
+            ai_client=self.ai_client,
             batch_size=batch_size,
             max_events=500,
+            enabled=True,
+            ttl_sec=3600,
         )
 
 
