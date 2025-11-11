@@ -79,7 +79,6 @@ class SportsService:
                             plan_visibility = policy_loader.get_visibility_for_category("odds_api", category)
                             await sport_repository.get_or_create(category, plan_visibility=plan_visibility, provider="odds_api")
                             synced_count += 1
-                            logger.debug("sport_category_upserted", category=category, plan_visibility=plan_visibility)
                         except Exception as e:
                             logger.error("sport_category_upsert_failed", category=category, error=str(e))
                             sports_sync_errors_total.inc()
@@ -163,7 +162,6 @@ class SportsService:
                             )
                             
                             synced_count += 1
-                            logger.debug("competition_upserted", key=provider_key, title=title)
                             
                         except Exception as e:
                             logger.error("competition_upsert_failed", item=item, error=str(e))

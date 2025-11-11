@@ -228,7 +228,6 @@ class EventsService:
             # Rate limit: delay between competitions (except after last one)
             if idx < len(keys) - 1:
                 delay = policy.delay_between_competitions_sec
-                logger.debug("rate_limit_delay", delay_sec=delay)
                 await asyncio.sleep(delay)
 
         summary = EventsRunSummaryDTO(
@@ -411,13 +410,6 @@ class EventsService:
             attempts = attempt + 1
 
             try:
-                logger.debug(
-                    "fetch_attempt",
-                    key=key,
-                    attempt=attempts,
-                    max_attempts=policy.max_attempts,
-                )
-
                 events = await self._odds_client.get_events(
                     provider_key=key,
                     from_iso=window.from_iso,
@@ -674,7 +666,6 @@ class EventsService:
                         provider_key=provider_key
                     )
                     return 0
-                logger.debug("competition_found_for_save", competition_sport_id=competition.sport_id, competition_id=competition.id)
                 # Save competition IDs while session is active to avoid lazy loading issues
                 sport_id = competition.sport_id
                 competition_id = competition.id
@@ -683,14 +674,6 @@ class EventsService:
 
                 # Check if teams normalization is enabled from policy
                 teams_normalization_enabled = policy.teams_normalization_enabled
-                logger.debug("teams_normalization_enabled", teams_normalization_enabled=teams_normalization_enabled)
-
-                if teams_normalization_enabled:
-                    logger.debug(
-                        "teams_normalization_enabled",
-                        provider=provider,
-                        provider_key=provider_key
-                    )
 
                 # Extract category from provider_key to get participant mode
                 category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
@@ -730,10 +713,9 @@ class EventsService:
                                 provider=provider,
                                 participant_mode=participant_mode,
                                 participants=participants,
-                                home_team_name=home_team_name,
-                                away_team_name=away_team_name,
-                            )
-                            logger.debug("home_team_id", home_team_id=home_team_id, away_team_id=away_team_id)
+                            home_team_name=home_team_name,
+                            away_team_name=away_team_name,
+                        )
 
                         # Create EventUpsertDTO
                         dto = EventUpsertDTO(
@@ -799,9 +781,6 @@ class EventsService:
                     )
 
                     if not competition:
-                        logger.debug(
-                            "competition_not_found_in_db", provider_key=provider_key
-                        )
                         filtered_out.append(
                             FilteredReasonDTO(
                                 provider_key=provider_key, reason="not_found"
@@ -810,9 +789,6 @@ class EventsService:
                         continue
 
                     if not competition.is_active:
-                        logger.debug(
-                            "competition_inactive", provider_key=provider_key
-                        )
                         filtered_out.append(
                             FilteredReasonDTO(
                                 provider_key=provider_key, reason="inactive"
@@ -822,9 +798,6 @@ class EventsService:
 
                     # Valid competition
                     valid_keys.append(provider_key)
-                    logger.debug(
-                        "competition_validated", provider_key=provider_key
-                    )
 
                 except Exception as e:
                     logger.error(
@@ -864,11 +837,6 @@ class EventsService:
                         # Convert string UUID to UUID object if needed
                         if isinstance(competition_id, str):
                             competition_id = UUID(competition_id)
-                        logger.debug(
-                            "competition_found_in_cache",
-                            provider_key=provider_key,
-                            competition_id=str(competition_id)
-                        )
                         break
 
         # Fallback to DB if not found in cache
@@ -955,7 +923,6 @@ class EventsService:
             batch = items[i : i + batch_size]
             batches.append(batch)
 
-        logger.debug("batches_created", total_items=len(items), batch_size=batch_size, total_batches=len(batches))
         return batches
 
     async def get_upcoming_events_from_cache(self) -> List[Dict]:
