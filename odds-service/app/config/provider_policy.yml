@@ -53,3 +53,9 @@ odds_api:
 
   events_cache:
     upcoming_ttl_sec: 300  # TTL for catalog:events:{provider_key}:upcoming cache
+
+  prioritizer:
+    enabled: true
+    mode: per_competition  # per_competition | all
+    max_events: 500
+    ttl_sec: 3600

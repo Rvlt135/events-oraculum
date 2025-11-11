@@ -276,7 +276,7 @@ async def collect_events() -> Dict[str, str]:
             total_events=summary.total_events
         )
 
-        return {
+        result = {
             "status": "success",
             "processed": str(summary.processed),
             "failed": str(summary.failed),
@@ -285,6 +285,11 @@ async def collect_events() -> Dict[str, str]:
             "duration_seconds": str(duration),
             "timestamp": now_utc().isoformat(),
         }
+
+        from app.tasks.prioritizer import enqueue_prioritization_after_collect
+        await enqueue_prioritization_after_collect(result)
+
+        return result
 
     except Exception as e:
         logger.error("collect_events_task_failed", error=str(e), exc_info=True)
