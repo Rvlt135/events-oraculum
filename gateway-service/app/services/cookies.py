@@ -4,7 +4,6 @@ from app.config.settings import settings
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    print("_________________ACS:", settings.auth_cookie_secure)
     response.set_cookie(
         key=settings.access_token_cookie_name,
         value=access_token,
