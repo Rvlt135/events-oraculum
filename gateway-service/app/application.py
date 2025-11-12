@@ -9,7 +9,7 @@ from app.infrastructure.cache.redis import redis_cache_manager
 from app.infrastructure.db.engine import engine
 from app.infrastructure.db.orm import Base
 from app.observability.logging import configure_logging
-from app.api.routes import auth, insights, stats
+from app.api.routes import auth, base, insights, stats
 from fastapi.openapi.utils import get_openapi
 from app.api.di.auth_deps import get_current_user
 import inspect
@@ -103,6 +103,7 @@ def create_app(env: str = "production") -> FastAPI:
     )
 
     app.include_router(auth.router)
+    app.include_router(base.router)
     app.include_router(insights.router)
     app.include_router(stats.router)
 
