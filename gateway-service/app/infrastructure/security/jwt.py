@@ -86,7 +86,7 @@ class JWTService:
         except jwt.InvalidTokenError as e:
             raise ValueError(f"Invalid token: {str(e)}")
 
-jwt_setvice = JWTService(
+jwt_service = JWTService(
         secret=settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
         access_ttl=settings.access_token_ttl_seconds,
