@@ -1,13 +1,9 @@
-from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import httpx
 import jwt
 
 from app.config.settings import settings
-from app.infrastructure.cache.redis import redis_cache_manager
-from app.infrastructure.security.utils import generate_oauth_params
-from app.services.google_oauth_validator import google_oauth_validator
 
 
 class GoogleOAuthClient:
@@ -20,43 +16,12 @@ class GoogleOAuthClient:
         client_id: str,
         client_secret: str,
         redirect_uri: str,
-    ):
+    ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
     
-    async def save_to_redis(self, params: dict, ttl: int = 600) -> None:
-        """
-        Сохранение OAuth параметров в Redis
-        
-        Args:
-            params: словарь с OAuth параметрами
-            ttl: время жизни в секундах (по умолчанию 600 = 10 минут)
-        """
-        state = params.pop("state")
-        state_key = f"oauth:state:{state}"
-        await redis_cache_manager.set(state_key, params, ttl)
-
-    async def get_authorization_url(self, header: dict, return_to: str | None = None) -> str:
-
-        return_to = google_oauth_validator.validate_and_parse_return_path(return_to)
-
-        oauth_params = generate_oauth_params()
-
-        cached_params = {
-            "provider": "GOOGLE",
-            "nonce": oauth_params.get("nonce"),
-            "code_verifier": oauth_params.get("code_verifier"),
-            "state": oauth_params.get("state"),
-            "return_to": return_to,
-            "redirect_uri": self.redirect_uri,
-            "ip": "<client_ip>",
-            "ua": header.get("user-agent"),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "status": "PENDING",
-        }
-
-        await self.save_to_redis(cached_params)
+    def get_authorization_url(self, oauth_params: dict) -> str:
 
         params = {
             "client_id": self.client_id,
@@ -72,12 +37,13 @@ class GoogleOAuthClient:
 
         return f"{self.AUTHORIZATION_ENDPOINT}?{urlencode(params)}"
 
-    async def exchange_code(self, code: str) -> dict:
+    async def exchange_code(self, code: str, code_verifier: str) -> dict:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 self.TOKEN_ENDPOINT,
                 data={
                     "code": code,
+                    "code_verifier": code_verifier,
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
                     "redirect_uri": self.redirect_uri,
@@ -87,7 +53,7 @@ class GoogleOAuthClient:
             response.raise_for_status()
             return response.json()
 
-    def verify_id_token(self, id_token: str) -> dict:
+    def verify_id_token(self, id_token: str, cached_nonce: str) -> dict:
         try:
             payload = jwt.decode(
                 id_token,
@@ -100,9 +66,11 @@ class GoogleOAuthClient:
                 "accounts.google.com",
             ]:
                 raise ValueError("Invalid issuer")
+            if payload.get("nonce") != cached_nonce:
+                raise ValueError("Invalid nonce")
             return payload
         except jwt.InvalidTokenError as e:
-            raise ValueError(f"Invalid ID token: {str(e)}")
+            raise ValueError(f"Invalid ID token: {e!s}")
 
     async def get_user_info(self, access_token: str) -> dict:
         async with httpx.AsyncClient() as client:

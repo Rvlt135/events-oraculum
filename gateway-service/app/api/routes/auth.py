@@ -1,74 +1,84 @@
-from datetime import datetime, UTC
-from typing import Optional
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 
-from app.infrastructure.clients.google_oauth import GoogleOAuthClient, google_oauth_client
+from app.api.di.deps import get_auth_service, get_google_auth_service
 from app.api.schemas.auth import (
-    EmailRegisterRequest,
     EmailLoginRequest,
+    EmailRegisterRequest,
     TelegramAuthRequest,
     TokenRefreshRequest,
 )
 from app.api.schemas.user import (
     AuthResponse,
     AuthTokens,
-    UserProfile,
     TelegramInfo,
-    MeResponse,
+    UserProfile,
 )
-from app.services.auth_service import AuthService
-from app.infrastructure.db.orm.user import User
-from app.api.di.auth_deps import get_current_user
-from app.api.di.deps import get_auth_service, get_google_auth_service
+from app.services.auth_service import AuthService, GoogleAuthService
+from app.services.exceptions import ValidationError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+logger = structlog.get_logger()
+
 
 @router.get("/google/start")
 async def google_oauth_start(
     request: Request,
-    return_to: Optional[str] = Query(None, description="Конечный маршрут после логина"),
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
+    auth_service: GoogleAuthService = Depends(get_google_auth_service)
 ) -> RedirectResponse:
-    user_agent = request.headers.get("user-agent")
-    x_request_id = request.headers.get("X-Request-ID", None)
-
-    auth_url = await google_oauth_client.get_authorization_url(
-        header=request.headers, return_to=return_to)
-    # logger.info("New authorization via Google", user_agent=user_agent, x_request_id=x_request_id)
-
-    return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
-
+    
+    try:
+        auth_url = await auth_service.get_authorization_url(
+            request=request, return_to=return_to)
+        
+        logger.info(
+            "New authorization via Google",
+            user_agent=request.headers.get("user-agent"), 
+            x_request_id=request.headers.get("X-Request-ID", None),
+        )
+        return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+    
+    except ValidationError as e:
+        logger.error("invalid_return_to", value=return_to)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": e.name,
+                "message": e.message,
+            },
+        )
+    
+    except Exception as e:
+        logger.error("Unable to initialize OAuth flow:", error=e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "OAuth_start_failed",
+                "message": "Unable to initialize OAuth flow",
+            },
+        )
+    
 
 @router.get("/google/callback")
 async def google_oauth_callback(
-    code: str,
-    state: str,
-    request: Request,
-    auth_service: AuthService = Depends(get_google_auth_service),
-):
+    response: Response,
+    code: str = Query(),
+    state: str = Query(),
+    auth_service: GoogleAuthService = Depends(get_google_auth_service),
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.login_with_google(
-            code, user_agent
-        )
+        response = await auth_service.login_with_google(code, state)
+        return response
 
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OAuth failed: {str(e)}",
+            detail=f"OAuth failed: {e!s}",
         )
 
 
@@ -215,23 +225,3 @@ async def logout(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         )
-
-
-@router.get("/me", response_model=MeResponse)
-async def get_me(
-    user: User = Depends(get_current_user),
-):
-    trial_left_days = None
-    is_trial_active = False
-
-    if user.trial_end_at:
-        delta = user.trial_end_at - datetime.now(UTC)
-        trial_left_days = max(0, delta.days)
-        is_trial_active = delta.total_seconds() > 0
-    resp = MeResponse(
-        user=UserProfile.model_validate(user),
-        trial_left_days=trial_left_days,
-        is_trial_active=is_trial_active,
-    )
-    return resp.model_dump(exclude_none=True) # TODO: убрать null в будущем в ответе
-
