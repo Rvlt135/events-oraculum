@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -36,11 +34,6 @@ async def google_oauth_start(
         auth_url = await auth_service.get_authorization_url(
             request=request, return_to=return_to)
         
-        logger.info(
-            "New authorization via Google",
-            user_agent=request.headers.get("user-agent"), 
-            x_request_id=request.headers.get("X-Request-ID", None),
-        )
         return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
     
     except ValidationError as e:
@@ -91,7 +84,7 @@ async def register_with_email(
     try:
         user_agent = request.headers.get("user-agent")
         user, access_token, refresh_token = await auth_service.register_with_email(
-            req.email, req.password, user_agent
+            req.email, req.password, user_agent,
         )
 
         return AuthResponse(

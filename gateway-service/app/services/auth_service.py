@@ -10,14 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.cache.redis import redis_cache_manager
 from app.infrastructure.clients.google_oauth import google_oauth_client
-from app.infrastructure.clients.telegram_validator import ParsedTelegramUser, TelegramValidator
+from app.infrastructure.clients.telegram_validator import telegram_validator
 from app.infrastructure.db.orm.user import PlanType, User
 from app.infrastructure.db.orm.user_identity import IdentityProvider
 from app.infrastructure.db.repositories.identity_repo import IdentityRepository
 from app.infrastructure.db.repositories.session_repo import SessionRepository
 from app.infrastructure.db.repositories.user_repo import UserRepository
 from app.infrastructure.security.jwt import jwt_service
-from app.infrastructure.security.password import PasswordService
+from app.infrastructure.security.password import password_service
 from app.infrastructure.security.utils import generate_oauth_params
 from app.services.cookies import set_auth_cookies
 from app.services.exceptions import AuthorizationError
@@ -124,7 +124,7 @@ class GoogleAuthService(BaseAuthService):
             redirect_url = f"/login?{urlencode({"error":e})}"
             return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
 
-        email = user_info.get("email")
+        email = user_info.get("email").lower()
         google_user_id = user_info.get("sub")
         email_verified = user_info.get("email_verified", False)
 
@@ -133,7 +133,7 @@ class GoogleAuthService(BaseAuthService):
         )
         if identity:
             user = identity.user
-
+            print("user:", user)
         else:
             user = await self.user_repo.get_by_email(email)
             if not user:
@@ -165,13 +165,10 @@ class GoogleAuthService(BaseAuthService):
             expires_at=refresh_expires,
             user_agent=cached_oauth_params.get("ua"),
         )
-
         await self._cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
         response = RedirectResponse(url=cached_oauth_params.get("return_to"))
-
         set_auth_cookies(response, access_token, refresh_token)
-
         await self._delete_cached_transaction(state)
 
         return response
@@ -206,6 +203,14 @@ class GoogleAuthService(BaseAuthService):
 
         oauth_params = generate_oauth_params()
 
+        logger.info(
+            "Start Google authorization.",
+            state=oauth_params.get("state"),
+            client_ip=request.client.host,
+            user_agent=request.headers.get("user-agent"), 
+            x_request_id=request.headers.get("X-Request-ID", None),
+        )
+
         cached_params = {
             "provider": "GOOGLE",
             "nonce": oauth_params.get("nonce"),
@@ -213,7 +218,7 @@ class GoogleAuthService(BaseAuthService):
             "state": oauth_params.get("state"),
             "return_to": return_to,
             "redirect_uri": self.redirect_uri,
-            "ip": "<client_ip>", # TODO need to get client ip
+            "ip": request.client.host,
             "ua": request.headers.get("user-agent"),
             "created_at": datetime.now(UTC).isoformat(),
             "status": "PENDING",
@@ -223,7 +228,7 @@ class GoogleAuthService(BaseAuthService):
 
         return self.google.get_authorization_url(oauth_params)
 
-    async def _cache_oauth_transaction(self, params: dict, ttl: int = 600) -> None:
+    async def _cache_oauth_transaction(self, params: dict, ttl: int = 60) -> None:
         state = params.pop("state")
         state_key = f"oauth:state:{state}"
         await redis_cache_manager.set(state_key, params, ttl)
@@ -262,7 +267,6 @@ class TokenService(BaseAuthService):
         account_id = user.telegram_account_id if user.telegram_account_id else None
         return self.jwt.create_access_token(user.id, user.plan_type.value, account_id=account_id)
 
-
     async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
         if use_cache:
             cached = await self._get_cached_user(user_id)
@@ -275,22 +279,10 @@ class TokenService(BaseAuthService):
         return user
 
 
-# TO DO refactor this service - split to separate services for each auth type
+# TODO refactor this service - split to separate services for each auth type
 class AuthService(BaseAuthService):
-    # def __init__(
-    #     self,
-    #     db_session: AsyncSession,
-    #     # redis: RedisCache,
-    #     # jwt_service: JWTService,
-    password: PasswordService
-    telegram: TelegramValidator
-    # ):
-    #     self.db = db_session
-    #     self.password = password_service
-    #     self.telegram = telegram_validator
-    #     self.user_repo = UserRepository(db_session)
-    #     self.identity_repo = IdentityRepository(db_session)
-    #     self.session_repo = SessionRepository(db_session)
+    password = password_service
+    telegram = telegram_validator
 
     async def register_with_email(
         self, email: str, password: str, user_agent: str | None = None

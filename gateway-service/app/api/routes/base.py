@@ -37,7 +37,6 @@ async def get_me(
 def get_dashboard(
     user: User = Depends(get_current_user)
 ) -> dict:
-    print(user)
     return {"user": str(user)}
 
 
