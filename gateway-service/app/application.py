@@ -3,9 +3,11 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from sqlalchemy import text
 
+import redis.asyncio as redis
 from app.config.settings import settings
-from app.infrastructure.cache.redis import redis_cache_manager
+from app.infrastructure.cache.redis import RedisCache
 from app.infrastructure.db.engine import engine
 from app.infrastructure.db.orm import Base
 from app.observability.logging import configure_logging
@@ -24,13 +26,16 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_gateway_service")
-    await redis_cache_manager.initialize()
+    # TODO: update in future use multiple cache databases
+    redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+    app.state.redis_client = redis_client
+    app.state.redis_cache = RedisCache(redis_client, ttl=settings.cache_ttl_seconds)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
 
     yield
-    await redis_cache_manager.dispose()
+    await redis_client.close()
     await engine.dispose()
     logger.info("shutting_down_gateway_service")
 
@@ -63,31 +68,14 @@ def create_app(env: str = "production") -> FastAPI:
         }
         
         # Automatically detect and add security to operations using get_current_user
-        for route in app.routes:
-            if hasattr(route, "path") and hasattr(route, "endpoint") and hasattr(route, "methods"):
-                endpoint = route.endpoint
-                if inspect.iscoroutinefunction(endpoint) or inspect.isfunction(endpoint):
-                    sig = inspect.signature(endpoint)
-                    # Check if endpoint uses get_current_user in its dependencies
-                    uses_auth = False
-                    for param_name, param in sig.parameters.items():
-                        if hasattr(param.default, "dependency"):
-                            if param.default.dependency == get_current_user:
-                                uses_auth = True
-                                break
-                    
-                    if uses_auth:
-                        # Find the operation in OpenAPI schema
-                        path = route.path
-                        if path in openapi_schema.get("paths", {}):
-                            path_item = openapi_schema["paths"][path]
-                            # Check all HTTP methods for this route
-                            for method in route.methods:
-                                method_lower = method.lower()
-                                if method_lower in path_item:
-                                    operation = path_item[method_lower]
-                                    if "security" not in operation:
-                                        operation["security"] = [{"BearerAuth": []}]
+        for path, path_item in openapi_schema["paths"].items():
+            for method, operation in path_item.items():
+                if method in ["get", "post", "put", "delete", "patch"]:
+                    # Skip public endpoints
+                    if "/health" in path or "/metrics" in path or "/v1/stats/summary" in path:
+                        continue
+                    # Add security requirement
+                    operation["security"] = [{"BearerAuth": []}]
         
         app.openapi_schema = openapi_schema
         return app.openapi_schema

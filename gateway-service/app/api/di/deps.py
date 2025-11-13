@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, settings
@@ -11,6 +11,18 @@ from app.services.auth_service import AuthService, GoogleAuthService, TokenServi
 
 def get_settings() -> Settings:
     return settings
+
+def get_redis_client(request: Request) -> redis.Redis:
+    client = getattr(request.app.state, "redis_client", None)
+    if client is None:
+        raise RuntimeError("Redis client not initialized")
+    return client
+
+def get_redis_cache(request: Request) -> RedisCache:
+    cache = getattr(request.app.state, "redis_cache", None)
+    if cache is None:
+        raise RuntimeError("Redis cache not initialized")
+    return cache
 
 
 def get_jwt_service() -> JWTService:

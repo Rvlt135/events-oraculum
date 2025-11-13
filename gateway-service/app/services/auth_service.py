@@ -133,7 +133,6 @@ class GoogleAuthService(BaseAuthService):
         )
         if identity:
             user = identity.user
-            print("user:", user)
         else:
             user = await self.user_repo.get_by_email(email)
             if not user:
@@ -318,7 +317,7 @@ class AuthService(BaseAuthService):
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -343,7 +342,7 @@ class AuthService(BaseAuthService):
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -415,7 +414,7 @@ class AuthService(BaseAuthService):
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
         await self._cache_user_with_account_id(user, account_id)
         await self.db.commit()
 
@@ -426,7 +425,7 @@ class AuthService(BaseAuthService):
         jti = UUID(token_payload.jti)
         user_id = UUID(token_payload.sub)
 
-        cached = await self._get_cached_session(jti)
+        cached = await self.session_cache_repo.get_cached_session(jti)
         if not cached:
             db_session = await self.session_repo.get_by_jti(jti)
             if not db_session or db_session.expires_at < datetime.now(UTC):
@@ -441,11 +440,11 @@ class AuthService(BaseAuthService):
 
     async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
         if use_cache:
-            cached = await self._get_cached_user(user_id)
+            cached = await self.user_cache_repo.get_cached_user(user_id)
             if cached:
                 return cached
 
         user = await self.user_repo.get_by_id(user_id)
         if user and use_cache:
-            await self._cache_user(user)
+            await self.user_cache_repo.cache_user(user)
         return user

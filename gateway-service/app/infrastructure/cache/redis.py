@@ -3,36 +3,20 @@ import json
 import redis.asyncio as redis
 import structlog
 
-from app.config.settings import settings
-
 logger = structlog.get_logger()
 
 
 class RedisCache:
-    def __init__(self):
-        self.ttl = settings.cache_ttl_seconds
-        self.client: Optional[redis.Redis] = None
-
-    async def initialize(self) -> None:
-        if not self.client:
-            self.client = await redis.from_url(settings.redis_url, decode_responses=True)
-            logger.info("redis_cache_initialized")
-
-    async def dispose(self) -> None:
-        if self.client:
-            await self.client.close()
-            self.client = None
-            logger.info("redis_cache_disposed")
+    def __init__(self, client: redis.Redis, ttl: int):
+        self.ttl =  ttl # settings.cache_ttl_seconds
+        self.client = client
 
     async def get(self, key: str) -> Optional[dict]:
-        if not self.client:
-            raise RuntimeError("Redis not initialized")
-
         try:
-            value = await self.client.get(key)
-            if value:
+            val = await self.client.get(key)
+            if val:
                 logger.debug("cache_hit", key=key)
-                return json.loads(value)
+                return json.loads(val)
             logger.debug("cache_miss", key=key)
             return None
         except Exception as e:
@@ -50,20 +34,15 @@ class RedisCache:
         except Exception as e:
             logger.error("cache_set_error", key=key, error=str(e))
 
-    async def delete(self, key: str) -> None:
-        if not self.client:
-            raise RuntimeError("Redis not initialized")
+    async def set_json(self, key: str, payload: dict, ex: Optional[int] = None) -> None:
+        try:
+            await self.client.set(key, json.dumps(payload), ex=ex or self.ttl)
+        except Exception as e:
+            logger.error("cache_set_error", key=key, error=str(e))
 
+    async def delete(self, key: str) -> None:
         try:
             await self.client.delete(key)
-            logger.debug("cache_delete", key=key)
         except Exception as e:
             logger.error("cache_delete_error", key=key, error=str(e))
-
-
-redis_cache_manager = RedisCache()
-
-
-async def get_redis_cache() -> RedisCache:
-    return redis_cache_manager
 
