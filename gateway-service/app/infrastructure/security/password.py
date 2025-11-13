@@ -18,3 +18,4 @@ class PasswordService:
         except VerifyMismatchError:
             return False
 
+password_service = PasswordService()

@@ -1,24 +1,24 @@
-from uuid import UUID
 from typing import Literal
+from uuid import UUID
 
-from fastapi import Depends, HTTPException, status, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer
 
-from app.infrastructure.security.jwt import JWTService
-from app.services.auth_service import AuthService
-from app.api.di.deps import get_auth_service, get_jwt_service
+from app.api.di.deps import get_auth_service
+from app.config.settings import settings
 from app.infrastructure.db.orm.user import User
+from app.infrastructure.security.jwt import jwt_service
+from app.services.auth_service import AuthService
 
 security = HTTPBearer(scheme_name="Bearer")
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Security(security),
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service),
-    jwt_service: JWTService = Depends(get_jwt_service),
 ) -> User:
-    token = credentials.credentials
+    access_token = request.cookies.get(settings.access_token_cookie_name)
     try:
-        payload = jwt_service.verify_token(token, expected_type="access")
+        payload = jwt_service.verify_token(access_token, expected_type="access")
         user_id = UUID(payload.sub)
         user = await auth_service.get_user_by_id(user_id)
         if not user:

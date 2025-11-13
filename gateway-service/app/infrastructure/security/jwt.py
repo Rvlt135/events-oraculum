@@ -1,7 +1,11 @@
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
+
 import jwt
 from pydantic import BaseModel
+
+from app.config.settings import settings
+
 
 class TokenPayload(BaseModel):
     sub: str
@@ -82,3 +86,9 @@ class JWTService:
         except jwt.InvalidTokenError as e:
             raise ValueError(f"Invalid token: {str(e)}")
 
+jwt_service = JWTService(
+        secret=settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+        access_ttl=settings.access_token_ttl_seconds,
+        refresh_ttl=settings.refresh_token_ttl_seconds,
+    )

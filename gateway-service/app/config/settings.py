@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = Field(default=86400)  # 1 день (24 часа)
     refresh_token_ttl_seconds: int = Field(default=1209600)  # 14 дней
 
+    # Cookies settings
+    access_token_cookie_name: str = Field(default="access_token")
+    refresh_token_cookie_name: str = Field(default="refresh_token")
+    auth_cookie_domain: str = Field(default="")
+    auth_cookie_secure: bool = Field(default=True)
+    auth_access_ttl_sec: int = Field(default=3600)
+    auth_refresh_ttl_sec: int = Field(default=2592000)
+
+
     # Google OAuth - опциональные, можно оставить пустые строки
     google_client_id: str = Field(default="")
     google_client_secret: str = Field(default="")
