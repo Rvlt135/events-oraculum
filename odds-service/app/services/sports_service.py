@@ -12,7 +12,7 @@ from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
-from app.config import policy_loader
+from app.infrastructure.config.policy_loader import PolicyLoader
 from app.domain.entities.sport import SportEntity
 from app.domain.entities.competition import CompetitionEntity
 from app.api.schemas.schemas import SportDTO, CompetitionDTO
@@ -36,12 +36,14 @@ class SportsService:
         sports_cache: SportsCache,
         competitions_cache: CompetitionsCache,
         catalog_cache_helper: CatalogCacheHelper,
+        policy_loader: PolicyLoader,
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
         self._sports_cache = sports_cache
         self._competitions_cache = competitions_cache
         self._catalog_cache_helper = catalog_cache_helper
+        self._policy_loader = policy_loader
 
 
     async def sync_sports_categories(self, resp: List[Dict[str, Any]]) -> dict:
@@ -76,7 +78,7 @@ class SportsService:
                     
                     for category in sorted(unique_categories):
                         try:
-                            plan_visibility = policy_loader.get_visibility_for_category("odds_api", category)
+                            plan_visibility = self._policy_loader.get_visibility_for_category("odds_api", category)
                             await sport_repository.get_or_create(category, plan_visibility=plan_visibility, provider="odds_api")
                             synced_count += 1
                         except Exception as e:
@@ -149,7 +151,7 @@ class SportsService:
                                 continue
                             
                             # Get plan visibility from policy
-                            plan_visibility = policy_loader.get_visibility_for_competition("odds_api", provider_key)
+                            plan_visibility = self._policy_loader.get_visibility_for_competition("odds_api", provider_key)
 
                             # Upsert competition
                             await competitions_repository.get_or_create(

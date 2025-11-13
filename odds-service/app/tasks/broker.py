@@ -14,7 +14,9 @@ broker = ListQueueBroker(url=settings.redis_broker_url).with_result_backend(redi
 
 # Create scheduler for TaskIQ CLI
 # Import tasks to ensure they're registered with broker
-from app.tasks import collector  # noqa: F401
+# Note: prioritizer is imported in boot/worker.py and boot/scheduler.py to avoid circular import
+# from app.tasks import collector  # noqa: F401
+# from app.tasks import prioritizer  # noqa: F402
 
 # Create LabelScheduleSource and scheduler
 label_source = LabelScheduleSource(broker)
@@ -35,6 +37,11 @@ async def _on_broker_startup(state: Any) -> None:
     
     # Create container and store in broker state
     container = create_container()
+    
+    # Load policy once at startup
+    if container.policy_loader:
+        await container.policy_loader.load()
+    
     broker.state.container = container
     
     logger.info("container_initialized_in_worker")

@@ -5,11 +5,18 @@ import time
 import asyncio
 from typing import List, Dict, Any, Optional
 import structlog
-from openai import AsyncOpenAI
+from instructor import Mode
+from openai import AsyncOpenAI, APIStatusError
 import instructor
 
-from app.infrastructure.ai.config_loader import AIConfigLoader
+from app.infrastructure.ai.config_loader import AIConfigLoader, RetryConfigDTO
 from app.infrastructure.ai.clients.schemas import EventPriorityBatch, EventPriorityScore
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
+
+from app.infrastructure.config.policy_loader import PolicyLoader
 
 logger = structlog.get_logger()
 
@@ -22,23 +29,46 @@ class PrioritizerLLMClient:
     Supports fallback models and rate limiting.
     """
 
-    def __init__(self, ai_config: AIConfigLoader):
+    def __init__(self, ai_config: AIConfigLoader, policy_loader: PolicyLoader):
         """
         Initialize prioritizer LLM client.
 
         Args:
-            ai_config: AI configuration loader
+            ai_config: AI configuration loader (for LLM retry config from models.yml)
+            policy_loader: Policy loader for business logic configuration
         """
         self.ai_config = ai_config
+        self.policy_loader = policy_loader
         config = ai_config.load_models_config()
 
-        prioritizer_config = config.get("prioritizer", {})
-        self.provider = prioritizer_config.get("provider", "openrouter")
-        self.model = prioritizer_config.get("model", "deepseek/deepseek-chat")
+        prioritizer_config = config.get("prioritizer")
+        if not prioritizer_config:
+            raise ValueError("prioritizer configuration not found in models.yml")
+        
+        self.provider = prioritizer_config.get("provider")
+        if not self.provider:
+            raise ValueError("provider not found in prioritizer configuration")
+        
+        self.model = prioritizer_config.get("model")
+        if not self.model:
+            raise ValueError("model not found in prioritizer configuration")
+        
         self.fallback_models = prioritizer_config.get("fallback_models", [])
-        self.timeout_ms = prioritizer_config.get("timeout_ms", 30000)
-        self.batch_size = prioritizer_config.get("batch_size", 50)
-        self.rate_limit_qps = prioritizer_config.get("rate_limit_qps", 5)
+        
+        self.timeout_ms = prioritizer_config.get("timeout_ms")
+        if self.timeout_ms is None:
+            raise ValueError("timeout_ms not found in prioritizer configuration")
+        
+        self.batch_size = prioritizer_config.get("batch_size")
+        if self.batch_size is None:
+            raise ValueError("batch_size not found in prioritizer configuration")
+        
+        self.rate_limit_qps = prioritizer_config.get("rate_limit_qps")
+        if self.rate_limit_qps is None:
+            raise ValueError("rate_limit_qps not found in prioritizer configuration")
+
+        # Load retry configuration from models.yml (LLM retry config)
+        self.retry: RetryConfigDTO = ai_config.get_retry_config()
 
         self.base_url = ai_config.get_base_url(self.provider)
         self.api_key = ai_config.get_api_key(self.provider)
@@ -53,15 +83,22 @@ class PrioritizerLLMClient:
             base_url=self.base_url,
             api_key=self.api_key,
             timeout=self.timeout_ms / 1000.0,
+            max_retries=0,  # Disable SDK auto-retries, use manual retry logic
+            default_headers={
+                "X-OpenRouter-App-ID": "sports-oraculum",
+                "X-Title": "Layerbit-Oraculum-Prioritizer"
+            },
         )
 
-        self._instructor_client = instructor.from_openai(self._openai_client)
+        self._instructor_client = instructor.from_openai(self._openai_client, Mode.JSON)
 
         self._last_request_time = 0.0
         self._rate_limit_delay = 1.0 / self.rate_limit_qps if self.rate_limit_qps > 0 else 0
 
         self._system_prompt = None
         self._instruction_prompt = None
+        self._prompt_schema = None
+        self._mode_pref = []
 
         logger.info(
             "prioritizer_llm_client_initialized",
@@ -70,27 +107,25 @@ class PrioritizerLLMClient:
             fallback_models=self.fallback_models,
             batch_size=self.batch_size,
             rate_limit_qps=self.rate_limit_qps,
-            timeout_ms=self.timeout_ms
+            timeout_ms=self.timeout_ms,
+            retry_max_attempts=self.retry.max_attempts,
+            retry_retriable_codes=self.retry.retriable_status_codes
         )
 
     def _load_prompts(self):
-        """Load system and instruction prompts."""
-        if self._system_prompt is None:
-            try:
-                self._system_prompt = self.ai_config.load_prompt("prioritizer.system")
-            except FileNotFoundError:
-                logger.warning("prioritizer_system_prompt_not_found_using_default")
-                self._system_prompt = "You are an AI assistant that prioritizes sports betting events."
+        """Load prompt bundle from YAML."""
+        if self._system_prompt is None or self._instruction_prompt is None:
+            bundle = self.ai_config.load_prompt_bundle("prioritizer")
+            self._system_prompt = bundle.get("system", "")
+            self._instruction_prompt = bundle.get("instruction", "")
+            self._prompt_schema = bundle.get("schema") or None
+            self._mode_pref = bundle.get("mode_preference", [])
 
-        if self._instruction_prompt is None:
-            try:
-                self._instruction_prompt = self.ai_config.load_prompt("prioritizer.instruction")
-            except FileNotFoundError:
-                logger.warning("prioritizer_instruction_prompt_not_found_using_default")
-                self._instruction_prompt = (
-                    "Analyze the following events and assign priority scores (0.0 to 1.0) "
-                    "based on betting value, data quality, and event importance."
-                )
+            logger.info(
+                "prompt_bundle_loaded",
+                name="prioritizer",
+                with_schema=self._prompt_schema is not None
+            )
 
     async def _apply_rate_limit(self):
         """Apply rate limiting delay."""
@@ -161,13 +196,64 @@ class PrioritizerLLMClient:
 
         return all_results
 
+    def _build_messages(self, system: str, user: str) -> list[
+        ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam]:
+        return [
+            ChatCompletionSystemMessageParam(role="system", content=system),
+            ChatCompletionUserMessageParam(role="user", content=user),
+        ]
+
+    def _delay_for(self, status: int, attempt: int, headers: Optional[Dict[str, Any]] = None) -> float:
+        """
+        Calculate delay for retry based on status code and attempt number.
+
+        Args:
+            status: HTTP status code
+            attempt: Current attempt number (1-indexed)
+            headers: Response headers (for Retry-After, X-RateLimit-Reset)
+
+        Returns:
+            Delay in seconds
+        """
+        # Check special_delays first
+        special_delay = self.retry.special_delays.get(str(status))
+        
+        # Check Retry-After or X-RateLimit-Reset headers
+        header_delay = None
+        if headers:
+            retry_after = headers.get("retry-after") or headers.get("Retry-After")
+            if retry_after:
+                try:
+                    header_delay = float(retry_after)
+                except (ValueError, TypeError):
+                    pass
+            
+            if header_delay is None:
+                rate_limit_reset = headers.get("x-ratelimit-reset") or headers.get("X-RateLimit-Reset")
+                if rate_limit_reset:
+                    try:
+                        reset_timestamp = float(rate_limit_reset)
+                        current_time = time.time()
+                        header_delay = max(0, reset_timestamp - current_time)
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Use maximum of special_delay and header_delay if both exist
+        delays = [d for d in [special_delay, header_delay] if d is not None]
+        if delays:
+            return float(max(delays))
+        
+        # Exponential backoff fallback
+        delay = self.retry.base_delay_sec * (2 ** max(0, attempt - 1))
+        return min(delay, self.retry.max_delay_sec)
+
     async def _prioritize_batch(
         self,
         batch: List[Dict[str, Any]],
         temperature: Optional[float] = None,
     ) -> List[EventPriorityScore]:
         """
-        Prioritize single batch with fallback support.
+        Prioritize single batch with fallback support and config-based retry logic.
 
         Args:
             batch: Batch of events
@@ -181,52 +267,106 @@ class PrioritizerLLMClient:
         models_to_try = [self.model] + self.fallback_models
         last_error = None
 
-        for attempt, model in enumerate(models_to_try):
-            try:
-                logger.debug(
-                    "attempting_prioritization",
-                    model=model,
-                    attempt=attempt + 1,
-                    total_models=len(models_to_try),
-                    batch_size=len(batch)
+        for model_idx, model in enumerate(models_to_try):
+            # Retry loop for current model
+            for attempt in range(self.retry.max_attempts):
+                try:
+                    logger.debug(
+                        "attempting_prioritization",
+                        model=model,
+                        attempt=attempt + 1,
+                        max_attempts=self.retry.max_attempts,
+                        total_models=len(models_to_try),
+                        batch_size=len(batch)
+                    )
+
+                    start_time = time.time()
+
+                    result = await self._call_llm(batch, model, temperature)
+
+                    duration_ms = int((time.time() - start_time) * 1000)
+
+                    logger.info(
+                        "prioritization_success",
+                        model_used=model,
+                        batch_size=len(batch),
+                        results_count=len(result.events),
+                        duration_ms=duration_ms,
+                        fallback_hit=model_idx > 0,
+                        attempt=attempt + 1
+                    )
+
+                    return result.events
+
+                except APIStatusError as e:
+                    status = getattr(e, "status_code", None) or getattr(
+                        getattr(e, "response", None), "status_code", None
+                    )
+                    response = getattr(e, "response", None)
+                    headers = getattr(response, "headers", {}) or {} if response else {}
+
+                    # Check if status is retriable
+                    is_retriable = status in set(self.retry.retriable_status_codes)
+                    
+                    if not is_retriable:
+                        # Non-retriable status: log and skip to next model
+                        logger.warning(
+                            "llm_bad_request_debug_TODO_remove",
+                            model=model,
+                            status=status,
+                            detail=str(e)[:1000],
+                            attempt=attempt + 1
+                        )
+                        last_error = e
+                        break  # Skip to next model
+
+                    # Retriable status codes
+                    if is_retriable:
+                        wait = self._delay_for(status, attempt=attempt + 1, headers=headers)
+                        logger.warning(
+                            "llm_rate_or_server_waiting",
+                            model=model,
+                            status=status,
+                            wait_sec=wait,
+                            attempt=attempt + 1,
+                            max_attempts=self.retry.max_attempts
+                        )
+
+                        # If we have more attempts, wait and retry
+                        if attempt + 1 < self.retry.max_attempts:
+                            await asyncio.sleep(wait)
+                            continue  # Retry current model
+
+                        # Attempts exhausted for this model
+                        last_error = e
+                        logger.warning(
+                            "prioritization_attempts_exhausted_for_model",
+                            model=model,
+                            status=status,
+                            attempts=self.retry.max_attempts
+                        )
+                        break  # Move to next model
+
+                except Exception as e:
+                    last_error = e
+                    logger.warning(
+                        "prioritization_attempt_failed",
+                        model=model,
+                        attempt=attempt + 1,
+                        error=str(e),
+                        error_type=type(e).__name__
+                    )
+
+                    # For non-APIStatusError exceptions, try next model
+                    break
+
+            # If we exhausted all models, log and return empty
+            if model_idx == len(models_to_try) - 1:
+                logger.error(
+                    "all_prioritization_attempts_failed",
+                    models_tried=models_to_try,
+                    error=str(last_error) if last_error else "Unknown error"
                 )
-
-                start_time = time.time()
-
-                result = await self._call_llm(batch, model, temperature)
-
-                duration_ms = int((time.time() - start_time) * 1000)
-
-                logger.info(
-                    "prioritization_success",
-                    model_used=model,
-                    batch_size=len(batch),
-                    results_count=len(result.events),
-                    duration_ms=duration_ms,
-                    fallback_hit=attempt > 0
-                )
-
-                return result.events
-
-            except Exception as e:
-                last_error = e
-                logger.warning(
-                    "prioritization_attempt_failed",
-                    model=model,
-                    attempt=attempt + 1,
-                    error=str(e),
-                    error_type=type(e).__name__
-                )
-
-                if attempt < len(models_to_try) - 1:
-                    logger.info("trying_fallback_model", next_model=models_to_try[attempt + 1])
-                    await asyncio.sleep(1)
-
-        logger.error(
-            "all_prioritization_attempts_failed",
-            models_tried=models_to_try,
-            error=str(last_error)
-        )
 
         return []
 
@@ -252,17 +392,24 @@ class PrioritizerLLMClient:
         user_message = f"{self._instruction_prompt}\n\n{events_summary}"
 
         model_config = self.ai_config.get_model_config(self.provider, model)
-        temp = temperature if temperature is not None else model_config.get("temperature", 0.3)
-
+        
+        if temperature is not None:
+            temp = temperature
+        else:
+            temp = model_config.get("temperature")
+            if temp is None:
+                raise ValueError(f"temperature not found in model configuration for {model}")
+        
+        max_tokens = model_config.get("max_output_tokens")
+        if max_tokens is None:
+            raise ValueError(f"max_output_tokens not found in model configuration for {model}")
+        msg = self._build_messages(self._system_prompt, user_message)
         response = await self._instructor_client.chat.completions.create(
             model=model,
             response_model=EventPriorityBatch,
-            messages=[
-                {"role": "system", "content": self._system_prompt},
-                {"role": "user", "content": user_message}
-            ],
+            messages=msg,
             temperature=temp,
-            max_tokens=model_config.get("max_output_tokens", 4096),
+            max_tokens=max_tokens,
         )
 
         return response

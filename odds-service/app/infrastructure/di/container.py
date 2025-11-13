@@ -2,23 +2,27 @@
 Dependency injection container and factory functions.
 """
 from typing import TYPE_CHECKING
+from pathlib import Path
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
-from app.config.settings import settings
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
+from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
+from app.infrastructure.config.policy_loader import PolicyLoader
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
 from app.services.prioritizer_service import PrioritizerService
+from app.infrastructure.cache.catalog.events import EventsCache
+from app.config.settings import settings
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
@@ -40,6 +44,7 @@ class Container:
         self.ai_config: AIConfigLoader | None = None
         self.ai_client: PrioritizerLLMClient | None = None
         self.llm_service: LLMService | None = None
+        self.policy_loader: PolicyLoader | None = None
     
     def create_sports_service(self) -> "SportsService":
         """
@@ -56,7 +61,8 @@ class Container:
             session_factory=self.session_factory,
             sports_cache=sports_cache,
             competitions_cache=competitions_cache,
-            catalog_cache_helper=catalog_cache_helper
+            catalog_cache_helper=catalog_cache_helper,
+            policy_loader=self.policy_loader,
         )
 
     def create_events_service(self) -> "EventsService":
@@ -66,8 +72,6 @@ class Container:
         Returns:
             EventsService instance with dependencies from container
         """
-        from app.infrastructure.cache.catalog.events import EventsCache
-        from app.config.settings import settings
 
         sports_cache = SportsCache(self.redis_cache)
         competitions_cache = CompetitionsCache(self.redis_cache)
@@ -79,6 +83,7 @@ class Container:
             sports_cache=sports_cache,
             competitions_cache=competitions_cache,
             events_cache=events_cache,
+            policy_loader=self.policy_loader,
             cache_ttl_sec=settings.catalog_cache_ttl,
         )
 
@@ -104,24 +109,51 @@ class Container:
 
         Returns:
             PrioritizerService instance with dependencies from container
+        
+        Raises:
+            ValueError: If required prioritizer configuration values are missing
         """
-        from app.infrastructure.cache.catalog.events import EventsCache
-
-        events_cache = EventsCache(self.redis_cache)
-
         ai_config = self.ai_config or get_ai_config_loader()
-        prioritizer_config = ai_config.load_models_config().get("prioritizer", {})
-        batch_size = prioritizer_config.get("batch_size", 50)
+        config = ai_config.load_models_config()
+        prioritizer_config = config.get("prioritizer")
+        
+        if not prioritizer_config:
+            raise ValueError("prioritizer configuration not found in models.yml")
+        
+        batch_size = prioritizer_config.get("batch_size")
+        if batch_size is None:
+            raise ValueError("batch_size not found in prioritizer configuration")
+        
+        rate_limit_qps = prioritizer_config.get("rate_limit_qps")
+        if rate_limit_qps is None:
+            raise ValueError("rate_limit_qps not found in prioritizer configuration")
+        
+        max_events = prioritizer_config.get("max_events")
+        if max_events is None:
+            raise ValueError("max_events not found in prioritizer configuration")
+        
+        enabled = prioritizer_config.get("enabled")
+        if enabled is None:
+            raise ValueError("enabled not found in prioritizer configuration")
+        
+        cache_ttl_sec = prioritizer_config.get("cache_ttl_sec")
+        if cache_ttl_sec is None:
+            raise ValueError("cache_ttl_sec not found in prioritizer configuration")
+        
+        events_cache = EventsCache(self.redis_cache)
+        tasks_cache = TasksCache(self.redis_broker, rate_limit_qps)
 
         return PrioritizerService(
             session_factory=self.session_factory,
             redis_cache=self.redis_cache,
+            redis_broker=self.redis_broker,
             events_cache=events_cache,
-            ai_client=self.ai_client,
+            tasks_cache=tasks_cache,
             batch_size=batch_size,
-            max_events=500,
-            enabled=True,
-            ttl_sec=3600,
+            max_events=max_events,
+            enabled=enabled,
+            cache_ttl_sec=cache_ttl_sec,
+            ai_client=self.ai_client,
         )
 
 
@@ -168,8 +200,12 @@ def create_container() -> Container:
     # Create AI config loader with settings
     container.ai_config = AIConfigLoader(settings=settings)
 
-    # Create AI prioritizer client
-    container.ai_client = PrioritizerLLMClient(container.ai_config)
+    # Create policy loader and load synchronously (needed for PrioritizerLLMClient)
+    policy_path = Path(__file__).parent.parent.parent / "config" / "provider_policy.yml"
+    container.policy_loader = PolicyLoader(str(policy_path), load_sync=True)
+
+    # Create AI prioritizer client (policy_loader for business logic, retry from models.yml)
+    container.ai_client = PrioritizerLLMClient(container.ai_config, container.policy_loader)
 
     # Create LLM service
     container.llm_service = container.create_llm_service()
@@ -178,7 +214,8 @@ def create_container() -> Container:
         "container_created",
         has_ai_config=container.ai_config is not None,
         has_ai_client=container.ai_client is not None,
-        has_llm_service=container.llm_service is not None
+        has_llm_service=container.llm_service is not None,
+        has_policy_loader=container.policy_loader is not None
     )
     return container
 

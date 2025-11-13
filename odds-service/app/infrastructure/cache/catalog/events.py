@@ -143,6 +143,20 @@ class EventsCache:
             )
             return []
 
+    async def read_upcoming(self, provider_key: str) -> list[EventDTO]:
+        """
+        Read upcoming events for a competition from cache.
+
+        This method is an alias for get_upcoming() to match the service layer interface.
+
+        Args:
+            provider_key: Competition provider_key
+
+        Returns:
+            List of EventDTO objects
+        """
+        return await self.get_upcoming(provider_key)
+
     async def get_many(self, cache_key: str) -> list[dict]:
         """
         Get multiple events from cache by key.

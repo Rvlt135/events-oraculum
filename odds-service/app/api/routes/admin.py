@@ -10,7 +10,7 @@ Security: Should be protected at network level (ingress/proxy) or via admin toke
 """
 
 from typing import Optional, List, Literal
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 from redis.asyncio import Redis
@@ -26,45 +26,14 @@ from app.api.schemas.schemas import (
 
 from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_redis_cache
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_odds_task, collect_events
-from app.tasks.prioritizer import prioritize_all, prioritize_events
+from app.tasks.collector import collect_sports_task, collect_events # collect_odds_task
+from app.tasks.prioritizer import prioritize_all
 from app.infrastructure.repositories import NormalizedOddsRepository
-from app.config import policy_loader
 
 logger = structlog.get_logger()
 
 router = APIRouter(tags=["admin"])
 
-
-@router.post("/tasks/collect", response_model=TaskTriggerResponse)
-async def trigger_collection(
-    _auth: None = Depends(verify_admin_token)
-) -> TaskTriggerResponse:
-    """
-    Manually trigger odds collection task.
-
-    This enqueues a collection task in TaskIQ that will:
-    1. Fetch odds from external API
-    2. Normalize team names
-    3. Store events and odds snapshots
-    4. Calculate aggregated odds
-    """
-    logger.info("manual_collection_triggered")
-
-    try:
-        task = await collect_odds_task.kiq()
-
-        return TaskTriggerResponse(
-            status="enqueued",
-            message="Collection task enqueued in TaskIQ",
-            task_id=str(task.task_id),
-        )
-    except Exception as e:
-        logger.error("failed_to_enqueue_task", error=str(e))
-        return TaskTriggerResponse(
-            status="error",
-            message=f"Failed to enqueue task: {str(e)}",
-        )
 
 
 @router.get("/data/snapshots", response_model=SnapshotsResponse)
@@ -271,78 +240,46 @@ async def get_upcoming_events_catalog(
 
 @router.post("/tasks/priorities/run", response_model=TaskTriggerResponse)
 async def trigger_prioritization(
+    request: Request,
     _auth: None = Depends(verify_admin_token)
 ) -> TaskTriggerResponse:
     """
     Manually trigger event prioritization.
 
-    Enqueues prioritization task(s) based on provider_policy.prioritizer.mode:
-    - per_competition: Enqueues prioritize_events for each competition
-    - all: Enqueues single prioritize_all task
+    Enqueues single prioritize_all task.
 
-    Returns 202 with task_id(s).
+    Returns 202 with task_id.
     """
     logger.info("prioritization_triggered_manually")
 
     try:
+        container = request.app.state.container
+        policy_loader = container.policy_loader
+        
         providers = policy_loader.get_providers()
         provider = providers[0] if providers else "odds_api"
 
-        policy_dict = policy_loader.get_events_policy(provider=provider)
-        if not policy_dict:
+        prioritizer_policy = policy_loader.get_prioritizer_policy(provider)
+        if not prioritizer_policy:
             return TaskTriggerResponse(
                 status="error",
                 message=f"Policy not found for provider: {provider}",
             )
 
-        prioritizer_config = policy_dict.get("prioritizer", {})
-        enabled = prioritizer_config.get("enabled", True)
-        mode = prioritizer_config.get("mode", "per_competition")
-
-        if not enabled:
+        if not prioritizer_policy.enabled:
             return TaskTriggerResponse(
                 status="skipped",
                 message="Prioritization disabled in policy",
             )
 
-        if mode == "all":
-            task = await prioritize_all.kiq()
-            logger.info("prioritize_all_enqueued_manually", task_id=task.task_id)
+        task = await prioritize_all.kiq()
+        logger.info("prioritize_all_enqueued", task_id=task.task_id)
 
-            return TaskTriggerResponse(
-                status="enqueued",
-                message="Prioritize all task enqueued",
-                task_id=str(task.task_id),
-            )
-
-        elif mode == "per_competition":
-            competitions_free = policy_dict.get("competitions", {}).get("free", [])
-            competitions_pro = policy_dict.get("competitions", {}).get("pro", [])
-            all_keys = list(set(competitions_free + competitions_pro))
-
-            if not all_keys:
-                return TaskTriggerResponse(
-                    status="error",
-                    message="No competitions found in policy",
-                )
-
-            task_ids = []
-            for provider_key in all_keys:
-                task = await prioritize_events.kiq(provider_key=provider_key)
-                task_ids.append(str(task.task_id))
-                logger.info("prioritize_events_enqueued_manually", provider_key=provider_key, task_id=task.task_id)
-
-            return TaskTriggerResponse(
-                status="enqueued",
-                message=f"Prioritization tasks enqueued for {len(all_keys)} competitions",
-                task_id=",".join(task_ids),
-            )
-
-        else:
-            return TaskTriggerResponse(
-                status="error",
-                message=f"Unknown prioritization mode: {mode}",
-            )
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="Prioritize all task enqueued",
+            task_id=str(task.task_id),
+        )
 
     except Exception as e:
         logger.error("failed_to_enqueue_prioritization", error=str(e))
@@ -394,3 +331,34 @@ async def get_priority_ranked(
     except Exception as e:
         logger.error("failed_to_get_priority_ranked", provider_key=provider_key, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch ranked events")
+
+# TODO: old
+# @router.post("/tasks/collect", response_model=TaskTriggerResponse)
+# async def trigger_collection(
+#     _auth: None = Depends(verify_admin_token)
+# ) -> TaskTriggerResponse:
+#     """
+#     Manually trigger odds collection task.
+#
+#     This enqueues a collection task in TaskIQ that will:
+#     1. Fetch odds from external API
+#     2. Normalize team names
+#     3. Store events and odds snapshots
+#     4. Calculate aggregated odds
+#     """
+#     logger.info("manual_collection_triggered")
+#
+#     try:
+#         task = await collect_odds_task.kiq()
+#
+#         return TaskTriggerResponse(
+#             status="enqueued",
+#             message="Collection task enqueued in TaskIQ",
+#             task_id=str(task.task_id),
+#         )
+#     except Exception as e:
+#         logger.error("failed_to_enqueue_task", error=str(e))
+#         return TaskTriggerResponse(
+#             status="error",
+#             message=f"Failed to enqueue task: {str(e)}",
+#         )

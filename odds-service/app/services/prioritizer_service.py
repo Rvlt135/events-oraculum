@@ -6,14 +6,19 @@ from datetime import datetime
 from uuid import UUID
 import json
 import structlog
+import asyncio
+import secrets
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 import redis.asyncio as redis
 
+from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.repositories.event import EventRepository
 from app.infrastructure.repositories.event_priority import EventPriorityRepository
+from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.utils.time_utils import now_utc
+from app.domain.entities.event import EventDTO
 
 logger = structlog.get_logger()
 
@@ -25,23 +30,28 @@ class PrioritizerService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         redis_cache: redis.Redis,
+        redis_broker: redis.Redis,
         events_cache: EventsCache,
+        tasks_cache: TasksCache,
+        batch_size: int,
+        max_events: int,
+        enabled: bool,
+        cache_ttl_sec: int,
         ai_client: Optional[PrioritizerLLMClient] = None,
-        batch_size: int = 50,
-        max_events: int = 500,
-        enabled: bool = True,
-        ttl_sec: int = 3600,
     ):
         self._session_factory = session_factory
         self._redis_cache = redis_cache
+        self._redis_broker = redis_broker
         self._events_cache = events_cache
+        self.tasks_cache = tasks_cache
         self._ai_client = ai_client
         self._batch_size = batch_size
         self._max_events = max_events
         self._enabled = enabled
-        self._ttl_sec = ttl_sec
+        self._cache_ttl_sec = cache_ttl_sec
+        # self._rate_limit_qps = rate_limit_qps # TODO: delete after tests
 
-    async def get_upcoming_events_from_cache(self, provider_key: str) -> List[Dict[str, Any]]:
+    async def get_upcoming_events_from_cache(self, provider_key: str) -> List[EventDTO]:
         """
         Get upcoming events from Redis cache.
 
@@ -49,18 +59,16 @@ class PrioritizerService:
             provider_key: Provider key for cache lookup
 
         Returns:
-            List of event dicts from cache or empty list
+            List of EventDTO from cache or empty list
         """
-        cache_key = f"catalog:events:{provider_key}:upcoming"
-
         try:
-            cached = await self._events_cache.get_many(cache_key)
+            cached = await self._events_cache.get_upcoming(provider_key)
 
             if cached:
                 logger.info("events_loaded_from_cache", provider_key=provider_key, count=len(cached))
                 return cached
 
-            logger.debug("no_events_in_cache", provider_key=provider_key, cache_key=cache_key)
+            logger.debug("no_events_in_cache", provider_key=provider_key)
             return []
 
         except Exception as e:
@@ -121,12 +129,89 @@ class PrioritizerService:
                 logger.error("db_read_error", error=str(e), exc_info=True)
                 return []
 
-    def deduplicate_events(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def get_upcoming_events_for_provider_key(
+        self,
+        provider_key: str,
+        provider: str = "odds_api",
+    ) -> List[EventDTO]:
+        """
+        Get upcoming events for a provider_key (cache-first, then DB fallback).
+
+        Args:
+            provider_key: Competition provider_key
+            provider: Provider name
+
+        Returns:
+            List of EventDTO (empty if none found)
+        """
+        # Try cache first
+        events = await self.get_upcoming_events_from_cache(provider_key)
+
+        if events:
+            return events
+
+        # Fallback to DB
+        async with self._session_factory() as session:
+            comp_repo = CompetitionsRepository(session)
+            event_repo = EventRepository(session)
+
+            try:
+                competition = await comp_repo.get_by_provider_key(
+                    provider=provider,
+                    provider_key=provider_key
+                )
+
+                if not competition:
+                    logger.debug("competition_not_found", provider_key=provider_key, provider=provider)
+                    return []
+
+                events_orm = await event_repo.get_upcoming_by_competition(
+                    competition_id=competition.id,
+                    provider=provider
+                )
+
+                result = []
+                for event in events_orm:
+                    dto = EventDTO(
+                        id=event.id,
+                        provider=event.provider,
+                        external_id=event.external_id,
+                        sport_id=event.sport_id,
+                        competition_id=event.competition_id,
+                        home_team_id=event.home_team_id,
+                        away_team_id=event.away_team_id,
+                        home_team_name=event.home_team_name,
+                        away_team_name=event.away_team_name,
+                        commence_time=event.commence_time,
+                        status=event.status,
+                        participant_mode=event.participant_mode,
+                        participants=event.participants or [],
+                        metadata=event.event_metadata or {},
+                        created_at=event.created_at,
+                        updated_at=event.updated_at,
+                        ingested_at=event.ingested_at,
+                        last_seen_at=event.last_seen_at
+                    )
+                    result.append(dto)
+
+                logger.info(
+                    "events_loaded_from_db_for_provider_key",
+                    provider_key=provider_key,
+                    count=len(result)
+                )
+
+                return result
+
+            except Exception as e:
+                logger.error("db_read_error_for_provider_key", provider_key=provider_key, error=str(e), exc_info=True)
+                return []
+
+    def deduplicate_events(self, events: List[EventDTO]) -> List[EventDTO]:
         """
         Deduplicate events by event_id.
 
         Args:
-            events: List of event dicts
+            events: List of EventDTO
 
         Returns:
             Deduplicated list
@@ -135,9 +220,8 @@ class PrioritizerService:
         result = []
 
         for event in events:
-            event_id = event.get("id")
-            if event_id and event_id not in seen:
-                seen.add(event_id)
+            if event.id not in seen:
+                seen.add(event.id)
                 result.append(event)
 
         if len(events) != len(result):
@@ -145,12 +229,12 @@ class PrioritizerService:
 
         return result
 
-    def sort_events_by_commence_time(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def sort_events_by_commence_time(self, events: List[EventDTO]) -> List[EventDTO]:
         """
         Sort events by commence_time ascending.
 
         Args:
-            events: List of event dicts
+            events: List of EventDTO
 
         Returns:
             Sorted list
@@ -158,11 +242,120 @@ class PrioritizerService:
         try:
             return sorted(
                 events,
-                key=lambda e: e.get("commence_time", "9999-12-31T23:59:59")
+                key=lambda e: e.commence_time
             )
         except Exception as e:
             logger.warning("sort_error_returning_unsorted", error=str(e))
             return events
+
+    # TODO: delete after implementation in tasks_cache and after test
+    # async def check_idempotency(self, provider_key: str, run_id: str) -> bool:
+    #     """
+    #     Check if this provider_key was already processed in this run (idempotency).
+    #
+    #     Args:
+    #         provider_key: Competition provider_key
+    #         run_id: Unique run identifier
+    #
+    #     Returns:
+    #         True if already processed (should skip), False if can proceed
+    #     """
+    #     key = f"job:prioritize:{provider_key}:{run_id}"
+    #     try:
+    #         # SET with NX (only if not exists) and EX (expire in 900 seconds)
+    #         result = await self._redis_broker.set(key, "1", nx=True, ex=900)
+    #         if not result:
+    #             logger.info("idempotency_skip_already_processed", provider_key=provider_key, run_id=run_id)
+    #             return True
+    #         return False
+    #     except Exception as e:
+    #         logger.error("idempotency_check_failed", provider_key=provider_key, error=str(e))
+    #         # On error, allow processing to continue
+    #         return False
+
+    # TODO: delete after implementation in tasks_cache and after test
+    # async def acquire_lock(self, provider_key: str) -> Optional[str]:
+    #     """
+    #     Acquire execution lock for provider_key (optional).
+    #
+    #     Args:
+    #         provider_key: Competition provider_key
+    #
+    #     Returns:
+    #         Lock token if acquired, None if already locked
+    #     """
+    #     token = secrets.token_hex(16)
+    #     key = f"lock:prioritize:{provider_key}"
+    #     try:
+    #         # SET with NX (only if not exists) and PX (expire in 60000 milliseconds)
+    #         result = await self._redis_broker.set(key, token, nx=True, px=60000)
+    #         if not result:
+    #             logger.info("lock_not_acquired_already_locked", provider_key=provider_key)
+    #             return None
+    #         logger.debug("lock_acquired", provider_key=provider_key, token=token[:8])
+    #         return token
+    #     except Exception as e:
+    #         logger.error("lock_acquisition_failed", provider_key=provider_key, error=str(e))
+    #         return None
+    # TODO: delete after implementation in tasks_cache and after test
+    # async def release_lock(self, provider_key: str, token: str) -> None:
+    #     """
+    #     Release execution lock using compare-and-delete.
+    #
+    #     Args:
+    #         provider_key: Competition provider_key
+    #         token: Lock token from acquire_lock
+    #     """
+    #     key = f"lock:prioritize:{provider_key}"
+    #     try:
+    #         # Lua script for atomic compare-and-delete
+    #         script = """
+    #         if redis.call("get", KEYS[1]) == ARGV[1] then
+    #             return redis.call("del", KEYS[1])
+    #         else
+    #             return 0
+    #         end
+    #         """
+    #         result = await self._redis_broker.eval(script, 1, key, token)
+    #         if result:
+    #             logger.debug("lock_released", provider_key=provider_key, token=token[:8])
+    #         else:
+    #             logger.warning("lock_release_failed_token_mismatch", provider_key=provider_key)
+    #     except Exception as e:
+    #         logger.error("lock_release_failed", provider_key=provider_key, error=str(e))
+
+    # async def check_qps_limit(self, model: str) -> None:
+    #     """
+    #     Check and enforce QPS limit for LLM model (soft limit with retry).
+    #
+    #     Args:
+    #         model: LLM model name
+    #     """
+    #     key = f"llm:qps:{model}"
+    #     try:
+    #         # INCR and EXPIRE in pipeline for atomicity
+    #         pipe = self._redis_broker.pipeline()
+    #         await pipe.incr(key)
+    #         await pipe.expire(key, 1)
+    #         results = await pipe.execute()
+    #         current_qps = results[0] if results else 0
+    #
+    #         if current_qps > self._rate_limit_qps:
+    #             logger.warning(
+    #                 "qps_limit_exceeded",
+    #                 model=model,
+    #                 current_qps=current_qps,
+    #                 limit=self._rate_limit_qps
+    #             )
+    #             # Soft limit: sleep 50ms and retry
+    #             await asyncio.sleep(0.05)
+    #             # Retry check
+    #             current_qps_str = await self._redis_broker.get(key)
+    #             if current_qps_str and int(current_qps_str) > self._rate_limit_qps:
+    #                 await asyncio.sleep(0.05)
+    #     except Exception as e:
+    #         logger.error("qps_check_failed", model=model, error=str(e))
+    #         # On error, allow processing to continue
 
     def batch_events(self, events: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
         """
@@ -247,6 +440,7 @@ class PrioritizerService:
         provider_key: str,
         provider: str = "odds_api",
         max_events: int | None = None,
+        events: List[EventDTO] | None = None,
     ) -> Dict[str, Any]:
         """
         Rank events using LLM or fallback to date sorting.
@@ -255,6 +449,7 @@ class PrioritizerService:
             provider_key: Provider key
             provider: Provider name
             max_events: Max events override
+            events: Pre-fetched EventDTO list (optional, if None will fetch from cache/DB)
 
         Returns:
             Dict with metrics
@@ -272,31 +467,65 @@ class PrioritizerService:
             enabled=self._enabled
         )
 
-        events = await self.get_upcoming_events_from_cache(provider_key)
+        # Use provided events or fetch them
+        if events is None:
+            events = await self.get_upcoming_events_from_cache(provider_key)
+
+            if not events:
+                logger.info("cache_empty_falling_back_to_db")
+                # Convert dict to EventDTO for consistency
+                events_dict = await self.get_upcoming_events_from_db(max_events or self._max_events)
+                # Convert dict to EventDTO with defaults for missing fields
+                events = []
+                for event_dict in events_dict:
+                    # Parse datetime if it's a string
+                    commence_time = event_dict.get("commence_time")
+                    if isinstance(commence_time, str):
+                        from dateutil import parser
+                        commence_time = parser.parse(commence_time)
+                    else:
+                        commence_time = event_dict.get("commence_time")
+                    
+                    dto = EventDTO(
+                        id=UUID(event_dict["id"]),
+                        provider=event_dict.get("provider", "odds_api"),
+                        external_id=event_dict["external_id"],
+                        sport_id=UUID(event_dict["sport_id"]),
+                        competition_id=UUID(event_dict["competition_id"]),
+                        home_team_id=UUID(event_dict["home_team_id"]) if event_dict.get("home_team_id") else None,
+                        away_team_id=UUID(event_dict["away_team_id"]) if event_dict.get("away_team_id") else None,
+                        commence_time=commence_time,
+                        status=event_dict.get("status", "upcoming"),
+                        participant_mode="unknown",
+                        participants=[],
+                        metadata={},
+                        created_at=now_utc(),
+                        updated_at=now_utc(),
+                    )
+                    events.append(dto)
 
         if not events:
-            logger.info("cache_empty_falling_back_to_db")
-            events = await self.get_upcoming_events_from_db(max_events or self._max_events)
-
-        if not events:
-            logger.warning("no_events_to_rank")
+            logger.warning("no_events_to_rank", provider_key=provider_key)
             return metrics
 
         events = self.deduplicate_events(events)
         events = self.sort_events_by_commence_time(events)
+        
+        # Convert EventDTO to dict using class method
+        events_dict = EventDTO.events_to_list(events)
 
         if not self._enabled or not self._ai_client:
             logger.info("prioritization_disabled_using_fallback")
             metrics["fallback_used"] = True
-            ranked = self._apply_fallback_scores(events)
+            ranked = self._apply_fallback_scores(events_dict)
         else:
             try:
-                ranked = await self._prioritize_with_llm(events, metrics)
+                ranked = await self._prioritize_with_llm(events_dict, metrics)
             except Exception as e:
                 logger.error("llm_prioritization_failed_using_fallback", error=str(e), exc_info=True)
                 metrics["fallback_used"] = True
                 metrics["errors"] += 1
-                ranked = self._apply_fallback_scores(events)
+                ranked = self._apply_fallback_scores(events_dict)
 
         ranked = self._stable_sort_by_priority(ranked)
 
@@ -410,14 +639,14 @@ class PrioritizerService:
 
             await self._redis_cache.rename(temp_key, cache_key)
 
-            if self._ttl_sec:
-                await self._redis_cache.expire(cache_key, self._ttl_sec)
+            if self._cache_ttl_sec:
+                await self._redis_cache.expire(cache_key, self._cache_ttl_sec)
 
             logger.info(
                 "ranked_events_written_to_redis",
                 provider_key=provider_key,
                 count=len(events),
-                ttl_sec=self._ttl_sec
+                cache_ttl_sec=self._cache_ttl_sec
             )
 
         except Exception as e:
@@ -449,7 +678,11 @@ class PrioritizerService:
                 for e in events
             ]
 
-            model = "fallback" if not self._enabled else "deepseek/deepseek-chat"
+            # Get model from ai_client if available, otherwise use "fallback"
+            if not self._enabled or not self._ai_client:
+                model = "fallback"
+            else:
+                model = self._ai_client.model
 
             count = await repo.upsert_batch(
                 provider=provider,

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 from app.utils.time_utils import now_utc
@@ -46,5 +46,15 @@ class EventDTO(BaseModel):
         """Check if event has already commenced."""
         return self.commence_time < now_utc()
 
-    def make(self):
-        pass
+    @classmethod
+    def events_to_list(cls, events: List["EventDTO"]) -> List[Dict[str, Any]]:
+        """
+        Convert list of EventDTO to list of dicts using Pydantic model_dump.
+
+        Args:
+            events: List of EventDTO instances
+
+        Returns:
+            List of dict representations (JSON-serializable)
+        """
+        return [event.model_dump(mode="json") for event in events]

@@ -14,9 +14,13 @@ odds_api:
 #      - soccer_uefa_champs_league_qualification
 #      - soccer_epl
     pro:
-      - tennis_atp_wimbledon
+      - americanfootball_ufl
 #      - basketball_nba
 #      - icehockey_nhl
+#      - tennis_atp_wimbledon
+#
+
+
 
   events_window:
     period: 30  # окно вперёд, дней (E2)
@@ -56,6 +60,13 @@ odds_api:
 
   prioritizer:
     enabled: true
-    mode: per_competition  # per_competition | all
-    max_events: 500
-    ttl_sec: 3600
+    mode: all  # per_competition | all
+    max_events: 50
+    ttl_sec: 86400
+    llm_retry:
+      max_attempts: 3
+      base_delay_sec: 1
+      max_delay_sec: 10
+      special_delays:
+        "429": 10  # фикс пауза для rate limit
+      retriable_status_codes: [429, 500, 502, 503, 504]

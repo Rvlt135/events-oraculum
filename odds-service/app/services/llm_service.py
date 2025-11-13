@@ -45,7 +45,7 @@ class LLMService:
         logger.info(
             "llm_service_initialized",
             has_client=llm_client is not None,
-            retry_max_attempts=self._retry_config.get("max_attempts", 3)
+            retry_max_attempts=self._retry_config.max_attempts
         )
 
     @property
@@ -108,10 +108,10 @@ class LLMService:
         Returns:
             LLM response
         """
-        max_attempts = self._retry_config.get("max_attempts", 3)
-        base_delay = self._retry_config.get("base_delay_sec", 1)
-        max_delay = self._retry_config.get("max_delay_sec", 10)
-        retriable_codes = self._retry_config.get("retriable_status_codes", [429, 500, 502, 503, 504])
+        max_attempts = self._retry_config.max_attempts
+        base_delay = self._retry_config.base_delay_sec
+        max_delay = self._retry_config.max_delay_sec
+        retriable_codes = self._retry_config.retriable_status_codes
 
         last_error = None
 

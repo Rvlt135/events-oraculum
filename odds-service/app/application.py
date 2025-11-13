@@ -51,6 +51,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create container
     container = create_container()
     
+    # Load policy loader
+    if container.policy_loader:
+        await container.policy_loader.load()
+    
     # Store container in app state
     app.state.container = container
 

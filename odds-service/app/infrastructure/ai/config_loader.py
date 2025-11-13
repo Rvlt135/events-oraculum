@@ -5,14 +5,24 @@ Loads LLM configurations from app/config/ai_models/ directory.
 Separate from provider_policy to keep concerns isolated.
 """
 from pathlib import Path
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, Optional, TYPE_CHECKING, List
 import structlog
 import yaml
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from app.config.settings import Settings
 
 logger = structlog.get_logger()
+
+
+class RetryConfigDTO(BaseModel):
+    """DTO for retry configuration."""
+    max_attempts: int
+    base_delay_sec: int
+    max_delay_sec: int
+    retriable_status_codes: List[int]
+    special_delays: Dict[str, int] = {}  # status_code -> delay_sec
 
 
 class AIConfigLoader:
@@ -132,10 +142,18 @@ class AIConfigLoader:
 
         Returns:
             Tuple of (provider, model)
+        
+        Raises:
+            ValueError: If default_provider or default_model not found in config
         """
         config = self.load_models_config()
-        provider = config.get("default_provider", "openai")
-        model = config.get("default_model", "gpt-4o-mini")
+        provider = config.get("default_provider")
+        if not provider:
+            raise ValueError("default_provider not found in models.yml")
+        
+        model = config.get("default_model")
+        if not model:
+            raise ValueError("default_model not found in models.yml")
 
         return provider, model
 
@@ -199,15 +217,25 @@ class AIConfigLoader:
         logger.debug("base_url_loaded", provider=provider, setting_key=setting_key)
         return base_url
 
-    def get_retry_config(self) -> Dict[str, Any]:
+    def get_retry_config(self) -> RetryConfigDTO:
         """
-        Get retry configuration.
+        Get retry configuration as DTO.
 
         Returns:
-            Retry config dict with max_attempts, delays, retriable_status_codes
+            RetryConfigDTO with max_attempts, delays, retriable_status_codes, special_delays
+        
+        Raises:
+            ValueError: If retry_config not found in config or required fields missing
         """
         config = self.load_models_config()
-        return config.get("retry_config", {})
+        retry_config = config.get("retry_config")
+        if retry_config is None:
+            raise ValueError("retry_config not found in models.yml")
+        
+        try:
+            return RetryConfigDTO(**retry_config)
+        except Exception as e:
+            raise ValueError(f"Invalid retry_config in models.yml: {e}")
 
     def get_timeout(self) -> int:
         """
@@ -215,49 +243,103 @@ class AIConfigLoader:
 
         Returns:
             Timeout in seconds
+        
+        Raises:
+            ValueError: If timeout_sec not found in config
         """
         config = self.load_models_config()
-        return config.get("timeout_sec", 60)
+        timeout = config.get("timeout_sec")
+        if timeout is None:
+            raise ValueError("timeout_sec not found in models.yml")
+        return timeout
+
+    def load_prompt_bundle(self, name: str) -> Dict[str, Any]:
+        """
+        Load prompt bundle from YAML file.
+
+        Args:
+            name: Name of prompt bundle (without extension)
+
+        Returns:
+            Dict with keys: system, instruction, schema (optional), mode_preference (optional)
+
+        Raises:
+            FileNotFoundError: If YAML file not found
+            ValueError: If required fields are missing or invalid
+        """
+        for ext in [".yml", ".yaml"]:
+            bundle_file = self.prompts_dir / f"{name}{ext}"
+            if bundle_file.exists():
+                try:
+                    with open(bundle_file, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+
+                    if not isinstance(data, dict):
+                        raise ValueError(f"Invalid YAML format in {bundle_file}: expected dict")
+
+                    # Validate required fields
+                    if "system" not in data:
+                        raise ValueError(f"Missing 'system' field in {bundle_file}")
+                    if "instruction" not in data:
+                        raise ValueError(f"Missing 'instruction' field in {bundle_file}")
+
+                    result = {
+                        "system": str(data["system"]),
+                        "instruction": str(data["instruction"]),
+                        "schema": data.get("schema"),
+                        "mode_preference": data.get("mode_preference", []),
+                    }
+
+                    logger.debug(
+                        "prompt_bundle_loaded",
+                        name=name,
+                        file=str(bundle_file),
+                        with_schema=result["schema"] is not None
+                    )
+
+                    return result
+
+                except yaml.YAMLError as e:
+                    logger.error("failed_to_parse_prompt_bundle", name=name, error=str(e))
+                    raise ValueError(f"Invalid YAML in {bundle_file}: {e}")
+                except Exception as e:
+                    logger.error("failed_to_load_prompt_bundle", name=name, error=str(e))
+                    raise
+
+        raise FileNotFoundError(f"Prompt bundle not found: {name} (.yml or .yaml)")
 
     def load_prompt(self, prompt_name: str) -> str:
         """
-        Load prompt template from prompts directory.
+        DEPRECATED: Use load_prompt_bundle() instead.
+
+        Load prompt template from prompts directory (legacy TXT/MD support).
 
         Args:
             prompt_name: Name of prompt file (without extension)
 
         Returns:
             Prompt content as string
+
+        Raises:
+            RuntimeError: Always, as TXT/MD prompts are deprecated
         """
-        for ext in [".txt", ".md"]:
-            prompt_file = self.prompts_dir / f"{prompt_name}{ext}"
-            if prompt_file.exists():
-                try:
-                    with open(prompt_file, "r", encoding="utf-8") as f:
-                        content = f.read()
-
-                    logger.debug("prompt_loaded", prompt_name=prompt_name, file=str(prompt_file))
-                    return content
-
-                except Exception as e:
-                    logger.error("failed_to_load_prompt", prompt_name=prompt_name, error=str(e))
-                    raise
-
-        raise FileNotFoundError(f"Prompt not found: {prompt_name} (.txt or .md)")
+        raise RuntimeError(
+            f"TXT/MD prompts are deprecated. Use load_prompt_bundle('{prompt_name.split('.')[0]}') instead."
+        )
 
     def list_available_prompts(self) -> list[str]:
         """
-        List all available prompts in prompts directory.
+        List all available prompt bundles (YAML only).
 
         Returns:
-            List of prompt names (without extensions)
+            List of prompt bundle names (without extensions)
         """
         if not self.prompts_dir.exists():
             return []
 
         prompts = set()
         for file in self.prompts_dir.iterdir():
-            if file.is_file() and file.suffix in [".txt", ".md"]:
+            if file.is_file() and file.suffix in [".yml", ".yaml"]:
                 prompts.add(file.stem)
 
         return sorted(prompts)

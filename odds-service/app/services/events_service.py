@@ -26,10 +26,10 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.events import EventsCache
+from app.infrastructure.config.policy_loader import PolicyLoader
 from app.domain.entities.event import EventDTO
 from app.domain.entities.participant import EventUpsertDTO, ParticipantItemDTO
 from app.services.participants_helper import build_participants
-from app.config import policy_loader
 
 logger = structlog.get_logger()
 
@@ -44,6 +44,7 @@ class EventsService:
         sports_cache: SportsCache,
         competitions_cache: CompetitionsCache,
         events_cache: EventsCache,
+        policy_loader: PolicyLoader,
         cache_ttl_sec: int = 86400, # TODO: cache ttl from config
     ):
         self._odds_client = odds_client
@@ -51,6 +52,7 @@ class EventsService:
         self._sports_cache = sports_cache
         self._competitions_cache = competitions_cache
         self._events_cache = events_cache
+        self._policy_loader = policy_loader
         self._cache_ttl_sec = cache_ttl_sec
 
     async def select_target_competitions(
@@ -74,7 +76,7 @@ class EventsService:
         logger.info("select_target_competitions_started", plan=plan)
 
         # Step 1: Get provider from policy and load whitelist
-        providers = policy_loader.get_providers()
+        providers = self._policy_loader.get_providers()
         if not providers:
             logger.warning("no_providers_found_in_policy")
             return EventsTargetsDTO(
@@ -86,7 +88,27 @@ class EventsService:
                 batches=[],
             )
         provider = providers[0]  # Use first provider from policy
-        whitelist = policy_loader.get_competitions_whitelist(provider, plan)
+        
+        # Get competitions from policy
+        competitions = self._policy_loader.get_competitions(provider)
+        if not competitions:
+            logger.warning("no_competitions_found_in_policy", provider=provider)
+            return EventsTargetsDTO(
+                provider=provider,
+                plan=plan,
+                total_in_policy=0,
+                total_valid=0,
+                filtered_out=[],
+                batches=[],
+            )
+        
+        # Build whitelist based on plan
+        if plan == "free":
+            whitelist = sorted(competitions.free)
+        elif plan == "pro":
+            whitelist = sorted(list(set(competitions.free + competitions.pro)))
+        else:  # "all"
+            whitelist = sorted(list(set(competitions.free + competitions.pro)))
         total_in_policy = len(whitelist)
 
         logger.info("whitelist_loaded_from_policy", plan=plan, total=total_in_policy)
@@ -114,7 +136,14 @@ class EventsService:
         )
 
         # Step 3: Create batches
-        batch_size = policy_loader.get_batch_size_competitions(provider, default=10)
+        # Get batch_size from events policy
+        events_policy = self._policy_loader.get_events_policy(provider)
+        if not events_policy:
+            logger.warning("events_policy_not_found_using_default_batch_size", provider=provider)
+            batch_size = 10
+        else:
+            batch_size = events_policy.batch_size_competitions
+        
         batches = self._create_batches(valid_keys, batch_size)
 
         logger.info(
@@ -677,7 +706,7 @@ class EventsService:
 
                 # Extract category from provider_key to get participant mode
                 category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
-                participant_mode_str = policy_loader.get_participant_mode_for_sport(
+                participant_mode_str = self._policy_loader.get_participant_mode_for_sport(
                     provider=provider, sport_key=category
                 )
                 # Ensure participant_mode is valid Literal type
@@ -940,19 +969,16 @@ class EventsService:
         logger.info("get_upcoming_events_from_cache_started")
 
         # Get provider from policy and load policy to get competitions and limit
-        providers = policy_loader.get_providers()
+        providers = self._policy_loader.get_providers()
         if not providers:
             logger.warning("no_providers_found_in_policy")
             return []
         provider = providers[0]  # Use first provider from policy
 
-        policy_dict = policy_loader.get_events_policy(provider=provider)
-        if not policy_dict:
+        policy = self._policy_loader.get_events_policy(provider)
+        if not policy:
             logger.warning("policy_not_found_for_provider", provider=provider)
             return []
-        
-        # Use EventsPolicyDTO for easier access
-        policy = EventsPolicyDTO(**policy_dict)
         competitions_free = policy.competitions.get("free", [])
         competitions_pro = policy.competitions.get("pro", [])
         all_competition_keys = list(set(competitions_free + competitions_pro))
@@ -967,29 +993,13 @@ class EventsService:
         )
 
         # Aggregate events from all competitions
-        all_events = []
+        all_events: List[EventDTO] = []
         for provider_key in all_competition_keys:
             try:
                 events = await self._events_cache.read_upcoming(provider_key)
                 if events:
-                    # Convert EventDTO to dict for JSON serialization
-                    for event in events:
-                        all_events.append({
-                            "id": str(event.id),
-                            "provider": event.provider,
-                            "external_id": event.external_id,
-                            "sport_id": str(event.sport_id),
-                            "competition_id": str(event.competition_id),
-                            "home_team_id": str(event.home_team_id) if event.home_team_id else None,
-                            "away_team_id": str(event.away_team_id) if event.away_team_id else None,
-                            "home_team_name": event.home_team_name,
-                            "away_team_name": event.away_team_name,
-                            "commence_time": event.commence_time.isoformat() if event.commence_time else None,
-                            "status": event.status,
-                            "participant_mode": event.participant_mode,
-                            "participants": event.participants,
-                            "metadata": event.event_metadata or {},
-                        })
+                    # Use EventDTO objects directly
+                    all_events.extend(events)
             except Exception as e:
                 logger.warning(
                     "failed_to_read_events_cache",
@@ -1008,4 +1018,5 @@ class EventsService:
             limit=view_limit
         )
 
-        return limited_events
+        # Convert EventDTO to dict for JSON serialization (maintain API interface)
+        return [event.model_dump(mode="json") for event in limited_events]

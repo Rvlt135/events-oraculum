@@ -3,16 +3,14 @@ import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
-from app.config import policy_loader
 from app.utils.time_utils import now_utc, build_events_window
-from app.infrastructure.repositories import SportRepository, CompetitionsRepository
 from app.infrastructure.di.services import get_sports_service, get_events_service
-from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
 from app.domain.entities.events_window import EventsWindowDTO, EventsPolicyDTO
+from app.tasks.prioritizer import enqueue_prioritization_after_collect
 
 if TYPE_CHECKING:
-    from app.infrastructure.di.container import Container
+    pass
 
 logger = structlog.get_logger()
 
@@ -23,92 +21,6 @@ collection_errors_total = Counter("odds_collection_errors_total", "Total number 
 
 _task_schedule = [{"cron": cron} for cron in settings.schedule_crons]
 _sports_task_schedule = [{"cron": cron} for cron in settings.schedule_sports_crons]
-
-
-@broker.task(schedule=_task_schedule)
-async def collect_odds_task() -> Dict[str, str]:
-    start_time = now_utc()
-    logger.info("collection_task_started", timestamp=start_time.isoformat(), schedule=_task_schedule)
-
-    # Get container from broker state
-    if not hasattr(broker.state, 'container'):
-        raise RuntimeError("Container not found in broker.state. Make sure worker/scheduler initialized container.")
-
-    container: "Container" = broker.state.container
-    api_adapter = container.odds_client
-
-    try:
-        # Use session factory from container
-        async with container.session_factory() as session:
-            async with session.begin():
-                sport_repo = SportRepository(session)
-                competition_repo = CompetitionsRepository(session)
-                normalizer = OddsNormalizer(session)
-
-                sport_id = await sport_repo.get_or_create("soccer")
-
-                # Get events window period from policy and build time window
-                period_days = policy_loader.get_events_window_period("odds_api", default=30)
-                commence_time_from, commence_time_to = build_events_window(period_days)
-                logger.info(
-                    "events_window_configured",
-                    period_days=period_days,
-                    commence_time_from=commence_time_from,
-                    commence_time_to=commence_time_to
-                )
-
-                total_processed = 0
-
-                for competition_key in settings.odds_api_competitions:
-                    logger.info("collecting_competition", competition=competition_key)
-
-                    competition_id = await competition_repo.get_or_create(
-                        sport_id=sport_id,
-                        provider_key=competition_key,
-                        title=competition_key.replace("_", " ").title(),
-                        description=f"Competition for {competition_key}",
-                    )
-
-                    odds_data = await api_adapter.get_odds(
-                        sport=competition_key,
-                        regions=settings.odds_api_regions,
-                        markets=settings.odds_api_markets,
-                        commence_time_from=commence_time_from,
-                        commence_time_to=commence_time_to,
-                    )
-
-                    events_processed = 0
-                    for event_data in odds_data:
-                        event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
-                        if event_id:
-                            events_processed += 1
-
-                    logger.info("competition_processed", competition=competition_key, events_count=events_processed)
-                    events_processed_total.inc(events_processed)
-                    total_processed += events_processed
-
-        duration = (now_utc() - start_time).total_seconds()
-        collection_duration.observe(duration)
-
-        logger.info(
-            "collection_task_completed",
-            total_events=total_processed,
-            duration_seconds=duration,
-        )
-
-        return {
-            "status": "success",
-            "total_events": str(total_processed),
-            "timestamp": now_utc().isoformat(),
-        }
-
-    except Exception as e:
-        logger.error("collection_task_failed", error=str(e))
-        collection_errors_total.inc()
-        return {"status": "error", "message": str(e)}
-
-    # Note: api_adapter (odds_client) lifecycle is managed by container
-    # No need to close it here - it will be closed in dispose_container()
 
 @broker.task(schedule=_sports_task_schedule)
 async def collect_sports_task() -> Dict[str, str]:
@@ -151,7 +63,6 @@ async def collect_sports_task() -> Dict[str, str]:
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
 
-
 @broker.task()
 async def collect_events() -> Dict[str, str]:
     """
@@ -175,7 +86,11 @@ async def collect_events() -> Dict[str, str]:
         # Get EventsService from DI
         events_service = await get_events_service()
 
-        # Get providers from policy (in-memory cache)
+        # Get policy loader from container
+        container = broker.state.container
+        policy_loader = container.policy_loader
+
+        # Get providers from policy
         providers = policy_loader.get_providers()
         if not providers:
             logger.warning("no_providers_found_in_policy")
@@ -190,17 +105,14 @@ async def collect_events() -> Dict[str, str]:
         logger.info("provider_selected_from_policy", provider=provider, total_providers=len(providers))
 
         # Load policy for selected provider
-        policy_dict = policy_loader.get_events_policy(provider=provider)
-        if not policy_dict:
+        policy = policy_loader.get_events_policy(provider)
+        if not policy:
             logger.warning("policy_not_found_for_provider", provider=provider)
             return {
                 "status": "error",
                 "message": f"Policy not found for provider: {provider}",
                 "timestamp": now_utc().isoformat(),
             }
-
-        # Create EventsPolicyDTO for easier access to policy elements
-        policy = EventsPolicyDTO(**policy_dict)
 
         # Get competitions from policy using DTO
         competitions_free = policy.competitions.get("free", [])
@@ -285,8 +197,6 @@ async def collect_events() -> Dict[str, str]:
             "duration_seconds": str(duration),
             "timestamp": now_utc().isoformat(),
         }
-
-        from app.tasks.prioritizer import enqueue_prioritization_after_collect
         await enqueue_prioritization_after_collect(result)
 
         return result
@@ -295,3 +205,89 @@ async def collect_events() -> Dict[str, str]:
         logger.error("collect_events_task_failed", error=str(e), exc_info=True)
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
+
+
+# @broker.task(schedule=_task_schedule)
+# async def collect_odds_task() -> Dict[str, str]:
+#     start_time = now_utc()
+#     logger.info("collection_task_started", timestamp=start_time.isoformat(), schedule=_task_schedule)
+#
+#     # Get container from broker state
+#     if not hasattr(broker.state, 'container'):
+#         raise RuntimeError("Container not found in broker.state. Make sure worker/scheduler initialized container.")
+#
+#     container: "Container" = broker.state.container
+#     api_adapter = container.odds_client
+#
+#     try:
+#         # Use session factory from container
+#         async with container.session_factory() as session:
+#             async with session.begin():
+#                 sport_repo = SportRepository(session)
+#                 competition_repo = CompetitionsRepository(session)
+#                 normalizer = OddsNormalizer(session)
+#
+#                 sport_id = await sport_repo.get_or_create("soccer")
+#
+#                 # Get events window period from policy and build time window
+#                 period_days = policy_loader.get_events_window_period("odds_api", default=30)
+#                 commence_time_from, commence_time_to = build_events_window(period_days)
+#                 logger.info(
+#                     "events_window_configured",
+#                     period_days=period_days,
+#                     commence_time_from=commence_time_from,
+#                     commence_time_to=commence_time_to
+#                 )
+#
+#                 total_processed = 0
+#
+#                 for competition_key in settings.odds_api_competitions:
+#                     logger.info("collecting_competition", competition=competition_key)
+#
+#                     competition_id = await competition_repo.get_or_create(
+#                         sport_id=sport_id,
+#                         provider_key=competition_key,
+#                         title=competition_key.replace("_", " ").title(),
+#                         description=f"Competition for {competition_key}",
+#                     )
+#
+#                     odds_data = await api_adapter.get_odds(
+#                         sport=competition_key,
+#                         regions=settings.odds_api_regions,
+#                         markets=settings.odds_api_markets,
+#                         commence_time_from=commence_time_from,
+#                         commence_time_to=commence_time_to,
+#                     )
+#
+#                     events_processed = 0
+#                     for event_data in odds_data:
+#                         event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
+#                         if event_id:
+#                             events_processed += 1
+#
+#                     logger.info("competition_processed", competition=competition_key, events_count=events_processed)
+#                     events_processed_total.inc(events_processed)
+#                     total_processed += events_processed
+#
+#         duration = (now_utc() - start_time).total_seconds()
+#         collection_duration.observe(duration)
+#
+#         logger.info(
+#             "collection_task_completed",
+#             total_events=total_processed,
+#             duration_seconds=duration,
+#         )
+#
+#         return {
+#             "status": "success",
+#             "total_events": str(total_processed),
+#             "timestamp": now_utc().isoformat(),
+#         }
+#
+#     except Exception as e:
+#         logger.error("collection_task_failed", error=str(e))
+#         collection_errors_total.inc()
+#         return {"status": "error", "message": str(e)}
+#
+#     # Note: api_adapter (odds_client) lifecycle is managed by container
+#     # No need to close it here - it will be closed in dispose_container()

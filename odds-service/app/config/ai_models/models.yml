@@ -1,72 +1,41 @@
 providers:
   openrouter:
     models:
-      deepseek/deepseek-chat:
-        context_window: 64000
+      z-ai/glm-4.5-air:free:
+        context_window: 131072
         max_output_tokens: 8192
         temperature: 0.3
-        supports_streaming: true
-        supports_function_calling: true
-      openai/gpt-4o-mini:
-        context_window: 128000
-        max_output_tokens: 16384
-        temperature: 0.3
-        supports_streaming: true
-        supports_function_calling: true
-      anthropic/claude-3.5-sonnet:
-        context_window: 200000
-        max_output_tokens: 8192
-        temperature: 0.3
-        supports_streaming: true
-        supports_function_calling: true
-
-  openai:
-    models:
-      gpt-4o:
-        context_window: 128000
-        max_output_tokens: 4096
-        temperature: 0.7
-        supports_streaming: true
-        supports_function_calling: true
-      gpt-4o-mini:
-        context_window: 128000
-        max_output_tokens: 16384
-        temperature: 0.7
-        supports_streaming: true
-        supports_function_calling: true
-
-  anthropic:
-    models:
-      claude-3-5-sonnet-20241022:
-        context_window: 200000
-        max_output_tokens: 8192
-        temperature: 0.7
-        supports_streaming: true
-        supports_function_calling: true
-      claude-3-5-haiku-20241022:
-        context_window: 200000
-        max_output_tokens: 8192
-        temperature: 0.7
         supports_streaming: true
         supports_function_calling: false
+      openrouter/polaris-alpha:
+        context_window: 256000
+        max_output_tokens: 8192
+        temperature: 0.3
+        supports_streaming: true
+        supports_function_calling: true
+
 
 default_provider: openrouter
-default_model: deepseek/deepseek-chat
+default_model: z-ai/glm-4.5-air:free
 
 prioritizer:
   provider: openrouter
-  model: deepseek/deepseek-chat
+  model: z-ai/glm-4.5-air:free
   fallback_models:
-    - openai/gpt-4o-mini
-    - anthropic/claude-3.5-sonnet
+    - openrouter/polaris-alpha # z-ai/glm-4.5-air:free
   timeout_ms: 30000
   batch_size: 50
   rate_limit_qps: 5
+  max_events: 500
+  enabled: true
+  cache_ttl_sec: 86400
 
 retry_config:
   max_attempts: 3
   base_delay_sec: 1
   max_delay_sec: 10
   retriable_status_codes: [429, 500, 502, 503, 504]
+  special_delays:
+    "429": 10  # фиксированная пауза для 429
 
 timeout_sec: 60
