@@ -3,8 +3,9 @@ import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
+from app.infrastructure.repositories import SportRepository, CompetitionsRepository
 from app.utils.time_utils import now_utc, build_events_window
-from app.infrastructure.di.services import get_sports_service, get_events_service
+from app.infrastructure.di.services import get_sports_service, get_events_service, get_odds_service
 from app.tasks.broker import broker
 from app.domain.entities.events_window import EventsWindowDTO, EventsPolicyDTO
 from app.tasks.prioritizer import enqueue_prioritization_after_collect
@@ -216,25 +217,38 @@ async def collect_events() -> Dict[str, str]:
 #     if not hasattr(broker.state, 'container'):
 #         raise RuntimeError("Container not found in broker.state. Make sure worker/scheduler initialized container.")
 #
-#     container: "Container" = broker.state.container
-#     api_adapter = container.odds_client
+#     odds_service = await get_odds_service()
+#     container = broker.state.container
+#     policy_loader = container.policy_loader
+#
+#     # Get providers from policy
+#     providers = policy_loader.get_providers()
+#     provider_odds_api = providers[0]
+#     pl: EventsPolicyDTO = policy_loader.get_events_policy(provider_odds_api)
+#     if not providers:
+#         logger.warning("no_providers_found_in_policy")
+#         return {
+#             "status": "error",
+#             "message": "No providers found in policy",
+#             "timestamp": now_utc().isoformat(),
+#         }
 #
 #     try:
+#
 #         # Use session factory from container
 #         async with container.session_factory() as session:
 #             async with session.begin():
 #                 sport_repo = SportRepository(session)
 #                 competition_repo = CompetitionsRepository(session)
-#                 normalizer = OddsNormalizer(session)
 #
-#                 sport_id = await sport_repo.get_or_create("soccer")
+#                 sport_id = await sport_repo.get_or_create("soccer", provider=provider_odds_api)
 #
 #                 # Get events window period from policy and build time window
-#                 period_days = policy_loader.get_events_window_period("odds_api", default=30)
-#                 commence_time_from, commence_time_to = build_events_window(period_days)
+#
+#                 commence_time_from, commence_time_to = build_events_window(pl.period)
 #                 logger.info(
 #                     "events_window_configured",
-#                     period_days=period_days,
+#                     period_days=pl.period,
 #                     commence_time_from=commence_time_from,
 #                     commence_time_to=commence_time_to
 #                 )
@@ -251,7 +265,7 @@ async def collect_events() -> Dict[str, str]:
 #                         description=f"Competition for {competition_key}",
 #                     )
 #
-#                     odds_data = await api_adapter.get_odds(
+#                     odds_data = await odds_service.odds_client.get_odds(
 #                         sport=competition_key,
 #                         regions=settings.odds_api_regions,
 #                         markets=settings.odds_api_markets,
@@ -261,7 +275,7 @@ async def collect_events() -> Dict[str, str]:
 #
 #                     events_processed = 0
 #                     for event_data in odds_data:
-#                         event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
+#                         event_id = await odds_service.process_event_data(event_data, sport_id, competition_id)
 #                         if event_id:
 #                             events_processed += 1
 #

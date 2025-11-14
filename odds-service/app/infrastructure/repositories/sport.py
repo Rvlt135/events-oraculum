@@ -14,7 +14,7 @@ class SportRepository(BaseRepository[Sport]):
     def __init__(self, session: AsyncSession):
         super().__init__(Sport, session)
 
-    async def get_or_create(self, category: str, plan_visibility: str = "free", provider: str = "odds_api") -> UUID:
+    async def get_or_create(self, category: str, plan_visibility: str, provider: str) -> UUID:
         result = await self.session.execute(
             select(Sport).where(Sport.category == category, Sport.provider == provider)
         )

@@ -9,6 +9,7 @@ import structlog
 from pydantic import BaseModel
 
 from app.domain.entities.events_window import EventsPolicyDTO
+from app.domain.policy.dto import OddsPolicyDTO
 
 logger = structlog.get_logger()
 
@@ -163,6 +164,18 @@ class PolicyLoader:
         dto_data = {k: v for k, v in prioritizer_config.items() if k != "llm_retry"}
         dto_data["llm_retry"] = llm_retry
         return PrioritizerPolicyDTO(**dto_data)
+    
+    def get_odds_policy(self, provider: str) -> Optional[OddsPolicyDTO]:
+        """Get odds policy for provider as DTO."""
+        if not self._cache:
+            return None
+        
+        provider_config = self._cache.get(provider, {})
+        odds_config = provider_config.get("odds", {})
+        if not odds_config:
+            return None
+        
+        return OddsPolicyDTO(**odds_config)
     
     def get_competitions(self, provider: str) -> Optional[CompetitionsPlanDTO]:
         """Get competitions plan for provider as DTO."""

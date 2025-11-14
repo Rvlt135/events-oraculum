@@ -80,7 +80,7 @@ class EventsService:
         if not providers:
             logger.warning("no_providers_found_in_policy")
             return EventsTargetsDTO(
-                provider="unknown",
+                provider="odds_api",
                 plan=plan,
                 total_in_policy=0,
                 total_valid=0,

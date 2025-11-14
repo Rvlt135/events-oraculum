@@ -17,6 +17,7 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.infrastructure.config.policy_loader import PolicyLoader
+from app.services.normalizer import OddsService
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
@@ -154,6 +155,27 @@ class Container:
             enabled=enabled,
             cache_ttl_sec=cache_ttl_sec,
             ai_client=self.ai_client,
+        )
+
+    def create_odds_service(self) -> "OddsService":
+        """
+        Factory method for OddsService.
+
+        Returns:
+            OddsService instance with dependencies from container
+
+        Raises:
+            ValueError: If required prioritizer configuration values are missing
+        """
+
+
+        events_cache = EventsCache(self.redis_cache)
+
+        return OddsService(
+            odds_client=self.odds_client,
+            session_factory=self.session_factory,
+            redis_cache=self.redis_cache,
+            events_cache=events_cache
         )
 
 

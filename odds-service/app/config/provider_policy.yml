@@ -20,8 +20,6 @@ odds_api:
 #      - tennis_atp_wimbledon
 #
 
-
-
   events_window:
     period: 30  # окно вперёд, дней (E2)
     batch_size_competitions: 10
@@ -70,3 +68,14 @@ odds_api:
       special_delays:
         "429": 10  # фикс пауза для rate limit
       retriable_status_codes: [429, 500, 502, 503, 504]
+
+  odds:
+    regions: ["eu"]
+    markets: ["h2h"]
+    bookmakers: ["onexbet", "sport888", "williamhill", "betfair_ex_eu"]
+    include_links: true
+    include_sids: true
+    include_bet_limits: false
+    include_rotation_numbers: false
+    max_events_per_request: 20
+    use_event_ids: false

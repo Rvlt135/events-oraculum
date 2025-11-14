@@ -6,6 +6,7 @@ Services are primarily used in worker/scheduler context, not FastAPI.
 """
 from typing import TYPE_CHECKING
 
+from app.services.normalizer import OddsService
 from app.tasks.broker import broker
 
 if TYPE_CHECKING:
@@ -103,3 +104,20 @@ async def get_prioritizer_service() -> "PrioritizerService":
 
     container: "Container" = broker.state.container
     return container.create_prioritizer_service()
+
+async def get_odds_service() -> "OddsService":
+    """
+    Get OddsService with injected dependencies from container.
+
+    This function is used in tasks and other non-request contexts (worker/scheduler).
+
+    Returns a service instance for event prioritization operations.
+    """
+    if not hasattr(broker, 'state') or not hasattr(broker.state, 'container'):
+        raise RuntimeError(
+            "Container not found in broker.state. "
+            "Make sure worker/scheduler initialized container before running tasks."
+        )
+
+    container: "Container" = broker.state.container
+    return container.create_odds_service()
