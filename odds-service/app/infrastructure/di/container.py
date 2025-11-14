@@ -168,14 +168,13 @@ class Container:
             ValueError: If required prioritizer configuration values are missing
         """
 
-
         events_cache = EventsCache(self.redis_cache)
 
         return OddsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
             redis_cache=self.redis_cache,
-            events_cache=events_cache
+            events_cache=events_cache,
         )
 
 

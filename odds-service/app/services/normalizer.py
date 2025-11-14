@@ -1,11 +1,14 @@
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from uuid import UUID
 
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 import structlog
+
+if TYPE_CHECKING:
+    from app.domain.entities.events_window import EventsWindowDTO
 
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.http.odds_api import OddsAPIClient
@@ -16,6 +19,7 @@ from app.infrastructure.repositories import (
     BookmakerRepository,
     OddsSnapshotRepository,
     NormalizedOddsRepository,
+    CompetitionsRepository,
 )
 
 logger = structlog.get_logger()
@@ -26,17 +30,13 @@ class OddsService:
                  odds_client: OddsAPIClient,
                  session_factory: async_sessionmaker[AsyncSession],
                  redis_cache: redis.Redis,
-                 events_cache: EventsCache
+                 events_cache: EventsCache,
                  ) -> None:
         self.session_factory = session_factory
         self.odds_client = odds_client
         self.redis_cache = redis_cache
         self.events_cache = events_cache
-        # self.team_repo = TeamRepository(session)
-        # self.event_repo = EventRepository(session)
-        # self.bookmaker_repo = BookmakerRepository(session)
-        # self.snapshot_repo = OddsSnapshotRepository(session)
-        # self.normalized_repo = NormalizedOddsRepository(session)
+
 
     @staticmethod
     def normalize_team_name(name: str) -> str:
@@ -213,5 +213,140 @@ class OddsService:
                     external_ids={"odds_api": external_id},
                 )
                 return home_team_id, away_team_id
+
+    async def get_competitions_for_odds(
+        self,
+        provider: str,
+        policy_keys: list[str],
+        window: "EventsWindowDTO",
+    ) -> list[str]:
+        """
+        Get list of provider_key for odds based on policy keys and actual upcoming events.
+
+        Returns intersection of:
+        - Policy whitelist (provided policy_keys)
+        - Actual upcoming events (from cache or DB)
+
+        Args:
+            provider: Provider name (e.g., 'odds_api')
+            policy_keys: List of provider_key from policy whitelist
+            window: EventsWindowDTO with time window for filtering
+
+        Returns:
+            Sorted list of provider_key that have upcoming events
+        """
+        logger.info(
+            "get_competitions_for_odds_started",
+            provider=provider,
+            policy_keys_count=len(policy_keys)
+        )
+
+        if not policy_keys:
+            logger.warning("empty_policy_keys", provider=provider)
+            return []
+
+        policy_keys_set = set(policy_keys)
+        has_upcoming_keys: set[str] = set()
+
+        from_dt = parse_utc(window.from_iso)
+        to_dt = parse_utc(window.to_iso)
+
+        # Step 1: Try cache first
+        for provider_key in policy_keys_set:
+            try:
+                events = await self.events_cache.read_upcoming(provider_key)
+                if events:
+                    # Filter by time window
+                    filtered = [
+                        e for e in events
+                        if from_dt <= e.commence_time <= to_dt
+                    ]
+                    if filtered:
+                        has_upcoming_keys.add(provider_key)
+                        logger.debug(
+                            "upcoming_events_found_in_cache",
+                            provider_key=provider_key,
+                            count=len(filtered)
+                        )
+            except Exception as e:
+                logger.debug(
+                    "cache_read_error_for_key",
+                    provider_key=provider_key,
+                    error=str(e)
+                )
+
+        # Step 2: Fallback to DB for keys not found in cache
+        cache_miss_keys = policy_keys_set - has_upcoming_keys
+        if cache_miss_keys:
+            logger.info(
+                "checking_db_for_cache_miss_keys",
+                count=len(cache_miss_keys)
+            )
+
+            async with self.session_factory() as session:
+                comp_repo = CompetitionsRepository(session)
+                event_repo = EventRepository(session)
+
+                for provider_key in cache_miss_keys:
+                    try:
+                        competition = await comp_repo.get_by_provider_key(
+                            provider=provider,
+                            provider_key=provider_key
+                        )
+
+                        if not competition:
+                            logger.debug(
+                                "competition_not_found_in_db",
+                                provider_key=provider_key
+                            )
+                            continue
+
+                        events_orm = await event_repo.get_upcoming_by_competition(
+                            competition_id=competition.id,
+                            provider=provider
+                        )
+
+                        filtered_events = [
+                            e for e in events_orm
+                            if from_dt <= e.commence_time <= to_dt
+                        ]
+
+                        if filtered_events:
+                            has_upcoming_keys.add(provider_key)
+                            logger.debug(
+                                "upcoming_events_found_in_db",
+                                provider_key=provider_key,
+                                count=len(filtered_events)
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            "db_check_error_for_key",
+                            provider_key=provider_key,
+                            error=str(e)
+                        )
+                        continue
+
+        # Step 3: Final list - intersection
+        keys_for_odds = sorted(policy_keys_set & has_upcoming_keys)
+
+        # Step 4: Logging
+        dropped_keys = policy_keys_set - has_upcoming_keys
+        logger.info(
+            "get_competitions_for_odds_completed",
+            provider=provider,
+            total_policy_keys=len(policy_keys_set),
+            total_has_upcoming=len(has_upcoming_keys),
+            final_count=len(keys_for_odds),
+            dropped_count=len(dropped_keys)
+        )
+
+        if dropped_keys:
+            logger.debug(
+                "dropped_keys_no_upcoming_events",
+                provider=provider,
+                dropped_keys=sorted(dropped_keys)
+            )
+
+        return keys_for_odds
 
 
