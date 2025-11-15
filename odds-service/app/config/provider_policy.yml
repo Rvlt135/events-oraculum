@@ -14,12 +14,12 @@ odds_api:
 #      - soccer_uefa_champs_league_qualification
 #      - soccer_epl
     pro:
-      - americanfootball_ufl
+      - americanfootball_nfl_preseason
+#      - americanfootball_ufl
 #      - basketball_nba
 #      - icehockey_nhl
 #      - tennis_atp_wimbledon
 #
-
   events_window:
     period: 30  # окно вперёд, дней (E2)
     batch_size_competitions: 10

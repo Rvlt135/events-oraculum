@@ -9,7 +9,8 @@ These routes are mounted under /_admin prefix and provide:
 Security: Should be protected at network level (ingress/proxy) or via admin token.
 """
 
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict, Any
+from uuid import UUID
 from fastapi import APIRouter, Query, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
@@ -24,9 +25,9 @@ from app.api.schemas.schemas import (
 )
 # from app.infrastructure.di.services import get_events_service
 
-from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_redis_cache
+from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_odds_service, get_redis_cache
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_events # collect_odds_task
+from app.tasks.collector import collect_sports_task, collect_events, collect_odds_task
 from app.tasks.prioritizer import prioritize_all
 from app.infrastructure.repositories import NormalizedOddsRepository
 
@@ -332,33 +333,144 @@ async def get_priority_ranked(
         logger.error("failed_to_get_priority_ranked", provider_key=provider_key, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch ranked events")
 
-# TODO: old
-# @router.post("/tasks/collect", response_model=TaskTriggerResponse)
-# async def trigger_collection(
-#     _auth: None = Depends(verify_admin_token)
-# ) -> TaskTriggerResponse:
-#     """
-#     Manually trigger odds collection task.
-#
-#     This enqueues a collection task in TaskIQ that will:
-#     1. Fetch odds from external API
-#     2. Normalize team names
-#     3. Store events and odds snapshots
-#     4. Calculate aggregated odds
-#     """
-#     logger.info("manual_collection_triggered")
-#
-#     try:
-#         task = await collect_odds_task.kiq()
-#
-#         return TaskTriggerResponse(
-#             status="enqueued",
-#             message="Collection task enqueued in TaskIQ",
-#             task_id=str(task.task_id),
-#         )
-#     except Exception as e:
-#         logger.error("failed_to_enqueue_task", error=str(e))
-#         return TaskTriggerResponse(
-#             status="error",
-#             message=f"Failed to enqueue task: {str(e)}",
-#         )
+
+@router.get("/odds/{event_id}")
+async def get_event_odds(
+    event_id: UUID,
+    provider_key: Optional[str] = Query(default=None),
+    odds_service = Depends(get_odds_service),
+    _auth: None = Depends(verify_admin_token),
+) -> Dict[str, Any]:
+    """
+    Get normalized odds for an event (cache-first).
+
+    Returns odds data with markets, averages, best odds, and bookmakers count.
+    """
+    logger.info("get_event_odds_endpoint", event_id=str(event_id), provider_key=provider_key)
+
+    try:
+        odds_list = await odds_service.get_event_odds(
+            provider_key=provider_key or "unknown",
+            event_id=event_id
+        )
+
+        if not odds_list:
+            return {
+                "event_id": str(event_id),
+                "provider_key": provider_key,
+                "has_odds": False,
+                "markets": []
+            }
+
+        markets = []
+        for odds in odds_list:
+            markets.append({
+                "market_type": odds.market_type,
+                "home_odds_avg": float(odds.home_odds_avg),
+                "away_odds_avg": float(odds.away_odds_avg),
+                "draw_odds_avg": float(odds.draw_odds_avg) if odds.draw_odds_avg else None,
+                "home_odds_best": float(odds.home_odds_best),
+                "away_odds_best": float(odds.away_odds_best),
+                "draw_odds_best": float(odds.draw_odds_best) if odds.draw_odds_best else None,
+                "bookmakers_count": odds.bookmakers_count,
+                "timestamp_source": odds.timestamp_source.isoformat(),
+                "timestamp_normalized": odds.timestamp_normalized.isoformat(),
+            })
+
+        return {
+            "event_id": str(event_id),
+            "provider_key": provider_key,
+            "has_odds": True,
+            "markets": markets
+        }
+
+    except Exception as e:
+        logger.error("failed_to_get_event_odds", event_id=str(event_id), error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch event odds")
+
+
+@router.get("/catalog/odds/{provider_key}")
+async def get_odds_catalog(
+    provider_key: str,
+    events_service = Depends(get_events_service),
+    odds_service = Depends(get_odds_service),
+    _auth: None = Depends(verify_admin_token),
+) -> Dict[str, Any]:
+    """
+    Get upcoming events with odds availability for a competition.
+
+    Returns list of events with has_odds flag (cache-first).
+    """
+    logger.info("get_odds_catalog_endpoint", provider_key=provider_key)
+
+    try:
+        events_cache = events_service.events_cache
+        upcoming_events = await events_cache.read_upcoming(provider_key)
+
+        if not upcoming_events:
+            return {
+                "provider_key": provider_key,
+                "count": 0,
+                "items": []
+            }
+
+        items = []
+        for event in upcoming_events:
+            odds_list = await odds_service.get_event_odds(
+                provider_key=provider_key,
+                event_id=event.id
+            )
+            has_odds = len(odds_list) > 0
+
+            items.append({
+                "event_id": str(event.id),
+                "commence_time": event.commence_time.isoformat(),
+                "home_team": event.home_team_name or "",
+                "away_team": event.away_team_name or "",
+                "has_odds": has_odds
+            })
+
+        return {
+            "provider_key": provider_key,
+            "count": len(items),
+            "items": items
+        }
+
+    except Exception as e:
+        logger.error("failed_to_get_odds_catalog", provider_key=provider_key, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch odds catalog")
+
+@router.post("/tasks/odds/collect", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_odds_collection(
+    _auth: None = Depends(verify_admin_token)
+) -> TaskTriggerResponse:
+    """
+    Manually trigger odds collection task (O1-T7).
+
+    This enqueues a `collect_odds_task` in TaskIQ that will:
+    1. Load provider_policy.yml configuration
+    2. Determine competitions with upcoming events (cache-first with DB fallback)
+    3. Fetch odds from external API for each competition
+    4. Normalize odds to snapshots and aggregated normalized odds
+    5. Upsert to database (idempotent)
+    6. Update odds cache atomically per event
+    7. Log summary with events_count, events_with_odds, snapshots_written, etc.
+
+    No runtime parameters - all configuration from provider_policy.yml.
+    """
+    logger.info("odds_collection_triggered_manually")
+
+    try:
+        task = await collect_odds_task.kiq()
+
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="Odds collection task enqueued",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_odds_collection", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )

@@ -45,7 +45,6 @@ class EventsService:
         competitions_cache: CompetitionsCache,
         events_cache: EventsCache,
         policy_loader: PolicyLoader,
-        cache_ttl_sec: int = 86400, # TODO: cache ttl from config
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
@@ -53,7 +52,6 @@ class EventsService:
         self._competitions_cache = competitions_cache
         self._events_cache = events_cache
         self._policy_loader = policy_loader
-        self._cache_ttl_sec = cache_ttl_sec
 
     async def select_target_competitions(
         self, plan: Literal["free", "pro", "all"] = "all"
@@ -923,7 +921,7 @@ class EventsService:
         await self._events_cache.write_upcoming_atomic(
             provider_key=provider_key,
             items=events_dto,
-            ttl_sec=self._cache_ttl_sec
+            ttl_sec=None
         )
 
         logger.info(

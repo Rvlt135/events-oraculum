@@ -6,7 +6,7 @@ Services are primarily used in worker/scheduler context, not FastAPI.
 """
 from typing import TYPE_CHECKING
 
-from app.services.normalizer import OddsService
+from app.services.odds_service import OddsService
 from app.tasks.broker import broker
 
 if TYPE_CHECKING:

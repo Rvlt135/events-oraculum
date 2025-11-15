@@ -10,6 +10,8 @@ import redis.asyncio as redis
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
+from app.infrastructure.cache.catalog.events import EventsCache
+from app.infrastructure.cache.catalog.odds import OddsCache
 from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
@@ -17,7 +19,7 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.infrastructure.config.policy_loader import PolicyLoader
-from app.services.normalizer import OddsService
+from app.services.odds_service import OddsService
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
@@ -85,7 +87,6 @@ class Container:
             competitions_cache=competitions_cache,
             events_cache=events_cache,
             policy_loader=self.policy_loader,
-            cache_ttl_sec=settings.catalog_cache_ttl,
         )
 
     def create_llm_service(self) -> "LLMService":
@@ -169,12 +170,15 @@ class Container:
         """
 
         events_cache = EventsCache(self.redis_cache)
+        odds_cache = OddsCache(self.redis_cache)
 
         return OddsService(
             odds_client=self.odds_client,
             session_factory=self.session_factory,
             redis_cache=self.redis_cache,
             events_cache=events_cache,
+            odds_cache=odds_cache,
+            policy_loader=self.policy_loader,
         )
 
 
@@ -216,6 +220,7 @@ def create_container() -> Container:
         base_url=settings.odds_api_base_url,
         regions=settings.odds_api_regions,
         markets=settings.odds_api_markets,
+        use_mock_odds=settings.odds_use_mock,
     )
 
     # Create AI config loader with settings

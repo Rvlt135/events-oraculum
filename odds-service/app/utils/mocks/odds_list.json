@@ -1,0 +1,3170 @@
+[
+    {
+        "id": "05828abcad04f663ef67f3501e194268",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T17:45:00Z",
+        "home_team": "Ajax",
+        "away_team": "Benfica",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286531218-ajax-benfica",
+                "sid": "286531218",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Ajax",
+                                "price": 3.9,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Benfica",
+                                "price": 2.0,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.86,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606229/ajax-vs-benfica",
+                "sid": "OB_EV37606229",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Ajax",
+                                "price": 3.6,
+                                "link": null,
+                                "sid": "OB_OU5844157732"
+                            },
+                            {
+                                "name": "Benfica",
+                                "price": 1.95,
+                                "link": null,
+                                "sid": "OB_OU5844157746"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "OB_OU5844157741"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/ajax-vs-benfica-e-6657577/",
+                "sid": "6657577",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Ajax",
+                                "price": 3.4,
+                                "link": null,
+                                "sid": "16553582309"
+                            },
+                            {
+                                "name": "Benfica",
+                                "price": 2.0,
+                                "link": null,
+                                "sid": "16553582310"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.6,
+                                "link": null,
+                                "sid": "16553582308"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929576",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212083",
+                        "sid": "1.250212083",
+                        "outcomes": [
+                            {
+                                "name": "Ajax",
+                                "price": 3.9,
+                                "link": null,
+                                "sid": "52494689"
+                            },
+                            {
+                                "name": "Benfica",
+                                "price": 1.94,
+                                "link": null,
+                                "sid": "48783"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.6,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Ajax",
+                                "price": 4.7,
+                                "link": null,
+                                "sid": "52494689"
+                            },
+                            {
+                                "name": "Benfica",
+                                "price": 2.08,
+                                "link": null,
+                                "sid": "48783"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.0,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "95818e25a508b7a3e748565da4d97005",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T17:45:00Z",
+        "home_team": "Galatasaray",
+        "away_team": "Union Saint-Gilloise",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286530393-galatasaray-royale-union-saint-gilloise",
+                "sid": "286530393",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Galatasaray",
+                                "price": 1.64,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Union Saint-Gilloise",
+                                "price": 5.38,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.57,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606230/galatasaray-vs-union-st-gilloise",
+                "sid": "OB_EV37606230",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Galatasaray",
+                                "price": 1.57,
+                                "link": null,
+                                "sid": "OB_OU5844160337"
+                            },
+                            {
+                                "name": "Union Saint-Gilloise",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "OB_OU5844160341"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.2,
+                                "link": null,
+                                "sid": "OB_OU5844160339"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/galatasaray-vs-union-st-gilloise-e-6657579/",
+                "sid": "6657579",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Galatasaray",
+                                "price": 1.61,
+                                "link": null,
+                                "sid": "16553583567"
+                            },
+                            {
+                                "name": "Union Saint-Gilloise",
+                                "price": 4.8,
+                                "link": null,
+                                "sid": "16553583566"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.0,
+                                "link": null,
+                                "sid": "16553583568"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929513",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212257",
+                        "sid": "1.250212257",
+                        "outcomes": [
+                            {
+                                "name": "Galatasaray",
+                                "price": 1.69,
+                                "link": null,
+                                "sid": "2436"
+                            },
+                            {
+                                "name": "Union Saint-Gilloise",
+                                "price": 4.9,
+                                "link": null,
+                                "sid": "892024"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.3,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Galatasaray",
+                                "price": 1.7,
+                                "link": null,
+                                "sid": "2436"
+                            },
+                            {
+                                "name": "Union Saint-Gilloise",
+                                "price": 5.9,
+                                "link": null,
+                                "sid": "892024"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.9,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "15ed494ccc9b7acd23e6615074897398",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Slavia Praha",
+        "away_team": "Athletic Bilbao",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286532438-slavia-prague-athletic-bilbao",
+                "sid": "286532438",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Athletic Bilbao",
+                                "price": 2.52,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Slavia Praha",
+                                "price": 3.0,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/slavia-prague-vs-athletic-bilbao-e-6657593/",
+                "sid": "6657593",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Athletic Bilbao",
+                                "price": 2.4,
+                                "link": null,
+                                "sid": "16553592278"
+                            },
+                            {
+                                "name": "Slavia Praha",
+                                "price": 2.8,
+                                "link": null,
+                                "sid": "16553592276"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "16553592277"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606237/slavia-prague-vs-athletic-bilbao",
+                "sid": "OB_EV37606237",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Athletic Bilbao",
+                                "price": 2.4,
+                                "link": null,
+                                "sid": "OB_OU5844172746"
+                            },
+                            {
+                                "name": "Slavia Praha",
+                                "price": 2.8,
+                                "link": null,
+                                "sid": "OB_OU5844172737"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "OB_OU5844172741"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929515",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212473",
+                        "sid": "1.250212473",
+                        "outcomes": [
+                            {
+                                "name": "Athletic Bilbao",
+                                "price": 2.48,
+                                "link": null,
+                                "sid": "9162"
+                            },
+                            {
+                                "name": "Slavia Praha",
+                                "price": 2.9,
+                                "link": null,
+                                "sid": "10777"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.35,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Athletic Bilbao",
+                                "price": 2.74,
+                                "link": null,
+                                "sid": "9162"
+                            },
+                            {
+                                "name": "Slavia Praha",
+                                "price": 3.2,
+                                "link": null,
+                                "sid": "10777"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "9aa5ceed5de619b401e61fdc1104ebd3",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Chelsea",
+        "away_team": "Barcelona",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286531221-chelsea-barcelona",
+                "sid": "286531221",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Barcelona",
+                                "price": 2.81,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Chelsea",
+                                "price": 2.42,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.07,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/chelsea-vs-barcelona-e-6657773/",
+                "sid": "6657773",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Barcelona",
+                                "price": 2.5,
+                                "link": null,
+                                "sid": "16553638483"
+                            },
+                            {
+                                "name": "Chelsea",
+                                "price": 2.45,
+                                "link": null,
+                                "sid": "16553638482"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.8,
+                                "link": null,
+                                "sid": "16553638481"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606410/chelsea-vs-barcelona",
+                "sid": "OB_EV37606410",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Barcelona",
+                                "price": 2.62,
+                                "link": null,
+                                "sid": "OB_OU5844262503"
+                            },
+                            {
+                                "name": "Chelsea",
+                                "price": 2.3,
+                                "link": null,
+                                "sid": "OB_OU5844262496"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.8,
+                                "link": null,
+                                "sid": "OB_OU5844262499"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929501",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250214291",
+                        "sid": "1.250214291",
+                        "outcomes": [
+                            {
+                                "name": "Barcelona",
+                                "price": 2.8,
+                                "link": null,
+                                "sid": "52480964"
+                            },
+                            {
+                                "name": "Chelsea",
+                                "price": 2.32,
+                                "link": null,
+                                "sid": "55190"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.1,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Barcelona",
+                                "price": 3.05,
+                                "link": null,
+                                "sid": "52480964"
+                            },
+                            {
+                                "name": "Chelsea",
+                                "price": 2.46,
+                                "link": null,
+                                "sid": "55190"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.6,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "9699e8c2f355387e1648d1387f7036f0",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Manchester City",
+        "away_team": "Bayer Leverkusen",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286531217-manchester-city-bayer-04-leverkusen",
+                "sid": "286531217",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bayer Leverkusen",
+                                "price": 11.6,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Manchester City",
+                                "price": 1.29,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.49,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/man-city-vs-bayer-leverkusen-e-6657585/",
+                "sid": "6657585",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bayer Leverkusen",
+                                "price": 10.0,
+                                "link": null,
+                                "sid": "16553588057"
+                            },
+                            {
+                                "name": "Manchester City",
+                                "price": 1.25,
+                                "link": null,
+                                "sid": "16553588055"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.75,
+                                "link": null,
+                                "sid": "16553588056"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606233/man-city-vs-bayer-leverkusen",
+                "sid": "OB_EV37606233",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bayer Leverkusen",
+                                "price": 10.0,
+                                "link": null,
+                                "sid": "OB_OU5844166817"
+                            },
+                            {
+                                "name": "Manchester City",
+                                "price": 1.25,
+                                "link": null,
+                                "sid": "OB_OU5844166812"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.8,
+                                "link": null,
+                                "sid": "OB_OU5844166814"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929509",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213874",
+                        "sid": "1.250213874",
+                        "outcomes": [
+                            {
+                                "name": "Bayer Leverkusen",
+                                "price": 9.4,
+                                "link": null,
+                                "sid": "44787"
+                            },
+                            {
+                                "name": "Manchester City",
+                                "price": 1.26,
+                                "link": null,
+                                "sid": "47999"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.0,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bayer Leverkusen",
+                                "price": 13.5,
+                                "link": null,
+                                "sid": "44787"
+                            },
+                            {
+                                "name": "Manchester City",
+                                "price": 1.31,
+                                "link": null,
+                                "sid": "47999"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 7.8,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "3cd7d69c591982d24f5c334ff743bd11",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Bod\u00f8/Glimt",
+        "away_team": "Juventus",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286444188-bodo-glimt-juventus",
+                "sid": "286444188",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bod\u00f8/Glimt",
+                                "price": 3.23,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Juventus",
+                                "price": 2.17,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.07,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606231/bodoglimt-vs-juventus",
+                "sid": "OB_EV37606231",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bod\u00f8/Glimt",
+                                "price": 3.1,
+                                "link": null,
+                                "sid": "OB_OU5844162461"
+                            },
+                            {
+                                "name": "Juventus",
+                                "price": 2.05,
+                                "link": null,
+                                "sid": "OB_OU5844162464"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.8,
+                                "link": null,
+                                "sid": "OB_OU5844162463"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/bodoglimt-vs-juventus-e-6657581/",
+                "sid": "6657581",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bod\u00f8/Glimt",
+                                "price": 3.25,
+                                "link": null,
+                                "sid": "16553584708"
+                            },
+                            {
+                                "name": "Juventus",
+                                "price": 2.05,
+                                "link": null,
+                                "sid": "16553584709"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.6,
+                                "link": null,
+                                "sid": "16553584710"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929500",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212713",
+                        "sid": "1.250212713",
+                        "outcomes": [
+                            {
+                                "name": "Bod\u00f8/Glimt",
+                                "price": 3.2,
+                                "link": null,
+                                "sid": "373549"
+                            },
+                            {
+                                "name": "Juventus",
+                                "price": 2.14,
+                                "link": null,
+                                "sid": "52475015"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.9,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Bod\u00f8/Glimt",
+                                "price": 3.45,
+                                "link": null,
+                                "sid": "373549"
+                            },
+                            {
+                                "name": "Juventus",
+                                "price": 2.26,
+                                "link": null,
+                                "sid": "52475015"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.2,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "bb193b56670a717b2a51db949d364e6a",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Borussia Dortmund",
+        "away_team": "Villarreal",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286532437-borussia-dortmund-villarreal",
+                "sid": "286532437",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Borussia Dortmund",
+                                "price": 1.8,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Villarreal",
+                                "price": 4.57,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.16,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606232/dortmund-vs-villarreal",
+                "sid": "OB_EV37606232",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Borussia Dortmund",
+                                "price": 1.75,
+                                "link": null,
+                                "sid": "OB_OU5844164155"
+                            },
+                            {
+                                "name": "Villarreal",
+                                "price": 4.2,
+                                "link": null,
+                                "sid": "OB_OU5844164163"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.8,
+                                "link": null,
+                                "sid": "OB_OU5844164159"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/dortmund-vs-villarreal-e-6657583/",
+                "sid": "6657583",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Borussia Dortmund",
+                                "price": 1.75,
+                                "link": null,
+                                "sid": "16553586088"
+                            },
+                            {
+                                "name": "Villarreal",
+                                "price": 4.2,
+                                "link": null,
+                                "sid": "16553586090"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.8,
+                                "link": null,
+                                "sid": "16553586089"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929495",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212833",
+                        "sid": "1.250212833",
+                        "outcomes": [
+                            {
+                                "name": "Borussia Dortmund",
+                                "price": 1.81,
+                                "link": null,
+                                "sid": "44785"
+                            },
+                            {
+                                "name": "Villarreal",
+                                "price": 4.6,
+                                "link": null,
+                                "sid": "28191"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.9,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Borussia Dortmund",
+                                "price": 1.85,
+                                "link": null,
+                                "sid": "44785"
+                            },
+                            {
+                                "name": "Villarreal",
+                                "price": 5.3,
+                                "link": null,
+                                "sid": "28191"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.4,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "134883ec9fcab433c94237f7a8660e80",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Marseille",
+        "away_team": "Newcastle United",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286532440-olympique-de-marseille-newcastle-united",
+                "sid": "286532440",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Marseille",
+                                "price": 3.05,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Newcastle United",
+                                "price": 2.49,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/marseille-vs-newcastle-e-6657587/",
+                "sid": "6657587",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Marseille",
+                                "price": 2.88,
+                                "link": null,
+                                "sid": "16553589319"
+                            },
+                            {
+                                "name": "Newcastle United",
+                                "price": 2.4,
+                                "link": null,
+                                "sid": "16553589318"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "16553589320"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606234/marseille-vs-newcastle",
+                "sid": "OB_EV37606234",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Marseille",
+                                "price": 2.9,
+                                "link": null,
+                                "sid": "OB_OU5844169217"
+                            },
+                            {
+                                "name": "Newcastle United",
+                                "price": 2.38,
+                                "link": null,
+                                "sid": "OB_OU5844169226"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "OB_OU5844169224"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929512",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213735",
+                        "sid": "1.250213735",
+                        "outcomes": [
+                            {
+                                "name": "Marseille",
+                                "price": 3.1,
+                                "link": null,
+                                "sid": "52457652"
+                            },
+                            {
+                                "name": "Newcastle United",
+                                "price": 2.5,
+                                "link": null,
+                                "sid": "25422"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.4,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Marseille",
+                                "price": 3.15,
+                                "link": null,
+                                "sid": "52457652"
+                            },
+                            {
+                                "name": "Newcastle United",
+                                "price": 2.6,
+                                "link": null,
+                                "sid": "25422"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.6,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "4d65aa68cefaadd7249fa535881021cc",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-25T20:00:00Z",
+        "home_team": "Napoli",
+        "away_team": "Qaraba\u011f FK",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286532441-napoli-qarabag",
+                "sid": "286532441",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Napoli",
+                                "price": 1.33,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Qaraba\u011f FK",
+                                "price": 10.9,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.79,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/napoli-vs-qarabag-e-6657589/",
+                "sid": "6657589",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Napoli",
+                                "price": 1.3,
+                                "link": null,
+                                "sid": "16553590584"
+                            },
+                            {
+                                "name": "Qaraba\u011f FK",
+                                "price": 9.5,
+                                "link": null,
+                                "sid": "16553590583"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "16553590582"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606235/napoli-vs-qarabag",
+                "sid": "OB_EV37606235",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Napoli",
+                                "price": 1.3,
+                                "link": null,
+                                "sid": "OB_OU5844171048"
+                            },
+                            {
+                                "name": "Qaraba\u011f FK",
+                                "price": 9.5,
+                                "link": null,
+                                "sid": "OB_OU5844171052"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "OB_OU5844171050"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929510",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212593",
+                        "sid": "1.250212593",
+                        "outcomes": [
+                            {
+                                "name": "Napoli",
+                                "price": 1.35,
+                                "link": null,
+                                "sid": "676464"
+                            },
+                            {
+                                "name": "Qaraba\u011f FK",
+                                "price": 10.5,
+                                "link": null,
+                                "sid": "10583858"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.0,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Napoli",
+                                "price": 1.36,
+                                "link": null,
+                                "sid": "676464"
+                            },
+                            {
+                                "name": "Qaraba\u011f FK",
+                                "price": 11.0,
+                                "link": null,
+                                "sid": "10583858"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.2,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "c19241d4ab1a9a62ebcd7881ce3f6571",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T17:45:00Z",
+        "home_team": "Pafos FC",
+        "away_team": "AS Monaco",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286532963-pafos-as-monaco",
+                "sid": "286532963",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "AS Monaco",
+                                "price": 1.66,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Pafos FC",
+                                "price": 5.48,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.37,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/pafos-vs-monaco-e-6657605/",
+                "sid": "6657605",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "AS Monaco",
+                                "price": 1.6,
+                                "link": null,
+                                "sid": "16553594710"
+                            },
+                            {
+                                "name": "Pafos FC",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "16553594709"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.0,
+                                "link": null,
+                                "sid": "16553594711"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606239/pafos-vs-monaco",
+                "sid": "OB_EV37606239",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "AS Monaco",
+                                "price": 1.62,
+                                "link": null,
+                                "sid": "OB_OU5844177054"
+                            },
+                            {
+                                "name": "Pafos FC",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "OB_OU5844177046"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.0,
+                                "link": null,
+                                "sid": "OB_OU5844177050"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929514",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213127",
+                        "sid": "1.250213127",
+                        "outcomes": [
+                            {
+                                "name": "AS Monaco",
+                                "price": 1.62,
+                                "link": null,
+                                "sid": "361706"
+                            },
+                            {
+                                "name": "Pafos FC",
+                                "price": 1.49,
+                                "link": null,
+                                "sid": "9124224"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.05,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "AS Monaco",
+                                "price": 1.77,
+                                "link": null,
+                                "sid": "361706"
+                            },
+                            {
+                                "name": "Pafos FC",
+                                "price": 7.0,
+                                "link": null,
+                                "sid": "9124224"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.8,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "146bd3d231e7c88540af2c2464317a8e",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T17:45:00Z",
+        "home_team": "FC Copenhagen",
+        "away_team": "FC Kairat",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286532962-copenhagen-kairat",
+                "sid": "286532962",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "FC Copenhagen",
+                                "price": 1.38,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "FC Kairat",
+                                "price": 9.1,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.48,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/fc-copenhagen-vs-kairat-e-6657602/",
+                "sid": "6657602",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "FC Copenhagen",
+                                "price": 1.3,
+                                "link": null,
+                                "sid": "16553593573"
+                            },
+                            {
+                                "name": "FC Kairat",
+                                "price": 8.5,
+                                "link": null,
+                                "sid": "16553593572"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "16553593574"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606238/copenhagen-vs-kairat",
+                "sid": "OB_EV37606238",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "FC Copenhagen",
+                                "price": 1.3,
+                                "link": null,
+                                "sid": "OB_OU5844174960"
+                            },
+                            {
+                                "name": "FC Kairat",
+                                "price": 8.5,
+                                "link": null,
+                                "sid": "OB_OU5844174966"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.0,
+                                "link": null,
+                                "sid": "OB_OU5844174963"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929511",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213235",
+                        "sid": "1.250213235",
+                        "outcomes": [
+                            {
+                                "name": "FC Copenhagen",
+                                "price": 1.32,
+                                "link": null,
+                                "sid": "52533356"
+                            },
+                            {
+                                "name": "FC Kairat",
+                                "price": 9.8,
+                                "link": null,
+                                "sid": "197955"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.8,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "FC Copenhagen",
+                                "price": 1.35,
+                                "link": null,
+                                "sid": "52533356"
+                            },
+                            {
+                                "name": "FC Kairat",
+                                "price": 11.5,
+                                "link": null,
+                                "sid": "197955"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.8,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "0ef602b95462983c11670755330c465e",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Arsenal",
+        "away_team": "Bayern Munich",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286443589-arsenal-bayern-munich",
+                "sid": "286443589",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Arsenal",
+                                "price": 2.17,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Bayern Munich",
+                                "price": 3.48,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.73,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/arsenal-vs-bayern-munich-e-6657609/",
+                "sid": "6657609",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Arsenal",
+                                "price": 2.15,
+                                "link": null,
+                                "sid": "16553596501"
+                            },
+                            {
+                                "name": "Bayern Munich",
+                                "price": 3.1,
+                                "link": null,
+                                "sid": "16553596500"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.4,
+                                "link": null,
+                                "sid": "16553596499"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606241/arsenal-vs-bayern-munich",
+                "sid": "OB_EV37606241",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Arsenal",
+                                "price": 2.05,
+                                "link": null,
+                                "sid": "OB_OU5844178959"
+                            },
+                            {
+                                "name": "Bayern Munich",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "OB_OU5844178969"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "OB_OU5844178963"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929529",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213596",
+                        "sid": "1.250213596",
+                        "outcomes": [
+                            {
+                                "name": "Arsenal",
+                                "price": 2.2,
+                                "link": null,
+                                "sid": "1096"
+                            },
+                            {
+                                "name": "Bayern Munich",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "5774350"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.7,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Arsenal",
+                                "price": 2.28,
+                                "link": null,
+                                "sid": "1096"
+                            },
+                            {
+                                "name": "Bayern Munich",
+                                "price": 3.55,
+                                "link": null,
+                                "sid": "5774350"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.9,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "5bd48fda6301ac2d22e98b11c8ea4183",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Eintracht Frankfurt",
+        "away_team": "Atalanta BC",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286533644-eintracht-frankfurt-atalanta",
+                "sid": "286533644",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atalanta BC",
+                                "price": 2.52,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Eintracht Frankfurt",
+                                "price": 2.89,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.67,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/eintracht-frankfurt-vs-atalanta-e-6657613/",
+                "sid": "6657613",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atalanta BC",
+                                "price": 2.38,
+                                "link": null,
+                                "sid": "16553599106"
+                            },
+                            {
+                                "name": "Eintracht Frankfurt",
+                                "price": 2.75,
+                                "link": null,
+                                "sid": "16553599105"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "16553599107"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606243/eintracht-frankfurt-vs-atalanta",
+                "sid": "OB_EV37606243",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atalanta BC",
+                                "price": 2.38,
+                                "link": null,
+                                "sid": "OB_OU5844183014"
+                            },
+                            {
+                                "name": "Eintracht Frankfurt",
+                                "price": 2.75,
+                                "link": null,
+                                "sid": "OB_OU5844183009"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "OB_OU5844183013"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929490",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212953",
+                        "sid": "1.250212953",
+                        "outcomes": [
+                            {
+                                "name": "Atalanta BC",
+                                "price": 2.38,
+                                "link": null,
+                                "sid": "215817"
+                            },
+                            {
+                                "name": "Eintracht Frankfurt",
+                                "price": 2.74,
+                                "link": null,
+                                "sid": "347774"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 2.68,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atalanta BC",
+                                "price": 2.84,
+                                "link": null,
+                                "sid": "215817"
+                            },
+                            {
+                                "name": "Eintracht Frankfurt",
+                                "price": 3.4,
+                                "link": null,
+                                "sid": "347774"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.9,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "a937741da23b8005352f1de77f1ffb1d",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Atl\u00e9tico Madrid",
+        "away_team": "Inter Milan",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286533638-atletico-madrid-internazionale-milano",
+                "sid": "286533638",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atl\u00e9tico Madrid",
+                                "price": 2.44,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Inter Milan",
+                                "price": 3.07,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.58,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/atletico-madrid-vs-inter-milan-e-6657611/",
+                "sid": "6657611",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atl\u00e9tico Madrid",
+                                "price": 2.25,
+                                "link": null,
+                                "sid": "16553597853"
+                            },
+                            {
+                                "name": "Inter Milan",
+                                "price": 3.0,
+                                "link": null,
+                                "sid": "16553597854"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "16553597852"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606242/atletico-madrid-vs-inter-milan",
+                "sid": "OB_EV37606242",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atl\u00e9tico Madrid",
+                                "price": 2.3,
+                                "link": null,
+                                "sid": "OB_OU5844181218"
+                            },
+                            {
+                                "name": "Inter Milan",
+                                "price": 2.9,
+                                "link": null,
+                                "sid": "OB_OU5844181230"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.3,
+                                "link": null,
+                                "sid": "OB_OU5844181224"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929518",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250212332",
+                        "sid": "1.250212332",
+                        "outcomes": [
+                            {
+                                "name": "Atl\u00e9tico Madrid",
+                                "price": 2.32,
+                                "link": null,
+                                "sid": "52480965"
+                            },
+                            {
+                                "name": "Inter Milan",
+                                "price": 3.0,
+                                "link": null,
+                                "sid": "63347"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.5,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Atl\u00e9tico Madrid",
+                                "price": 2.52,
+                                "link": null,
+                                "sid": "52480965"
+                            },
+                            {
+                                "name": "Inter Milan",
+                                "price": 3.35,
+                                "link": null,
+                                "sid": "63347"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.7,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "d9f3f6fa7691aa2d26e86176b2c9b13f",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Sporting Lisbon",
+        "away_team": "Club Brugge",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286533756-sporting-clube-de-portugal-club-brugge",
+                "sid": "286533756",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Club Brugge",
+                                "price": 4.62,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Sporting Lisbon",
+                                "price": 1.79,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.17,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/sporting-cp-vs-club-brugge-e-6657627/",
+                "sid": "6657627",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Club Brugge",
+                                "price": 4.5,
+                                "link": null,
+                                "sid": "16553604688"
+                            },
+                            {
+                                "name": "Sporting Lisbon",
+                                "price": 1.75,
+                                "link": null,
+                                "sid": "16553604689"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 3.75,
+                                "link": null,
+                                "sid": "16553604690"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606248/sporting-cp-vs-club-brugge",
+                "sid": "OB_EV37606248",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Club Brugge",
+                                "price": 4.33,
+                                "link": null,
+                                "sid": "OB_OU5844191072"
+                            },
+                            {
+                                "name": "Sporting Lisbon",
+                                "price": 1.7,
+                                "link": null,
+                                "sid": "OB_OU5844191061"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.0,
+                                "link": null,
+                                "sid": "OB_OU5844191068"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929508",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213343",
+                        "sid": "1.250213343",
+                        "outcomes": [
+                            {
+                                "name": "Club Brugge",
+                                "price": 4.6,
+                                "link": null,
+                                "sid": "10762"
+                            },
+                            {
+                                "name": "Sporting Lisbon",
+                                "price": 1.75,
+                                "link": null,
+                                "sid": "52495073"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.2,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Club Brugge",
+                                "price": 5.1,
+                                "link": null,
+                                "sid": "10762"
+                            },
+                            {
+                                "name": "Sporting Lisbon",
+                                "price": 1.76,
+                                "link": null,
+                                "sid": "52495073"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.6,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "f3c84ee7dfefee713ef9df4c051ba358",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Liverpool",
+        "away_team": "PSV Eindhoven",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286443588-liverpool-psv-eindhoven",
+                "sid": "286443588",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Liverpool",
+                                "price": 1.3,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "PSV Eindhoven",
+                                "price": 10.9,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.45,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/liverpool-vs-psv-eindhoven-e-6657616/",
+                "sid": "6657616",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Liverpool",
+                                "price": 1.25,
+                                "link": null,
+                                "sid": "16553600756"
+                            },
+                            {
+                                "name": "PSV Eindhoven",
+                                "price": 10.0,
+                                "link": null,
+                                "sid": "16553600758"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.75,
+                                "link": null,
+                                "sid": "16553600757"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606245/liverpool-vs-psv-eindhoven",
+                "sid": "OB_EV37606245",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Liverpool",
+                                "price": 1.25,
+                                "link": null,
+                                "sid": "OB_OU5844184895"
+                            },
+                            {
+                                "name": "PSV Eindhoven",
+                                "price": 9.5,
+                                "link": null,
+                                "sid": "OB_OU5844184903"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.0,
+                                "link": null,
+                                "sid": "OB_OU5844184899"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929507",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250214013",
+                        "sid": "1.250214013",
+                        "outcomes": [
+                            {
+                                "name": "Liverpool",
+                                "price": 1.28,
+                                "link": null,
+                                "sid": "56323"
+                            },
+                            {
+                                "name": "PSV Eindhoven",
+                                "price": 10.0,
+                                "link": null,
+                                "sid": "48451"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.2,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Liverpool",
+                                "price": 1.34,
+                                "link": null,
+                                "sid": "56323"
+                            },
+                            {
+                                "name": "PSV Eindhoven",
+                                "price": 12.5,
+                                "link": null,
+                                "sid": "48451"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 7.4,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "d4ab3c13d3eec20998cd920eb9bcdaab",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Olympiakos Piraeus",
+        "away_team": "Real Madrid",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286444190-olympiacos-piraeus-real-madrid",
+                "sid": "286444190",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Olympiakos Piraeus",
+                                "price": 7.8,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Real Madrid",
+                                "price": 1.43,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.28,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/olympiacos-vs-real-madrid-e-6657619/",
+                "sid": "6657619",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Olympiakos Piraeus",
+                                "price": 6.5,
+                                "link": null,
+                                "sid": "16553602154"
+                            },
+                            {
+                                "name": "Real Madrid",
+                                "price": 1.4,
+                                "link": null,
+                                "sid": "16553602152"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.8,
+                                "link": null,
+                                "sid": "16553602153"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606246/olympiacos-vs-real-madrid",
+                "sid": "OB_EV37606246",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Olympiakos Piraeus",
+                                "price": 7.0,
+                                "link": null,
+                                "sid": "OB_OU5844187693"
+                            },
+                            {
+                                "name": "Real Madrid",
+                                "price": 1.4,
+                                "link": null,
+                                "sid": "OB_OU5844187703"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.8,
+                                "link": null,
+                                "sid": "OB_OU5844187698"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929534",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250213457",
+                        "sid": "1.250213457",
+                        "outcomes": [
+                            {
+                                "name": "Olympiakos Piraeus",
+                                "price": 8.4,
+                                "link": null,
+                                "sid": "55243"
+                            },
+                            {
+                                "name": "Real Madrid",
+                                "price": 1.38,
+                                "link": null,
+                                "sid": "2426"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.1,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Olympiakos Piraeus",
+                                "price": 9.8,
+                                "link": null,
+                                "sid": "55243"
+                            },
+                            {
+                                "name": "Real Madrid",
+                                "price": 1.45,
+                                "link": null,
+                                "sid": "2426"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 5.9,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "fd0409783f05ecb32ce5ae0b1e13fb31",
+        "sport_key": "soccer_uefa_champs_league",
+        "sport_title": "UEFA Champions League",
+        "commence_time": "2025-11-26T20:00:00Z",
+        "home_team": "Paris Saint Germain",
+        "away_team": "Tottenham Hotspur",
+        "bookmakers": [
+            {
+                "key": "onexbet",
+                "title": "1xBet",
+                "last_update": "2025-11-14T17:05:26Z",
+                "link": "https://1xbet.com/en/line/football/118587-uefa-champions-league/286444189-paris-saint-germain-tottenham-hotspur",
+                "sid": "286444189",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:05:26Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Paris Saint Germain",
+                                "price": 1.5,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Tottenham Hotspur",
+                                "price": 6.96,
+                                "link": null,
+                                "sid": null
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.93,
+                                "link": null,
+                                "sid": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "sport888",
+                "title": "888sport",
+                "last_update": "2025-11-14T17:06:32Z",
+                "link": "https://www.888sport.com/football/europe/uefa-champions-league/psg-vs-tottenham-e-6657621/",
+                "sid": "6657621",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:32Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Paris Saint Germain",
+                                "price": 1.44,
+                                "link": null,
+                                "sid": "16553603392"
+                            },
+                            {
+                                "name": "Tottenham Hotspur",
+                                "price": 6.0,
+                                "link": null,
+                                "sid": "16553603391"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.75,
+                                "link": null,
+                                "sid": "16553603393"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "williamhill",
+                "title": "William Hill",
+                "last_update": "2025-11-14T17:06:08Z",
+                "link": "https://sports.williamhill.com/betting/en-gb/football/OB_EV37606247/psg-vs-tottenham",
+                "sid": "OB_EV37606247",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:08Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Paris Saint Germain",
+                                "price": 1.44,
+                                "link": null,
+                                "sid": "OB_OU5844188663"
+                            },
+                            {
+                                "name": "Tottenham Hotspur",
+                                "price": 6.0,
+                                "link": null,
+                                "sid": "OB_OU5844188668"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.6,
+                                "link": null,
+                                "sid": "OB_OU5844188666"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "betfair_ex_eu",
+                "title": "Betfair",
+                "last_update": "2025-11-14T17:06:45Z",
+                "link": null,
+                "sid": "34929506",
+                "markets": [
+                    {
+                        "key": "h2h",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": "https://www.betfair.com/exchange/plus/football/market/1.250214152",
+                        "sid": "1.250214152",
+                        "outcomes": [
+                            {
+                                "name": "Paris Saint Germain",
+                                "price": 1.43,
+                                "link": null,
+                                "sid": "489720"
+                            },
+                            {
+                                "name": "Tottenham Hotspur",
+                                "price": 5.2,
+                                "link": null,
+                                "sid": "48224"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 4.2,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    },
+                    {
+                        "key": "h2h_lay",
+                        "last_update": "2025-11-14T17:06:45Z",
+                        "link": null,
+                        "sid": null,
+                        "outcomes": [
+                            {
+                                "name": "Paris Saint Germain",
+                                "price": 1.52,
+                                "link": null,
+                                "sid": "489720"
+                            },
+                            {
+                                "name": "Tottenham Hotspur",
+                                "price": 9.6,
+                                "link": null,
+                                "sid": "48224"
+                            },
+                            {
+                                "name": "Draw",
+                                "price": 6.6,
+                                "link": null,
+                                "sid": "58805"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]

@@ -14,7 +14,20 @@ class BookmakerRepository(BaseRepository[Bookmaker]):
     def __init__(self, session: AsyncSession):
         super().__init__(Bookmaker, session)
 
-    async def get_or_create(self, key: str, name: str, region: str) -> UUID:
+    async def get_or_create_by_key(self, key: str, name: str, region: str) -> UUID:
+        """
+        Get or create bookmaker by key (idempotent).
+
+        Key: (key) - unique constraint on key field.
+
+        Args:
+            key: Bookmaker key (unique identifier)
+            name: Bookmaker name
+            region: Bookmaker region
+
+        Returns:
+            UUID of existing or newly created bookmaker
+        """
         result = await self.session.execute(
             select(Bookmaker).where(Bookmaker.key == key)
         )
@@ -36,6 +49,10 @@ class BookmakerRepository(BaseRepository[Bookmaker]):
                 logger.debug("bookmaker_updated", key=key, new_name=name)
 
         return bookmaker.id
+
+    async def get_or_create(self, key: str, name: str, region: str) -> UUID:
+        """Deprecated: Use get_or_create_by_key instead."""
+        return await self.get_or_create_by_key(key, name, region)
 
     async def get_by_key(self, key: str) -> Optional[Bookmaker]:
         result = await self.session.execute(

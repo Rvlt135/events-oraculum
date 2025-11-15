@@ -6,6 +6,7 @@ import structlog
 from redis.asyncio import Redis
 
 from app.domain.entities.event import EventDTO
+from app.config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -37,13 +38,18 @@ class EventsCache:
         Uses atomic swap pattern:
         1. Write to temporary key
         2. Rename temporary key to final key
-        3. Set TTL if provided
+        3. Set TTL if provided (defaults to cache_ttl_events_upcoming_sec from settings)
+
+        TODO: In future, TTL for upcoming events could be made dependent on max(commence_time)
+        in batch, rather than a fixed number - separate task.
 
         Args:
             provider_key: Competition provider_key
             items: List of EventDTO objects (upcoming events only)
-            ttl_sec: Optional TTL in seconds
+            ttl_sec: Optional TTL in seconds (defaults to settings.cache_ttl_events_upcoming_sec)
         """
+        if ttl_sec is None:
+            ttl_sec = settings.cache_ttl_events_upcoming_sec
         if not items:
             logger.debug("no_upcoming_events_to_cache", provider_key=provider_key)
             # Clear the key if there are no upcoming events

@@ -4,7 +4,7 @@ import json
 from redis.asyncio import Redis
 from app.config.settings import settings
 
-CATALOG_TTL_SEC = settings.catalog_cache_ttl
+CATALOG_TTL_SEC = settings.cache_ttl_sports_sec
 KEY_PREFIX = "catalog:sports"  # можно версионировать: v1:catalog:sports
 
 def _key_catalog() -> str:

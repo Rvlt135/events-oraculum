@@ -5,7 +5,7 @@ from redis.asyncio import Redis
 from app.config.settings import settings
 import structlog
 
-CATALOG_TTL_SEC = settings.catalog_cache_ttl
+CATALOG_TTL_SEC = settings.cache_ttl_competitions_sec
 KEY_PREFIX = "catalog:competitions"
 
 

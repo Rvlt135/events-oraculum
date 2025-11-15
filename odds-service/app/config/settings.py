@@ -29,10 +29,18 @@ class Settings(BaseSettings):
     odds_api_regions: List[str] = Field(default=["eu"])
     odds_api_markets: List[str] = Field(default=["h2h"])
     odds_api_competitions: List[str] = Field(default=["soccer_uefa_champs_league"])
+    
+    # Odds mock configuration
+    odds_use_mock: bool = Field(default=True)
 
     schedule_crons: List[str]
     schedule_sports_crons: List[str]
-    catalog_cache_ttl: int
+    catalog_cache_ttl: int = Field(default=604800)
+    cache_ttl_sports_sec: int = Field(default=604800)
+    cache_ttl_competitions_sec: int = Field(default=604800)
+    cache_ttl_events_sec: int = Field(default=604800)
+    cache_ttl_events_upcoming_sec: int = Field(default=604800)
+    cache_ttl_odds_sec: int = Field(default=604800)
 
 
     api_host: str = Field(default="0.0.0.0")

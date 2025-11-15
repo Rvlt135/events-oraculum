@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.infrastructure.di.container import Container
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
+    from app.services.odds_service import OddsService
 
 
 def get_settings() -> Settings:
@@ -80,6 +81,19 @@ def get_events_service_from_container(container: "Container") -> "EventsService"
     return container.create_events_service()
 
 
+def get_odds_service_from_container(container: "Container") -> "OddsService":
+    """
+    Get OddsService from container.
+
+    Args:
+        container: Container instance with initialized dependencies
+
+    Returns:
+        OddsService instance with dependencies from container
+    """
+    return container.create_odds_service()
+
+
 # Re-export from sub-modules for convenience
 from app.infrastructure.db.session import make_session_factory
 
@@ -89,4 +103,5 @@ __all__ = [
     "get_db_session_from_factory",
     "get_sports_service_from_container",
     "get_events_service_from_container",
+    "get_odds_service_from_container",
 ]

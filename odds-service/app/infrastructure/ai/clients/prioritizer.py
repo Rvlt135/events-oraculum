@@ -271,20 +271,26 @@ class PrioritizerLLMClient:
             # Retry loop for current model
             for attempt in range(self.retry.max_attempts):
                 try:
-                    logger.debug(
-                        "attempting_prioritization",
-                        model=model,
-                        attempt=attempt + 1,
-                        max_attempts=self.retry.max_attempts,
-                        total_models=len(models_to_try),
-                        batch_size=len(batch)
-                    )
-
                     start_time = time.time()
 
-                    result = await self._call_llm(batch, model, temperature)
+                    result = await self._call_llm(
+                        batch, 
+                        model, 
+                        temperature,
+                        attempt=attempt + 1,
+                        max_attempts=self.retry.max_attempts,
+                        total_models=len(models_to_try)
+                    )
 
                     duration_ms = int((time.time() - start_time) * 1000)
+
+                    # Log successful parsing
+                    logger.info(
+                        "llm_parse_success",
+                        model=model,
+                        events_in_batch=len(result.events),
+                        duration_ms=duration_ms,
+                    )
 
                     logger.info(
                         "prioritization_success",
@@ -304,6 +310,28 @@ class PrioritizerLLMClient:
                     )
                     response = getattr(e, "response", None)
                     headers = getattr(response, "headers", {}) or {} if response else {}
+
+                    # Extract provider-specific error codes if available (OpenRouter)
+                    provider_raw_code = None
+                    provider_name = None
+                    if response and hasattr(response, 'headers'):
+                        provider_raw_code = headers.get("x-openrouter-error-code") or headers.get("X-OpenRouter-Error-Code")
+                        provider_name = headers.get("x-openrouter-provider") or headers.get("X-OpenRouter-Provider")
+                    
+                    error_message_short = str(e)[:200]
+                    
+                    # Log HTTP/LLM request failure
+                    logger.warning(
+                        "llm_request_failed",
+                        model=model,
+                        attempt=attempt + 1,
+                        max_attempts=self.retry.max_attempts,
+                        status_code=status,
+                        error_type=type(e).__name__,
+                        error_message_short=error_message_short,
+                        provider_raw_code=provider_raw_code,
+                        provider_name=provider_name,
+                    )
 
                     # Check if status is retriable
                     is_retriable = status in set(self.retry.retriable_status_codes)
@@ -349,6 +377,17 @@ class PrioritizerLLMClient:
 
                 except Exception as e:
                     last_error = e
+                    error_message_short = str(e)[:200]
+                    
+                    # Log parsing/validation failure (Instructor or other non-HTTP errors)
+                    logger.warning(
+                        "llm_parse_failed",
+                        model=model,
+                        attempt=attempt + 1,
+                        error_type=type(e).__name__,
+                        error_message_short=error_message_short,
+                    )
+
                     logger.warning(
                         "prioritization_attempt_failed",
                         model=model,
@@ -375,6 +414,9 @@ class PrioritizerLLMClient:
         batch: List[Dict[str, Any]],
         model: str,
         temperature: Optional[float] = None,
+        attempt: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        total_models: Optional[int] = None,
     ) -> EventPriorityBatch:
         """
         Call LLM with Instructor for structured output.
@@ -383,6 +425,9 @@ class PrioritizerLLMClient:
             batch: Event batch
             model: Model to use
             temperature: Temperature override
+            attempt: Current attempt number (1-indexed)
+            max_attempts: Maximum number of attempts
+            total_models: Total number of models to try
 
         Returns:
             Validated EventPriorityBatch
@@ -403,16 +448,97 @@ class PrioritizerLLMClient:
         max_tokens = model_config.get("max_output_tokens")
         if max_tokens is None:
             raise ValueError(f"max_output_tokens not found in model configuration for {model}")
+        
+        # Prepare logging metadata before the call
+        ids_preview = [str(event.get("id", event.get("event_id", "unknown")))[:50] for event in batch[:3]]
+        prompt_meta = {
+            "system_len": len(self._system_prompt) if self._system_prompt else 0,
+            "instruction_len": len(self._instruction_prompt) if self._instruction_prompt else 0,
+            "user_len": len(user_message),
+        }
+        
         msg = self._build_messages(self._system_prompt, user_message)
-        response = await self._instructor_client.chat.completions.create(
+        
+        # Log before LLM call
+        logger.debug(
+            "llm_request_start",
+            provider=self.provider,
             model=model,
-            response_model=EventPriorityBatch,
-            messages=msg,
-            temperature=temp,
-            max_tokens=max_tokens,
+            attempt=attempt,
+            max_attempts=max_attempts,
+            total_models=total_models,
+            batch_size=len(batch),
+            ids_preview=ids_preview,
+            prompt_meta=prompt_meta,
         )
-
-        return response
+        
+        request_started_at = time.time()
+        
+        try:
+            response = await self._instructor_client.chat.completions.create(
+                model=model,
+                response_model=EventPriorityBatch,
+                messages=msg,
+                temperature=temp,
+                max_tokens=max_tokens,
+            )
+            
+            request_finished_at = time.time()
+            duration_ms = int((request_finished_at - request_started_at) * 1000)
+            
+            # Extract usage information if available
+            # Instructor may store raw response in different places
+            usage_meta = None
+            raw_response = None
+            
+            # Try to get raw response from Instructor wrapper
+            if hasattr(response, '_raw_response'):
+                raw_response = response._raw_response
+            elif hasattr(response, '_response'):
+                raw_response = response._response
+            elif hasattr(response, 'usage'):
+                raw_response = response
+            
+            if raw_response and hasattr(raw_response, 'usage') and raw_response.usage:
+                usage_meta = {
+                    "prompt_tokens": getattr(raw_response.usage, 'prompt_tokens', None),
+                    "completion_tokens": getattr(raw_response.usage, 'completion_tokens', None),
+                    "total_tokens": getattr(raw_response.usage, 'total_tokens', None),
+                }
+            
+            # Log after HTTP response, before parsing (parsing happens in Instructor)
+            logger.debug(
+                "llm_response_received",
+                model=model,
+                duration_ms=duration_ms,
+                http_status=200,  # If we got here, HTTP was successful
+                usage_meta=usage_meta,
+            )
+            
+            return response
+            
+        except Exception as e:
+            request_finished_at = time.time()
+            duration_ms = int((request_finished_at - request_started_at) * 1000)
+            
+            # Try to extract HTTP status from exception
+            http_status = None
+            if hasattr(e, 'status_code'):
+                http_status = e.status_code
+            elif hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+                http_status = e.response.status_code
+            
+            # Log response received even if it's an error (HTTP level)
+            logger.debug(
+                "llm_response_received",
+                model=model,
+                duration_ms=duration_ms,
+                http_status=http_status,
+                usage_meta=None,
+            )
+            
+            # Re-raise to be handled in _prioritize_batch
+            raise
 
     def _format_events_for_prompt(self, events: List[Dict[str, Any]]) -> str:
         """

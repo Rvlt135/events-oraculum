@@ -1,12 +1,15 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy import select, and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.infrastructure.db.orm.odds import NormalizedOdds
+from app.domain.entities.odds import NormalizedOddsDTO
 from app.infrastructure.db.orm.events import Event
 from app.infrastructure.db.orm.competition import Competition
 from app.infrastructure.db.orm.teams import Team
@@ -19,6 +22,70 @@ logger = structlog.get_logger()
 class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
     def __init__(self, session: AsyncSession):
         super().__init__(NormalizedOdds, session)
+
+    async def upsert_normalized(self, dto: NormalizedOddsDTO) -> UUID:
+        """
+        Upsert normalized odds by key (event_id, market_type).
+
+        Key: (event_id, market_type) - unique constraint.
+
+        Behavior:
+        - If record exists: UPDATE all calculated fields (avg/best, bookmakers_count, timestamps)
+        - If not exists: INSERT new record
+        - created_at is preserved on update (not touched)
+
+        Args:
+            dto: NormalizedOddsDTO (id and created_at can be None for new records)
+
+        Returns:
+            UUID of normalized odds (existing or newly created)
+        """
+        stmt = (
+            insert(NormalizedOdds)
+            .values(
+                event_id=dto.event_id,
+                market_type=dto.market_type,
+                home_odds_avg=dto.home_odds_avg,
+                away_odds_avg=dto.away_odds_avg,
+                draw_odds_avg=dto.draw_odds_avg,
+                home_odds_best=dto.home_odds_best,
+                away_odds_best=dto.away_odds_best,
+                draw_odds_best=dto.draw_odds_best,
+                bookmakers_count=dto.bookmakers_count,
+                timestamp_source=dto.timestamp_source,
+                timestamp_ingested=dto.timestamp_ingested,
+                timestamp_normalized=dto.timestamp_normalized,
+            )
+            .on_conflict_do_update(
+                index_elements=["event_id", "market_type"],
+                set_=dict(
+                    home_odds_avg=dto.home_odds_avg,
+                    away_odds_avg=dto.away_odds_avg,
+                    draw_odds_avg=dto.draw_odds_avg,
+                    home_odds_best=dto.home_odds_best,
+                    away_odds_best=dto.away_odds_best,
+                    draw_odds_best=dto.draw_odds_best,
+                    bookmakers_count=dto.bookmakers_count,
+                    timestamp_source=dto.timestamp_source,
+                    timestamp_ingested=dto.timestamp_ingested,
+                    timestamp_normalized=dto.timestamp_normalized,
+                )
+            )
+            .returning(NormalizedOdds.id)
+        )
+
+        result = await self.session.execute(stmt)
+        normalized_id = result.scalar_one()
+        await self.session.flush()
+
+        logger.debug(
+            "normalized_odds_upserted",
+            event_id=str(dto.event_id),
+            market_type=dto.market_type,
+            normalized_id=str(normalized_id)
+        )
+
+        return normalized_id
 
     async def create_normalized(
         self,
@@ -34,28 +101,24 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
         timestamp_source: datetime,
         timestamp_ingested: datetime,
     ) -> UUID:
-        normalized = NormalizedOdds(
+        """Deprecated: Use upsert_normalized with NormalizedOddsDTO instead."""
+        dto = NormalizedOddsDTO(
+            id=None,
             event_id=event_id,
             market_type=market_type,
-            home_odds_avg=home_odds_avg,
-            away_odds_avg=away_odds_avg,
-            draw_odds_avg=draw_odds_avg,
-            home_odds_best=home_odds_best,
-            away_odds_best=away_odds_best,
-            draw_odds_best=draw_odds_best,
+            home_odds_avg=Decimal(str(home_odds_avg)),
+            away_odds_avg=Decimal(str(away_odds_avg)),
+            draw_odds_avg=Decimal(str(draw_odds_avg)) if draw_odds_avg is not None else None,
+            home_odds_best=Decimal(str(home_odds_best)),
+            away_odds_best=Decimal(str(away_odds_best)),
+            draw_odds_best=Decimal(str(draw_odds_best)) if draw_odds_best is not None else None,
             bookmakers_count=bookmakers_count,
             timestamp_source=timestamp_source,
             timestamp_ingested=timestamp_ingested,
-            timestamp_normalized=now_utc()
+            timestamp_normalized=now_utc(),
+            created_at=None,
         )
-        normalized = await self.create(normalized)
-        logger.info(
-            "normalized_odds_created",
-            event_id=str(event_id),
-            market_type=market_type,
-            id=str(normalized.id)
-        )
-        return normalized.id
+        return await self.upsert_normalized(dto)
 
     async def get_by_event(
         self,

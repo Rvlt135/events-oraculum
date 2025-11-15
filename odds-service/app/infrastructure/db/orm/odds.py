@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import Column, Boolean, DateTime, ForeignKey, Integer, Numeric, Text, Index, func
+from sqlalchemy import Column, Boolean, DateTime, ForeignKey, Integer, Numeric, Text, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -27,7 +27,12 @@ class OddsSnapshot(Base):
         Index("idx_odds_snapshots_bookmaker_id", "bookmaker_id"),
         Index("idx_odds_snapshots_market_type", "market_type"),
         Index("idx_odds_snapshots_timestamp_ingested", "timestamp_ingested", postgresql_ops={"timestamp_ingested": "DESC"}),
-        Index("uq_odds_snapshots_event_bookmaker_market", "event_id", "bookmaker_id", "market_type", unique=True),
+        UniqueConstraint(
+            "event_id",
+            "bookmaker_id",
+            "market_type",
+            name="uq_odds_snapshots_event_book_mkt",
+        ),
     )
 
 
@@ -55,5 +60,9 @@ class NormalizedOdds(Base):
         Index("idx_normalized_odds_event_id", "event_id"),
         Index("idx_normalized_odds_market_type", "market_type"),
         Index("idx_normalized_odds_timestamp_normalized", "timestamp_normalized", postgresql_ops={"timestamp_normalized": "DESC"}),
-        Index("uq_normalized_odds_event_market", "event_id", "market_type", unique=True),
+        UniqueConstraint(
+            "event_id",
+            "market_type",
+            name="uq_normalized_odds_event_market",
+        ),
     )

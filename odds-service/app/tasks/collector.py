@@ -314,65 +314,99 @@ async def collect_odds_task() -> Dict[str, str]:
         )
 
         # Process odds collection for selected competitions
-        total_processed = 0
+        total_events_count = 0
+        total_events_with_odds = 0
+        total_snapshots_written = 0
+        total_normalized_written = 0
+        total_missing_odds = 0
+        total_orphan_odds = 0
 
-        async with container.session_factory() as session:
-            async with session.begin():
-                sport_repo = SportRepository(session)
-                competition_repo = CompetitionsRepository(session)
+        for competition_key in keys_for_odds:
+            # Get upcoming events as EventShortDTO
+            upcoming_events = await odds_service.get_upcoming_events_short(
+                provider=provider,
+                provider_key=competition_key,
+            )
 
-                for competition_key in keys_for_odds:
-                    logger.info("collecting_odds_for_competition", competition=competition_key)
+            if not upcoming_events:
+                continue
 
-                    # Extract sport category from provider_key
-                    category = competition_key.split("_")[0] if "_" in competition_key else "soccer"
-                    sport_id = await sport_repo.get_or_create(category, provider=provider)
+            events_count = len(upcoming_events)
+            total_events_count += events_count
 
-                    competition_id = await competition_repo.get_or_create(
-                        sport_id=sport_id,
-                        provider_key=competition_key,
-                        title=competition_key.replace("_", " ").title(),
-                        description=f"Competition for {competition_key}",
-                        provider=provider,
-                    )
+            # Fetch odds using new service method
+            competition_odds = await odds_service.fetch_odds_for_competition(
+                provider=provider,
+                provider_key=competition_key,
+                upcoming_events=upcoming_events,
+            )
 
-                    odds_data = await odds_service.odds_client.get_odds(
-                        sport=competition_key,
-                        regions=odds_policy.regions,
-                        markets=odds_policy.markets,
-                        commence_time_from=window.from_iso,
-                        commence_time_to=window.to_iso,
-                    )
+            events_with_odds = len(competition_odds.events)
+            missing_odds = events_count - events_with_odds
+            total_events_with_odds += events_with_odds
+            total_missing_odds += missing_odds
 
-                    events_processed = 0
-                    for event_data in odds_data:
-                        event_id = await odds_service.process_event_data(
-                            event_data, sport_id, competition_id
-                        )
-                        if event_id:
-                            events_processed += 1
+            if not competition_odds.events:
+                logger.info(
+                    "odds_collect_summary",
+                    provider_key=competition_key,
+                    events_count=events_count,
+                    events_with_odds=0,
+                    snapshots_written=0,
+                    normalized_written=0,
+                    missing_odds=missing_odds,
+                    orphan_odds=0
+                )
+                continue
 
-                    logger.info(
-                        "competition_odds_processed",
-                        competition=competition_key,
-                        events_count=events_processed
-                    )
-                    events_processed_total.inc(events_processed)
-                    total_processed += events_processed
+            # Persist odds (normalize + write to DB + cache)
+            metrics = await odds_service.persist_competition_odds(competition_odds, provider=provider)
+            snapshots_written = metrics["snapshots_inserted"] + metrics["snapshots_updated"]
+            normalized_written = metrics["normalized_inserted"] + metrics["normalized_updated"]
+            total_snapshots_written += snapshots_written
+            total_normalized_written += normalized_written
+
+            event_ids_with_odds = {e.event_id for e in competition_odds.events}
+            orphan_odds = 0
+            for event_odds in competition_odds.events:
+                if not event_odds.markets:
+                    orphan_odds += 1
+            total_orphan_odds += orphan_odds
+
+            logger.info(
+                "odds_collect_summary",
+                provider_key=competition_key,
+                events_count=events_count,
+                events_with_odds=events_with_odds,
+                snapshots_written=snapshots_written,
+                normalized_written=normalized_written,
+                missing_odds=missing_odds,
+                orphan_odds=orphan_odds
+            )
 
         duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)
 
         logger.info(
-            "collect_odds_task_completed",
-            total_events=total_processed,
+            "odds_collect_task_completed",
             duration_seconds=duration,
+            total_events_count=total_events_count,
+            total_events_with_odds=total_events_with_odds,
+            total_snapshots_written=total_snapshots_written,
+            total_normalized_written=total_normalized_written,
+            total_missing_odds=total_missing_odds,
+            total_orphan_odds=total_orphan_odds,
             competitions_processed=len(keys_for_odds)
         )
 
         return {
             "status": "success",
-            "total_events": str(total_processed),
+            "total_events_count": str(total_events_count),
+            "total_events_with_odds": str(total_events_with_odds),
+            "total_snapshots_written": str(total_snapshots_written),
+            "total_normalized_written": str(total_normalized_written),
+            "total_missing_odds": str(total_missing_odds),
+            "total_orphan_odds": str(total_orphan_odds),
             "competitions_processed": str(len(keys_for_odds)),
             "duration_seconds": str(duration),
             "timestamp": now_utc().isoformat(),

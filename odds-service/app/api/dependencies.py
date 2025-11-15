@@ -14,11 +14,13 @@ from app.infrastructure.di.factory import (
     get_db_session_from_factory,
     get_sports_service_from_container,
     get_events_service_from_container,
+    get_odds_service_from_container,
 )
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
+    from app.services.odds_service import OddsService
 
 
 def get_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -89,6 +91,20 @@ def get_events_service(request: Request) -> "EventsService":
     """
     container = request.app.state.container
     return get_events_service_from_container(container)
+
+
+def get_odds_service(request: Request) -> "OddsService":
+    """
+    Get OddsService with injected dependencies from container.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        OddsService instance with dependencies from container
+    """
+    container = request.app.state.container
+    return get_odds_service_from_container(container)
 
 
 def get_redis(request: Request) -> Redis:
