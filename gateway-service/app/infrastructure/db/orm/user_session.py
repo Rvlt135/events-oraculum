@@ -1,10 +1,12 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy import Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.orm.base import Base
+
+UTC = timezone.utc
 
 if TYPE_CHECKING:
     from app.infrastructure.db.orm.user import User

@@ -17,6 +17,11 @@ from app.infrastructure.db.orm import Base
 # access to the values within the .ini file in use.
 config = context.config
 
+db_url = os.getenv("DATABASE_URL")
+if not db_url:
+    raise RuntimeError("DATABASE_URL not set!")
+
+config.set_main_option("sqlalchemy.url", db_url)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
