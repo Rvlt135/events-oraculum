@@ -1,0 +1,21 @@
+---
+# vars file for migrations
+project_base: "/home/developer/layerbit-oraculum"
+db_user: "postgres"
+db_password: "wafWF2fawf"
+db_host: "127.0.0.1"
+db_port: "5431"
+projects:
+  - name: odds-service
+    src: ../odds-service/
+    dest: "{{ project_base }}/odds-service"
+    venv: "{{ project_base }}/odds-service/venv"
+    alembic_config: alembic.ini
+    db_name: "layerbit_odds"
+
+  - name: gateway-service
+    src: ../gateway-service/
+    dest: "{{ project_base }}/gateway-service"
+    venv: "{{ project_base }}/gateway-service/venv"
+    alembic_config: alembic.ini
+    db_name: "layerbit_gateway"

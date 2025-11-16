@@ -1,0 +1,4 @@
+---
+# vars file for docker
+
+user_name: "developer"
