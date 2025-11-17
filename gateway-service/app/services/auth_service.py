@@ -8,7 +8,9 @@ from fastapi.responses import RedirectResponse
 from httpx import HTTPStatusError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.cache.redis import redis_cache_manager
+from app.infrastructure.cache.session_cache import SessionCache
+from app.infrastructure.cache.oauth_cache import OauthCache
+from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.clients.google_oauth import google_oauth_client
 from app.infrastructure.clients.telegram_validator import telegram_validator
 from app.infrastructure.db.orm.user import PlanType, User
@@ -28,7 +30,6 @@ logger = structlog.get_logger()
 
 class BaseAuthService:
     jwt = jwt_service
-    redis = redis_cache_manager
 
     def __init__(self, db_session: AsyncSession) -> None:
         self.db = db_session
@@ -45,70 +46,22 @@ class BaseAuthService:
         await self.db.commit()
 
 
-    async def _cache_user(self, user: User) -> None:
-        key = f"user:{user.id}"
-        data = {
-            "id": str(user.id),
-            "email": user.email,
-            "email_verified": user.email_verified,
-            "plan_type": user.plan_type.value,
-            "trial_end_at": user.trial_end_at.isoformat() if user.trial_end_at else None,
-            "created_at": user.created_at.isoformat(),
-        }
-        await self.redis.set(key, data, ttl=300)
+class GoogleAuthService:
+    jwt = jwt_service
 
-    async def _get_cached_user(self, user_id: UUID) -> User | None:
-        key = f"user:{user_id}"
-        data = await self.redis.get(key)
-        if not data:
-            return None
-        return None
-
-    async def _cache_session(self, jti: UUID, user_id: UUID, expires_at: datetime) -> None:
-        key = f"session:{jti}"
-        data = {
-            "user_id": str(user_id),
-            "expires_at": expires_at.isoformat(),
-        }
-        ttl = int((expires_at - datetime.now(UTC)).total_seconds())
-        if ttl > 0:
-            await self.redis.set(key, data, ttl=ttl)
-
-    async def _get_cached_session(self, jti: UUID) -> dict | None:
-        key = f"session:{jti}"
-        data = await self.redis.get(key)
-        if not data:
-            return None
-        return data
-
-    async def _invalidate_session(self, jti: UUID) -> None:
-        key = f"session:{jti}"
-        await self.redis.delete(key)
-
-    async def _cache_user_with_account_id(self, user: User, account_id: int) -> None:
-        await self._cache_user(user)
-
-        account_key = f"account:{account_id}"
-        data = {
-            "user_id": str(user.id),
-        }
-        await self.redis.set(account_key, data, ttl=300)
-
-    async def _invalidate_user_cache(self, user_id: UUID, account_id: int | None = None) -> None:
-        key = f"user:{user_id}"
-        await self.redis.delete(key)
-
-        if account_id:
-            account_key = f"account:{account_id}"
-            await self.redis.delete(account_key)
-
-
-class GoogleAuthService(BaseAuthService):
-
-    def __init__(self, db_session: AsyncSession, redirect_uri: str) -> None:
-        super().__init__(db_session)
+    def __init__(
+            self,
+            db_session: AsyncSession,
+            session_cache: SessionCache,
+            oauth_cache: OauthCache,
+    ) -> None:
+        self.db = db_session
         self.google = google_oauth_client
-        self.redirect_uri = redirect_uri
+        self.identity_repo = IdentityRepository(db_session)
+        self.user_repo = UserRepository(db_session)
+        self.session_repo = SessionRepository(db_session)
+        self.session_cache = session_cache
+        self.oauth_cache = oauth_cache
 
     async def login_with_google(
         self, code: str, state: str,
@@ -164,11 +117,13 @@ class GoogleAuthService(BaseAuthService):
             expires_at=refresh_expires,
             user_agent=cached_oauth_params.get("ua"),
         )
-        await self._cache_session(jti, user.id, refresh_expires)
+        await self.session_cache.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
+
         response = RedirectResponse(url=cached_oauth_params.get("return_to"))
         set_auth_cookies(response, access_token, refresh_token)
-        await self._delete_cached_transaction(state)
+
+        await self.oauth_cache.invalidate_transation(state)
 
         return response
 
@@ -191,11 +146,6 @@ class GoogleAuthService(BaseAuthService):
         if not email:
             raise AuthorizationError("email_required")
     
-    async def _delete_cached_transaction(self, state: str) -> None:
-        key = f"oauth:state:{state}"
-        await self.redis.delete(key)
-        
-             
     async def get_authorization_url(self, request: Request, return_to: str | None = None) -> str:
 
         return_to = google_oauth_validator.validate_and_parse_return_path(return_to)
@@ -210,34 +160,20 @@ class GoogleAuthService(BaseAuthService):
             x_request_id=request.headers.get("X-Request-ID", None),
         )
 
-        cached_params = {
-            "provider": "GOOGLE",
-            "nonce": oauth_params.get("nonce"),
-            "code_verifier": oauth_params.get("code_verifier"),
-            "state": oauth_params.get("state"),
+        request_params = {
             "return_to": return_to,
-            "redirect_uri": self.redirect_uri,
             "ip": request.client.host,
             "ua": request.headers.get("user-agent"),
-            "created_at": datetime.now(UTC).isoformat(),
-            "status": "PENDING",
         }
         
-        await self._cache_oauth_transaction(cached_params)
+        await self.oauth_cache.cache_oauth_transaction(oauth_params, request_params)
 
         return self.google.get_authorization_url(oauth_params)
 
-    async def _cache_oauth_transaction(self, params: dict, ttl: int = 60) -> None:
-        state = params.pop("state")
-        state_key = f"oauth:state:{state}"
-        await redis_cache_manager.set(state_key, params, ttl)
-    
     async def get_cached_oauth_transaction(self, state: str) -> dict | None:
         if state is None:
             raise AuthorizationError("invalid_state")
-        
-        key = f"oauth:state:{state}"
-        data = await self.redis.get(key)
+        data = await self.oauth_cache.get_cached_oauth_transation(state)
 
         if not data:
             raise AuthorizationError("state_expired")
@@ -279,9 +215,14 @@ class TokenService(BaseAuthService):
 
 
 # TODO refactor this service - split to separate services for each auth type
-class AuthService(BaseAuthService):
+class AuthService:
     password = password_service
     telegram = telegram_validator
+
+    def __init__(self, db_session: AsyncSession, user_cache: UserCache):
+        self.user_cache = user_cache
+        self.user_repo = UserRepository(db_session)
+
 
     async def register_with_email(
         self, email: str, password: str, user_agent: str | None = None
@@ -317,7 +258,7 @@ class AuthService(BaseAuthService):
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
+        await self._cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -342,7 +283,7 @@ class AuthService(BaseAuthService):
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
+        await self._cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
@@ -414,7 +355,7 @@ class AuthService(BaseAuthService):
             jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
-        await self.session_cache_repo.cache_session(jti, user.id, refresh_expires)
+        await self._cache_session(jti, user.id, refresh_expires)
         await self._cache_user_with_account_id(user, account_id)
         await self.db.commit()
 
@@ -425,7 +366,7 @@ class AuthService(BaseAuthService):
         jti = UUID(token_payload.jti)
         user_id = UUID(token_payload.sub)
 
-        cached = await self.session_cache_repo.get_cached_session(jti)
+        cached = await self._get_cached_session(jti)
         if not cached:
             db_session = await self.session_repo.get_by_jti(jti)
             if not db_session or db_session.expires_at < datetime.now(UTC):
@@ -440,11 +381,11 @@ class AuthService(BaseAuthService):
 
     async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
         if use_cache:
-            cached = await self.user_cache_repo.get_cached_user(user_id)
+            cached = await self.user_cache.get_cached_user(user_id)
             if cached:
                 return cached
 
         user = await self.user_repo.get_by_id(user_id)
         if user and use_cache:
-            await self.user_cache_repo.cache_user(user)
+            await self.user_cache.cache_user(user)
         return user

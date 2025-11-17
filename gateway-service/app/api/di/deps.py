@@ -1,10 +1,14 @@
 from fastapi import Depends, Request
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, settings
 from app.infrastructure.clients.telegram_validator import TelegramValidator
+from app.infrastructure.cache.redis import RedisCache
+from app.infrastructure.cache.oauth_cache import OauthCache
+from app.infrastructure.cache.session_cache import SessionCache
+from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.db.session import get_session
-from app.infrastructure.security.jwt import JWTService
 from app.infrastructure.security.password import PasswordService
 from app.services.auth_service import AuthService, GoogleAuthService, TokenService
 
@@ -12,11 +16,13 @@ from app.services.auth_service import AuthService, GoogleAuthService, TokenServi
 def get_settings() -> Settings:
     return settings
 
-def get_redis_client(request: Request) -> redis.Redis:
+
+def get_redis_client(request: Request) -> Redis:
     client = getattr(request.app.state, "redis_client", None)
     if client is None:
         raise RuntimeError("Redis client not initialized")
     return client
+
 
 def get_redis_cache(request: Request) -> RedisCache:
     cache = getattr(request.app.state, "redis_cache", None)
@@ -25,13 +31,16 @@ def get_redis_cache(request: Request) -> RedisCache:
     return cache
 
 
-def get_jwt_service() -> JWTService:
-    return JWTService(
-        secret=settings.jwt_secret,
-        algorithm=settings.jwt_algorithm,
-        access_ttl=settings.access_token_ttl_seconds,
-        refresh_ttl=settings.refresh_token_ttl_seconds,
-    )
+def get_session_cache(redis_client: RedisCache = Depends(get_redis_cache)) -> SessionCache:
+    return SessionCache(redis=redis_client)
+
+
+def get_oauth_cache(redis_client: RedisCache = Depends(get_redis_cache)) -> OauthCache:
+    return OauthCache(redis=redis_client)
+
+
+def get_user_cache(redis_client: RedisCache = Depends(get_redis_cache)) -> UserCache:
+    return UserCache(redis=redis_client)
 
 
 def get_password_service() -> PasswordService:
@@ -49,8 +58,14 @@ def get_telegram_validator() -> TelegramValidator | None:
 
 async def get_google_auth_service(
     db: AsyncSession = Depends(get_session),
+    session_cache: SessionCache = Depends(get_session_cache),
+    oauth_cache: OauthCache = Depends(get_oauth_cache),
 ) -> GoogleAuthService:
-    return GoogleAuthService(db_session=db, redirect_uri=settings.google_redirect_uri)
+    return GoogleAuthService(
+        db_session=db,
+        session_cache=session_cache,
+        oauth_cache=oauth_cache,
+    )
 
 
 async def get_token_service(
@@ -61,5 +76,6 @@ async def get_token_service(
 # TODO - remove/update this method with the refactoring AuthService 
 async def get_auth_service(
     db: AsyncSession = Depends(get_session),
+    user_cache: UserCache =  Depends(get_user_cache),
 ) -> AuthService:
-    return AuthService(db_session=db)
+    return AuthService(db_session=db, user_cache=user_cache)

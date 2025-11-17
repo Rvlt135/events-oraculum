@@ -1,9 +1,6 @@
-from typing import Any, Dict, Optional
-import json
 from uuid import UUID
 
-from redis.asyncio import Redis
-
+from app.infrastructure.cache.redis import RedisCache
 from app.infrastructure.db.orm import User
 
 CATALOG_TTL_SEC = 300
@@ -16,7 +13,7 @@ def _key_user() -> str:
 class UserCache:
     """User cache repository"""
 
-    def __init__(self, redis: Redis) -> None:
+    def __init__(self, redis: RedisCache) -> None:
         self._r = redis
 
     async def cache_user(self, user: User) -> None:
@@ -31,9 +28,9 @@ class UserCache:
             "created_at": user.created_at.isoformat(),
         }
 
-        await self._r.set(key, json.dumps(data), ex=300)
+        await self._r.set(key, data, ttl=300)
 
-    async def get_cached_user(self, user_id: UUID) -> User | None: # TODO: здесь как будто дефект, get возвращает строку
+    async def get_cached_user(self, user_id: UUID) -> User | None:
         key = f"user:{user_id}"
         data = await self._r.get(key)
         if not data:
