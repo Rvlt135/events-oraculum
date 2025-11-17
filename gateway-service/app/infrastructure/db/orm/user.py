@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.orm.base import Base
 
+
 if TYPE_CHECKING:
     from app.infrastructure.db.orm.user_identity import UserIdentity
     from app.infrastructure.db.orm.user_session import UserSession

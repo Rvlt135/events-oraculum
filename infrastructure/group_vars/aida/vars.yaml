@@ -1,0 +1,8 @@
+ansible_user: "{{ lookup('env', 'AIDA_USER') }}" # export AIDA_USER env
+ansible_port: 22
+ansible_password: "{{ lookup('env', 'AIDA_PASS') }}" # export AIDA_PASS env
+ansible_become: true
+ansible_become_method: sudo
+
+
+enable_cache: true
