@@ -2,9 +2,9 @@
 # vars file for postgres
 postgres_version: "15"
 postgres_user: "postgres"
-postgres_password: "wafWF2fawf"
+postgres_password: "****"
 postgres_db: "postgres"
-postgres_port: "5431"
+postgres_port: "5432"
 container_name: "layerbit-postgres"
 migration_db_host: "127.0.0.1"
-migration_db_port: "5431"
+migration_db_port: "5432"

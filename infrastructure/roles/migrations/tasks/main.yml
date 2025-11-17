@@ -6,7 +6,8 @@
     state: directory
     mode: "0755"
   become: yes
-  become_user: root
+  become_user: "{{ lookup('env', 'AIDA_USER') }}"
+
 
 - name: Установить Python, pip, venv
   apt:
@@ -16,6 +17,8 @@
       - python3-pip
     state: present
     update_cache: yes
+  become: yes
+  become_user: root
 
 - name: Копировать проект на сервер
   synchronize:
@@ -27,17 +30,18 @@
   loop_control:
       label: "{{ item.name }}"
   become: yes
-  become_user: root
+  become_user: "{{ lookup('env', 'AIDA_USER') }}"
+
 
 - name: Создать виртуальное окружение
-  command: python3 -m venv "{{ item.venv }}"
+  command: "~/.pyenv/shims/python3 -m venv {{ item.venv }}"
   args:
     creates: "{{ item.venv }}/bin/activate"
   loop: "{{ projects }}"
   loop_control:
     label: "{{ item.name }}"
   become: yes
-  become_user: root
+  become_user: "{{ lookup('env', 'AIDA_USER') }}"
 
 - name: Установить зависимости проекта
   command: "{{ item.venv }}/bin/pip install -r requirements.txt"
@@ -47,7 +51,8 @@
   loop_control:
     label: "{{ item.name }}"
   become: yes
-  become_user: root
+  become_user: "{{ lookup('env', 'AIDA_USER') }}"
+
 
 
 - name: Применить миграции Alembic
@@ -60,4 +65,5 @@
   loop_control:
     label: "{{ item.name }}"
   become: yes
-  become_user: root
+  become_user: "{{ lookup('env', 'AIDA_USER') }}"
+
