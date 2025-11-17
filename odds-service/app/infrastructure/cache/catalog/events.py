@@ -26,10 +26,15 @@ class EventsCache:
         """Generate temporary key for atomic swap."""
         return f"{self.key_prefix}:{provider_key}:upcoming:tmp"
 
+    def _make_upcoming_list_key(self, provider: str) -> str:
+        """Generate key for competitions with upcoming events index."""
+        return f"catalog:competitions:{provider}:with_upcoming"
+
     async def write_upcoming_atomic(
         self,
         provider_key: str,
         items: list[EventDTO],
+        provider: str,
         ttl_sec: Optional[int] = None
     ) -> None:
         """
@@ -39,6 +44,7 @@ class EventsCache:
         1. Write to temporary key
         2. Rename temporary key to final key
         3. Set TTL if provided (defaults to cache_ttl_events_upcoming_sec from settings)
+        4. Update competitions with upcoming index
 
         TODO: In future, TTL for upcoming events could be made dependent on max(commence_time)
         in batch, rather than a fixed number - separate task.
@@ -46,48 +52,45 @@ class EventsCache:
         Args:
             provider_key: Competition provider_key
             items: List of EventDTO objects (upcoming events only)
+            provider: Competition provider service
             ttl_sec: Optional TTL in seconds (defaults to settings.cache_ttl_events_upcoming_sec)
         """
         if ttl_sec is None:
             ttl_sec = settings.cache_ttl_events_upcoming_sec
-        if not items:
-            logger.debug("no_upcoming_events_to_cache", provider_key=provider_key)
-            # Clear the key if there are no upcoming events
-            final_key = self._make_key(provider_key)
-            try:
-                await self.redis.delete(final_key)
-                logger.debug("cleared_empty_events_cache", provider_key=provider_key)
-            except Exception as e:
-                logger.error("failed_to_clear_events_cache", provider_key=provider_key, error=str(e))
-            return
 
         temp_key = self._make_temp_key(provider_key)
         final_key = self._make_key(provider_key)
+        list_key = self._make_upcoming_list_key(provider)
 
         try:
-            # Step 1: Write to temporary key
-            # Serialize events to JSON
             pipe = self.redis.pipeline()
 
-            # Delete temp key first to ensure clean state
-            await pipe.delete(temp_key)
+            if not items:
+                # Clear cache and remove from index
+                await pipe.delete(final_key)
+                await pipe.srem(list_key, provider_key)
+                await pipe.execute()
+                logger.debug(
+                    "cleared_empty_events_cache",
+                    provider=provider,
+                    provider_key=provider_key
+                )
+                return
 
-            # Add each event
+            # Write events to cache and add to index
+            await pipe.delete(temp_key)
             for event in items:
                 event_data = event.model_dump_json()
                 await pipe.rpush(temp_key, event_data)
-
-            await pipe.execute()
-
-            # Step 2: Atomic rename (swap)
-            await self.redis.rename(temp_key, final_key)
-
-            # Step 3: Set TTL if provided
+            await pipe.rename(temp_key, final_key)
             if ttl_sec:
-                await self.redis.expire(final_key, ttl_sec)
+                await pipe.expire(final_key, ttl_sec)
+            await pipe.sadd(list_key, provider_key)
+            await pipe.execute()
 
             logger.info(
                 "events_cache_updated_atomic",
+                provider=provider,
                 provider_key=provider_key,
                 count=len(items),
                 ttl_sec=ttl_sec
@@ -96,6 +99,7 @@ class EventsCache:
         except Exception as e:
             logger.error(
                 "events_cache_update_failed",
+                provider=provider,
                 provider_key=provider_key,
                 error=str(e),
                 exc_info=True

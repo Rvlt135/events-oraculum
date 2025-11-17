@@ -289,25 +289,30 @@ class OddsService:
         for provider_key in policy_keys_set:
             try:
                 events = await self.events_cache.read_upcoming(provider_key)
-                if events:
-                    # Filter by time window
-                    filtered = [
-                        e for e in events
-                        if from_dt <= e.commence_time <= to_dt
-                    ]
-                    if filtered:
-                        has_upcoming_keys.add(provider_key)
-                        logger.debug(
-                            "upcoming_events_found_in_cache",
-                            provider_key=provider_key,
-                            count=len(filtered)
-                        )
             except Exception as e:
                 logger.debug(
                     "cache_read_error_for_key",
                     provider_key=provider_key,
                     error=str(e)
                 )
+                continue
+
+            if not events:
+                continue
+
+            count_in_window = sum(
+                1 for e in events
+                if from_dt <= e.commence_time <= to_dt
+            )
+            if not count_in_window:
+                continue
+
+            has_upcoming_keys.add(provider_key)
+            logger.debug(
+                "upcoming_events_found_in_cache",
+                provider_key=provider_key,
+                count=count_in_window,
+            )
 
         # Step 2: Fallback to DB for keys not found in cache
         cache_miss_keys = policy_keys_set - has_upcoming_keys
@@ -327,31 +332,6 @@ class OddsService:
                             provider=provider,
                             provider_key=provider_key
                         )
-
-                        if not competition:
-                            logger.debug(
-                                "competition_not_found_in_db",
-                                provider_key=provider_key
-                            )
-                            continue
-
-                        events_orm = await event_repo.get_upcoming_by_competition(
-                            competition_id=competition.id,
-                            provider=provider
-                        )
-
-                        filtered_events = [
-                            e for e in events_orm
-                            if from_dt <= e.commence_time <= to_dt
-                        ]
-
-                        if filtered_events:
-                            has_upcoming_keys.add(provider_key)
-                            logger.debug(
-                                "upcoming_events_found_in_db",
-                                provider_key=provider_key,
-                                count=len(filtered_events)
-                            )
                     except Exception as e:
                         logger.warning(
                             "db_check_error_for_key",
@@ -359,6 +339,39 @@ class OddsService:
                             error=str(e)
                         )
                         continue
+                    if not competition:
+                        logger.debug(
+                            "competition_not_found_in_db",
+                            provider_key=provider_key
+                        )
+                        continue
+                    try:
+                        events_orm = await event_repo.get_upcoming_by_competition(
+                            competition_id=competition.id,
+                            provider=provider
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "db_events_lookup_failed",
+                            provider_key=provider_key,
+                            competition_id=str(competition.id),
+                            error=str(e),
+                        )
+                        continue
+                    count_in_window = sum(
+                        1 for e in events_orm
+                        if from_dt <= e.commence_time <= to_dt
+                    )
+
+                    if not count_in_window:
+                        continue
+
+                    has_upcoming_keys.add(provider_key)
+                    logger.debug(
+                        "upcoming_events_found_in_db",
+                        provider_key=provider_key,
+                        count=count_in_window,
+                    )
 
         # Step 3: Final list - intersection
         keys_for_odds = sorted(policy_keys_set & has_upcoming_keys)

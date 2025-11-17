@@ -5,13 +5,13 @@ providers:
         context_window: 131072
         max_output_tokens: 8192
         temperature: 0.3
-        supports_streaming: true
+        supports_streaming: false
         supports_function_calling: false
-      openrouter/polaris-alpha:
-        context_window: 256000
-        max_output_tokens: 8192
+      openai/gpt-oss-20b:free:
+        context_window: 131072
+        max_output_tokens: 131072
         temperature: 0.3
-        supports_streaming: true
+        supports_streaming: false
         supports_function_calling: true
 
 
@@ -22,7 +22,7 @@ prioritizer:
   provider: openrouter
   model: z-ai/glm-4.5-air:free
   fallback_models:
-    - openrouter/polaris-alpha # z-ai/glm-4.5-air:free
+    - openai/gpt-oss-20b:free
   timeout_ms: 30000
   batch_size: 50
   rate_limit_qps: 5

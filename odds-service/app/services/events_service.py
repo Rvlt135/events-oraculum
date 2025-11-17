@@ -920,6 +920,7 @@ class EventsService:
         # Write to cache atomically (outside DB session)
         await self._events_cache.write_upcoming_atomic(
             provider_key=provider_key,
+            provider=provider,
             items=events_dto,
             ttl_sec=None
         )
