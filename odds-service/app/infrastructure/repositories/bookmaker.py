@@ -41,12 +41,18 @@ class BookmakerRepository(BaseRepository[Bookmaker]):
                 is_active=True
             )
             bookmaker = await self.create(bookmaker)
-            logger.info("bookmaker_created", key=key, name=name, id=str(bookmaker.id))
+            logger.info("bookmaker_created", key=key, name=name, region=region, id=str(bookmaker.id))
         else:
+            updated = False
             if bookmaker.name != name:
                 bookmaker.name = name
+                updated = True
+            if bookmaker.region != region:
+                bookmaker.region = region
+                updated = True
+            if updated:
                 await self.session.flush()
-                logger.debug("bookmaker_updated", key=key, new_name=name)
+                logger.debug("bookmaker_updated", key=key, new_name=name, new_region=region)
 
         return bookmaker.id
 

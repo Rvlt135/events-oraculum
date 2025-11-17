@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     odds_api_competitions: List[str] = Field(default=["soccer_uefa_champs_league"])
     
     # Odds mock configuration
-    odds_use_mock: bool = Field(default=True)
+    odds_use_mock: bool
 
     schedule_crons: List[str]
     schedule_sports_crons: List[str]

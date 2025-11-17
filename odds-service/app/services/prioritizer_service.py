@@ -402,21 +402,21 @@ class PrioritizerService:
         events = self.deduplicate_events(events)
         events = self.sort_events_by_commence_time(events)
         
-        # Convert EventDTO to dict using class method
-        events_dict = EventDTO.events_to_list(events)
+        # Build lightweight representation for LLM (only essential fields)
+        priority_inputs = self._build_priority_inputs(events)
 
         if not self._enabled or not self._ai_client:
             logger.info("prioritization_disabled_using_fallback")
             metrics["fallback_used"] = True
-            ranked = self._apply_fallback_scores(events_dict)
+            ranked = self._apply_fallback_scores(priority_inputs)
         else:
             try:
-                ranked = await self._prioritize_with_llm(events_dict, metrics)
+                ranked = await self._prioritize_with_llm(priority_inputs, metrics)
             except Exception as e:
                 logger.error("llm_prioritization_failed_using_fallback", error=str(e), exc_info=True)
                 metrics["fallback_used"] = True
                 metrics["errors"] += 1
-                ranked = self._apply_fallback_scores(events_dict)
+                ranked = self._apply_fallback_scores(priority_inputs)
 
         ranked = self._stable_sort_by_priority(ranked)
 
@@ -435,6 +435,52 @@ class PrioritizerService:
         )
 
         return metrics
+
+    def _build_priority_inputs(self, events: List[EventDTO]) -> List[Dict[str, Any]]:
+        """
+        Build lightweight event representation for LLM prioritization.
+        
+        Only includes essential fields needed for prioritization:
+        - id (required for score assignment)
+        - provider/provider_key (if available)
+        - home_team_name -> home_team
+        - away_team_name -> away_team
+        - commence_time (ISO string)
+        - status
+        - sport_key (from metadata if available)
+        
+        Excludes heavy fields like:
+        - participants (full list)
+        - metadata (full dict)
+        - created_at, updated_at, ingested_at, last_seen_at
+        - sport_id, competition_id, home_team_id, away_team_id (internal IDs)
+        
+        Args:
+            events: List of EventDTO instances
+            
+        Returns:
+            List of lightweight dict representations for LLM
+        """
+        result = []
+        
+        for event in events:
+            # Extract sport_key from metadata if available, otherwise use empty string
+            sport_key = event.metadata.get("sport_key", "") if event.metadata else ""
+            
+            # Build minimal representation
+            event_dict = {
+                "id": str(event.id),
+                "provider": event.provider,
+                "home_team": event.home_team_name,
+                "away_team": event.away_team_name,
+                "commence_time": event.commence_time.isoformat() if event.commence_time else "",
+                "status": event.status,
+                "sport_key": sport_key,
+            }
+            
+            result.append(event_dict)
+        
+        return result
 
     def _apply_fallback_scores(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

@@ -6,7 +6,7 @@ from uuid import UUID
 import structlog
 from redis.asyncio import Redis
 
-from app.domain.entities.odds import NormalizedOddsDTO
+from app.domain.entities.odds import NormalizedOddsDTO, NormalizedOddsCacheDTO
 from app.config.settings import settings
 
 logger = structlog.get_logger()
@@ -78,7 +78,22 @@ class OddsCache:
             await pipe.delete(temp_key)
 
             for item in items:
-                item_data = item.model_dump_json()
+                # Map NormalizedOddsDTO to NormalizedOddsCacheDTO (exclude id and created_at)
+                cache_item = NormalizedOddsCacheDTO(
+                    event_id=item.event_id,
+                    market_type=item.market_type,
+                    home_odds_avg=item.home_odds_avg,
+                    away_odds_avg=item.away_odds_avg,
+                    draw_odds_avg=item.draw_odds_avg,
+                    home_odds_best=item.home_odds_best,
+                    away_odds_best=item.away_odds_best,
+                    draw_odds_best=item.draw_odds_best,
+                    bookmakers_count=item.bookmakers_count,
+                    timestamp_source=item.timestamp_source,
+                    timestamp_ingested=item.timestamp_ingested,
+                    timestamp_normalized=item.timestamp_normalized,
+                )
+                item_data = cache_item.model_dump_json()
                 await pipe.rpush(temp_key, item_data)
 
             await pipe.execute()
@@ -132,7 +147,24 @@ class OddsCache:
             items = []
             for raw_item in raw_items:
                 try:
-                    item = NormalizedOddsDTO.model_validate_json(raw_item)
+                    # Deserialize from cache DTO to full DTO
+                    cache_item = NormalizedOddsCacheDTO.model_validate_json(raw_item)
+                    item = NormalizedOddsDTO(
+                        id=None,
+                        event_id=cache_item.event_id,
+                        market_type=cache_item.market_type,
+                        home_odds_avg=cache_item.home_odds_avg,
+                        away_odds_avg=cache_item.away_odds_avg,
+                        draw_odds_avg=cache_item.draw_odds_avg,
+                        home_odds_best=cache_item.home_odds_best,
+                        away_odds_best=cache_item.away_odds_best,
+                        draw_odds_best=cache_item.draw_odds_best,
+                        bookmakers_count=cache_item.bookmakers_count,
+                        timestamp_source=cache_item.timestamp_source,
+                        timestamp_ingested=cache_item.timestamp_ingested,
+                        timestamp_normalized=cache_item.timestamp_normalized,
+                        created_at=None,
+                    )
                     items.append(item)
                 except Exception as e:
                     logger.warning(

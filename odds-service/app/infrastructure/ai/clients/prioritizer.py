@@ -8,14 +8,13 @@ import structlog
 from instructor import Mode
 from openai import AsyncOpenAI, APIStatusError
 import instructor
-
-from app.infrastructure.ai.config_loader import AIConfigLoader, RetryConfigDTO
-from app.infrastructure.ai.clients.schemas import EventPriorityBatch, EventPriorityScore
 from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
+from app.infrastructure.ai.config_loader import AIConfigLoader, RetryConfigDTO
+from app.infrastructure.ai.clients.schemas import EventPriorityBatch, EventPriorityScore
 from app.infrastructure.config.policy_loader import PolicyLoader
 
 logger = structlog.get_logger()
@@ -97,8 +96,6 @@ class PrioritizerLLMClient:
 
         self._system_prompt = None
         self._instruction_prompt = None
-        self._prompt_schema = None
-        self._mode_pref = []
 
         logger.info(
             "prioritizer_llm_client_initialized",
@@ -118,14 +115,6 @@ class PrioritizerLLMClient:
             bundle = self.ai_config.load_prompt_bundle("prioritizer")
             self._system_prompt = bundle.get("system", "")
             self._instruction_prompt = bundle.get("instruction", "")
-            self._prompt_schema = bundle.get("schema") or None
-            self._mode_pref = bundle.get("mode_preference", [])
-
-            logger.info(
-                "prompt_bundle_loaded",
-                name="prioritizer",
-                with_schema=self._prompt_schema is not None
-            )
 
     async def _apply_rate_limit(self):
         """Apply rate limiting delay."""
@@ -146,7 +135,7 @@ class PrioritizerLLMClient:
         temperature: Optional[float] = None,
     ) -> List[EventPriorityScore]:
         """
-        Prioritize events using LLM with Instructor validation.
+        Prioritize events using LLM with function calling.
 
         Args:
             events: List of event dicts with at least 'id' and contextual data
@@ -282,22 +271,11 @@ class PrioritizerLLMClient:
                         total_models=len(models_to_try)
                     )
 
-                    duration_ms = int((time.time() - start_time) * 1000)
-
-                    # Log successful parsing
-                    logger.info(
-                        "llm_parse_success",
-                        model=model,
-                        events_in_batch=len(result.events),
-                        duration_ms=duration_ms,
-                    )
-
                     logger.info(
                         "prioritization_success",
                         model_used=model,
                         batch_size=len(batch),
                         results_count=len(result.events),
-                        duration_ms=duration_ms,
                         fallback_hit=model_idx > 0,
                         attempt=attempt + 1
                     )
@@ -379,7 +357,7 @@ class PrioritizerLLMClient:
                     last_error = e
                     error_message_short = str(e)[:200]
                     
-                    # Log parsing/validation failure (Instructor or other non-HTTP errors)
+                    # Log parsing/validation failure (function calling or other non-HTTP errors)
                     logger.warning(
                         "llm_parse_failed",
                         model=model,
@@ -432,8 +410,8 @@ class PrioritizerLLMClient:
         Returns:
             Validated EventPriorityBatch
         """
+        self._load_prompts()
         events_summary = self._format_events_for_prompt(batch)
-
         user_message = f"{self._instruction_prompt}\n\n{events_summary}"
 
         model_config = self.ai_config.get_model_config(self.provider, model)
@@ -449,31 +427,8 @@ class PrioritizerLLMClient:
         if max_tokens is None:
             raise ValueError(f"max_output_tokens not found in model configuration for {model}")
         
-        # Prepare logging metadata before the call
-        ids_preview = [str(event.get("id", event.get("event_id", "unknown")))[:50] for event in batch[:3]]
-        prompt_meta = {
-            "system_len": len(self._system_prompt) if self._system_prompt else 0,
-            "instruction_len": len(self._instruction_prompt) if self._instruction_prompt else 0,
-            "user_len": len(user_message),
-        }
-        
         msg = self._build_messages(self._system_prompt, user_message)
-        
-        # Log before LLM call
-        logger.debug(
-            "llm_request_start",
-            provider=self.provider,
-            model=model,
-            attempt=attempt,
-            max_attempts=max_attempts,
-            total_models=total_models,
-            batch_size=len(batch),
-            ids_preview=ids_preview,
-            prompt_meta=prompt_meta,
-        )
-        
-        request_started_at = time.time()
-        
+
         try:
             response = await self._instructor_client.chat.completions.create(
                 model=model,
@@ -483,61 +438,15 @@ class PrioritizerLLMClient:
                 max_tokens=max_tokens,
             )
             
-            request_finished_at = time.time()
-            duration_ms = int((request_finished_at - request_started_at) * 1000)
-            
-            # Extract usage information if available
-            # Instructor may store raw response in different places
-            usage_meta = None
-            raw_response = None
-            
-            # Try to get raw response from Instructor wrapper
-            if hasattr(response, '_raw_response'):
-                raw_response = response._raw_response
-            elif hasattr(response, '_response'):
-                raw_response = response._response
-            elif hasattr(response, 'usage'):
-                raw_response = response
-            
-            if raw_response and hasattr(raw_response, 'usage') and raw_response.usage:
-                usage_meta = {
-                    "prompt_tokens": getattr(raw_response.usage, 'prompt_tokens', None),
-                    "completion_tokens": getattr(raw_response.usage, 'completion_tokens', None),
-                    "total_tokens": getattr(raw_response.usage, 'total_tokens', None),
-                }
-            
-            # Log after HTTP response, before parsing (parsing happens in Instructor)
-            logger.debug(
-                "llm_response_received",
-                model=model,
-                duration_ms=duration_ms,
-                http_status=200,  # If we got here, HTTP was successful
-                usage_meta=usage_meta,
-            )
-            
             return response
             
         except Exception as e:
-            request_finished_at = time.time()
-            duration_ms = int((request_finished_at - request_started_at) * 1000)
-            
-            # Try to extract HTTP status from exception
-            http_status = None
-            if hasattr(e, 'status_code'):
-                http_status = e.status_code
-            elif hasattr(e, 'response') and hasattr(e.response, 'status_code'):
-                http_status = e.response.status_code
-            
-            # Log response received even if it's an error (HTTP level)
-            logger.debug(
-                "llm_response_received",
+            logger.error(
+                "llm_parse_failed",
                 model=model,
-                duration_ms=duration_ms,
-                http_status=http_status,
-                usage_meta=None,
+                error=str(e),
+                error_type=type(e).__name__,
             )
-            
-            # Re-raise to be handled in _prioritize_batch
             raise
 
     def _format_events_for_prompt(self, events: List[Dict[str, Any]]) -> str:

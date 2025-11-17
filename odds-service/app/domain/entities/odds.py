@@ -57,6 +57,22 @@ class NormalizedOddsDTO(BaseModel):
     created_at: datetime | None = None
 
 
+class NormalizedOddsCacheDTO(BaseModel):
+    """DTO for NormalizedOdds in cache (without DB-specific fields)."""
+    event_id: UUID
+    market_type: str
+    home_odds_avg: Decimal
+    away_odds_avg: Decimal
+    draw_odds_avg: Decimal | None
+    home_odds_best: Decimal
+    away_odds_best: Decimal
+    draw_odds_best: Decimal | None
+    bookmakers_count: int
+    timestamp_source: datetime
+    timestamp_ingested: datetime
+    timestamp_normalized: datetime
+
+
 class ExternalOddsOutcomeDTO(BaseModel):
     name: str | None = None
     price: float | None = None

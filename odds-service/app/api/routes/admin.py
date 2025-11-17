@@ -342,13 +342,20 @@ async def get_event_odds(
     _auth: None = Depends(verify_admin_token),
 ) -> Dict[str, Any]:
     """
-    Get normalized odds for an event (cache-first).
+    Get normalized odds for an event (cache-first, then DB).
 
-    Returns odds data with markets, averages, best odds, and bookmakers count.
+    Reads from catalog:odds:{provider_key}:{event_id} cache or falls back to DB.
+    Returns compact JSON with markets, averages, best odds, and bookmakers count.
     """
     logger.info("get_event_odds_endpoint", event_id=str(event_id), provider_key=provider_key)
 
     try:
+        # If provider_key not provided, try to find it from events cache
+        if not provider_key:
+            # Try to find provider_key by searching events cache
+            # This is a fallback - ideally provider_key should be provided
+            logger.debug("provider_key_not_provided", event_id=str(event_id))
+
         odds_list = await odds_service.get_event_odds(
             provider_key=provider_key or "unknown",
             event_id=event_id
@@ -385,27 +392,28 @@ async def get_event_odds(
         }
 
     except Exception as e:
-        logger.error("failed_to_get_event_odds", event_id=str(event_id), error=str(e))
+        logger.error("failed_to_get_event_odds", event_id=str(event_id), error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch event odds")
 
 
 @router.get("/catalog/odds/{provider_key}")
 async def get_odds_catalog(
     provider_key: str,
-    events_service = Depends(get_events_service),
     odds_service = Depends(get_odds_service),
     _auth: None = Depends(verify_admin_token),
 ) -> Dict[str, Any]:
     """
     Get upcoming events with odds availability for a competition.
 
-    Returns list of events with has_odds flag (cache-first).
+    Reads normalized odds from Redis (catalog:odds:{provider_key}:{event_id}),
+    supplements with basic event info from events cache if available.
+    Does not fail if event info is missing.
     """
     logger.info("get_odds_catalog_endpoint", provider_key=provider_key)
 
     try:
-        events_cache = events_service.events_cache
-        upcoming_events = await events_cache.read_upcoming(provider_key)
+        # Get upcoming events from events cache
+        upcoming_events = await odds_service.events_cache.read_upcoming(provider_key)
 
         if not upcoming_events:
             return {
@@ -416,15 +424,25 @@ async def get_odds_catalog(
 
         items = []
         for event in upcoming_events:
-            odds_list = await odds_service.get_event_odds(
-                provider_key=provider_key,
-                event_id=event.id
-            )
-            has_odds = len(odds_list) > 0
+            try:
+                # Read normalized odds from odds cache
+                odds_list = await odds_service.odds_cache.read_event_odds(
+                    provider_key=provider_key,
+                    event_id=event.id
+                )
+                has_odds = len(odds_list) > 0
+            except Exception as e:
+                logger.debug(
+                    "failed_to_read_odds_for_event",
+                    provider_key=provider_key,
+                    event_id=str(event.id),
+                    error=str(e)
+                )
+                has_odds = False
 
             items.append({
                 "event_id": str(event.id),
-                "commence_time": event.commence_time.isoformat(),
+                "commence_time": event.commence_time.isoformat() if event.commence_time else None,
                 "home_team": event.home_team_name or "",
                 "away_team": event.away_team_name or "",
                 "has_odds": has_odds
@@ -437,7 +455,7 @@ async def get_odds_catalog(
         }
 
     except Exception as e:
-        logger.error("failed_to_get_odds_catalog", provider_key=provider_key, error=str(e))
+        logger.error("failed_to_get_odds_catalog", provider_key=provider_key, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch odds catalog")
 
 @router.post("/tasks/odds/collect", response_model=TaskTriggerResponse, status_code=202)

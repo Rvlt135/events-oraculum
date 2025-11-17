@@ -878,14 +878,22 @@ class OddsService:
 
     def _collect_bookmakers(
         self,
-        competition_odds: CompetitionOddsDTO
+        competition_odds: CompetitionOddsDTO,
+        odds_policy: OddsPolicyDTO,
     ) -> dict[str, BookmakerDTO]:
         """
         Collect unique bookmakers from competition odds.
 
+        Args:
+            competition_odds: CompetitionOddsDTO with events and markets
+            odds_policy: OddsPolicyDTO to get region from
+
         Returns:
             Dictionary mapping bookmaker_key -> BookmakerDTO (with minimal fields)
         """
+        # Get region from odds_policy (first element) or fallback to "unknown"
+        region = odds_policy.regions[0] if odds_policy.regions else "unknown"
+
         bookmakers: dict[str, BookmakerDTO] = {}
 
         for event_odds in competition_odds.events:
@@ -897,7 +905,7 @@ class OddsService:
                             id=market_odds.bookmaker.id,  # Temporary ID, will be replaced
                             key=bookmaker_key,
                             name=market_odds.bookmaker.name or bookmaker_key,
-                            region=market_odds.bookmaker.region or "unknown",
+                            region=region,
                             is_active=True,
                             created_at=now_utc(),
                         )
@@ -1109,7 +1117,7 @@ class OddsService:
             }
 
         # Collect and resolve bookmakers before main transaction
-        bookmakers = self._collect_bookmakers(competition_odds)
+        bookmakers = self._collect_bookmakers(competition_odds, odds_policy)
         
         async with self.session_factory() as resolve_session:
             async with resolve_session.begin():
