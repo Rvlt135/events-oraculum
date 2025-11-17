@@ -92,3 +92,13 @@ class CompetitionsRepository(BaseRepository[Competition]):
             competition.is_active = False
             await self.session.flush()
             logger.info("competition_deactivated", id=str(competition_id))
+
+    async def get_all_by_provider(self, provider: str) -> List[Competition]:
+        """Get all active competitions for a provider."""
+        result = await self.session.execute(
+            select(Competition).where(
+                Competition.provider == provider,
+                Competition.is_active == True
+            )
+        )
+        return list(result.scalars().all())

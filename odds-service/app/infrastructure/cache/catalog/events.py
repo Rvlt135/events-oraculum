@@ -32,15 +32,19 @@ class EventsCache:
 
     async def write_upcoming_atomic(
         self,
-        provider_key: str,
-        items: list[EventDTO],
-        provider: str,
+        provider_key: str = None,
+        items: list[EventDTO] = None,
+        provider: str = None,
+        keys: list[str] = None,
         ttl_sec: Optional[int] = None
     ) -> None:
         """
-        Atomically write upcoming events for a competition.
+        Atomically write upcoming events for a competition, or update competition keys index.
 
-        Uses atomic swap pattern:
+        If items provided: writes events for a competition and updates index.
+        If keys provided: writes list of competition keys to index.
+
+        Uses atomic swap pattern for events:
         1. Write to temporary key
         2. Rename temporary key to final key
         3. Set TTL if provided (defaults to cache_ttl_events_upcoming_sec from settings)
@@ -50,11 +54,39 @@ class EventsCache:
         in batch, rather than a fixed number - separate task.
 
         Args:
-            provider_key: Competition provider_key
+            provider_key: Competition provider_key (for writing events)
             items: List of EventDTO objects (upcoming events only)
             provider: Competition provider service
+            keys: List of provider_key strings (for writing index only)
             ttl_sec: Optional TTL in seconds (defaults to settings.cache_ttl_events_upcoming_sec)
         """
+        if keys is not None and provider:
+            # Write list of competition keys to index
+            list_key = self._make_upcoming_list_key(provider)
+            try:
+                pipe = self.redis.pipeline()
+                pipe.delete(list_key)
+                if keys:
+                    for key in keys:
+                        pipe.sadd(list_key, key)
+                await pipe.execute()
+                logger.debug(
+                    "events_cache_index_updated",
+                    provider=provider,
+                    count=len(keys)
+                )
+            except Exception as e:
+                logger.error(
+                    "events_cache_update_failed",
+                    provider=provider,
+                    error=str(e),
+                    exc_info=True
+                )
+            return
+
+        if not provider_key or items is None or not provider:
+            return
+
         if ttl_sec is None:
             ttl_sec = settings.cache_ttl_events_upcoming_sec
 
@@ -110,16 +142,36 @@ class EventsCache:
             except Exception:
                 pass
 
-    async def get_upcoming(self, provider_key: str) -> list[EventDTO]:
+    async def get_upcoming(self, provider_key: str = None, provider: str = None):
         """
-        Get upcoming events for a competition from cache.
+        Get upcoming events for a competition from cache, or list of competition keys.
 
         Args:
-            provider_key: Competition provider_key
+            provider_key: Competition provider_key (for getting events)
+            provider: Provider name (for getting list of keys with upcoming events)
 
         Returns:
-            List of EventDTO objects
+            List of EventDTO objects if provider_key provided, or list of provider_key strings if provider provided
         """
+        if provider and not provider_key:
+            # Return list of competition keys with upcoming events
+            list_key = self._make_upcoming_list_key(provider)
+            try:
+                provider_keys = await self.redis.smembers(list_key)
+                keys_list = [key.decode('utf-8') if isinstance(key, bytes) else key for key in provider_keys]
+                return sorted(keys_list)
+            except Exception as e:
+                logger.error(
+                    "events_cache_retrieval_failed",
+                    provider=provider,
+                    error=str(e)
+                )
+                return []
+
+        if not provider_key:
+            return []
+
+        # Return events for specific competition
         final_key = self._make_key(provider_key)
 
         try:
@@ -214,3 +266,4 @@ class EventsCache:
                 provider_key=provider_key,
                 error=str(e)
             )
+

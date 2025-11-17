@@ -294,9 +294,7 @@ async def collect_odds_task() -> Dict[str, str]:
 
         # Get competitions with actual upcoming events
         keys_for_odds = await odds_service.get_competitions_for_odds(
-            provider=provider,
-            policy_keys=all_competition_keys,
-            window=window
+            provider=provider
         )
 
         if not keys_for_odds:
@@ -360,7 +358,11 @@ async def collect_odds_task() -> Dict[str, str]:
                 continue
 
             # Persist odds (normalize + write to DB + cache)
-            metrics = await odds_service.persist_competition_odds(competition_odds, provider=provider)
+            metrics = await odds_service.persist_competition_odds(
+                competition_odds,
+                provider=provider,
+                odds_policy=odds_policy
+            )
             snapshots_written = metrics["snapshots_inserted"] + metrics["snapshots_updated"]
             normalized_written = metrics["normalized_inserted"] + metrics["normalized_updated"]
             total_snapshots_written += snapshots_written

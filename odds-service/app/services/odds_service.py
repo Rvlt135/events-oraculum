@@ -251,150 +251,61 @@ class OddsService:
     async def get_competitions_for_odds(
         self,
         provider: str,
-        policy_keys: list[str],
-        window: "EventsWindowDTO",
     ) -> list[str]:
         """
-        Get list of provider_key for odds based on policy keys and actual upcoming events.
+        Get list of provider_key for odds from Redis index with_upcoming.
 
-        Returns intersection of:
-        - Policy whitelist (provided policy_keys)
-        - Actual upcoming events (from cache or DB)
+        Falls back to DB if cache is empty, then restores cache.
 
         Args:
             provider: Provider name (e.g., 'odds_api')
-            policy_keys: List of provider_key from policy whitelist
-            window: EventsWindowDTO with time window for filtering
 
         Returns:
             Sorted list of provider_key that have upcoming events
         """
-        logger.info(
-            "get_competitions_for_odds_started",
-            provider=provider,
-            policy_keys_count=len(policy_keys)
-        )
-
-        if not policy_keys:
-            logger.warning("empty_policy_keys", provider=provider)
-            return []
-
-        policy_keys_set = set(policy_keys)
-        has_upcoming_keys: set[str] = set()
-
-        from_dt = parse_utc(window.from_iso)
-        to_dt = parse_utc(window.to_iso)
+        logger.info("get_competitions_for_odds_started", provider=provider)
 
         # Step 1: Try cache first
-        for provider_key in policy_keys_set:
-            try:
-                events = await self.events_cache.read_upcoming(provider_key)
-            except Exception as e:
-                logger.debug(
-                    "cache_read_error_for_key",
-                    provider_key=provider_key,
-                    error=str(e)
-                )
-                continue
+        keys = await self.events_cache.get_upcoming(provider=provider)
+        if keys:
+            logger.info("using_cached_competitions", provider=provider, count=len(keys))
+            return keys
 
-            if not events:
-                continue
+        # Step 2: Cache miss - fallback to DB
+        logger.info("cache_miss_fallback", provider=provider)
 
-            count_in_window = sum(
-                1 for e in events
-                if from_dt <= e.commence_time <= to_dt
-            )
-            if not count_in_window:
-                continue
+        async with self.session_factory() as session:
+            comp_repo = CompetitionsRepository(session)
+            event_repo = EventRepository(session)
 
-            has_upcoming_keys.add(provider_key)
-            logger.debug(
-                "upcoming_events_found_in_cache",
-                provider_key=provider_key,
-                count=count_in_window,
-            )
+            competitions = await comp_repo.get_all_by_provider(provider)
+            keys_with_upcoming: list[str] = []
 
-        # Step 2: Fallback to DB for keys not found in cache
-        cache_miss_keys = policy_keys_set - has_upcoming_keys
-        if cache_miss_keys:
+            for competition in competitions:
+                try:
+                    has_upcoming = await event_repo.has_upcoming_events(
+                        competition_id=competition.id,
+                        provider=provider
+                    )
+                    if has_upcoming:
+                        keys_with_upcoming.append(competition.provider_key)
+                except Exception as e:
+                    logger.warning(
+                        "failed_to_check_upcoming_events",
+                        provider_key=competition.provider_key,
+                        error=str(e)
+                    )
+                    continue
+
+            # Step 3: Restore cache
+            await self.events_cache.write_upcoming_atomic(provider=provider, keys=keys_with_upcoming)
             logger.info(
-                "checking_db_for_cache_miss_keys",
-                count=len(cache_miss_keys)
-            )
-
-            async with self.session_factory() as session:
-                comp_repo = CompetitionsRepository(session)
-                event_repo = EventRepository(session)
-
-                for provider_key in cache_miss_keys:
-                    try:
-                        competition = await comp_repo.get_by_provider_key(
-                            provider=provider,
-                            provider_key=provider_key
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "db_check_error_for_key",
-                            provider_key=provider_key,
-                            error=str(e)
-                        )
-                        continue
-                    if not competition:
-                        logger.debug(
-                            "competition_not_found_in_db",
-                            provider_key=provider_key
-                        )
-                        continue
-                    try:
-                        events_orm = await event_repo.get_upcoming_by_competition(
-                            competition_id=competition.id,
-                            provider=provider
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "db_events_lookup_failed",
-                            provider_key=provider_key,
-                            competition_id=str(competition.id),
-                            error=str(e),
-                        )
-                        continue
-                    count_in_window = sum(
-                        1 for e in events_orm
-                        if from_dt <= e.commence_time <= to_dt
-                    )
-
-                    if not count_in_window:
-                        continue
-
-                    has_upcoming_keys.add(provider_key)
-                    logger.debug(
-                        "upcoming_events_found_in_db",
-                        provider_key=provider_key,
-                        count=count_in_window,
-                    )
-
-        # Step 3: Final list - intersection
-        keys_for_odds = sorted(policy_keys_set & has_upcoming_keys)
-
-        # Step 4: Logging
-        dropped_keys = policy_keys_set - has_upcoming_keys
-        logger.info(
-            "get_competitions_for_odds_completed",
-            provider=provider,
-            total_policy_keys=len(policy_keys_set),
-            total_has_upcoming=len(has_upcoming_keys),
-            final_count=len(keys_for_odds),
-            dropped_count=len(dropped_keys)
-        )
-
-        if dropped_keys:
-            logger.debug(
-                "dropped_keys_no_upcoming_events",
+                "fallback_restored_competitions",
                 provider=provider,
-                dropped_keys=sorted(dropped_keys)
+                count=len(keys_with_upcoming)
             )
 
-        return keys_for_odds
+            return sorted(keys_with_upcoming)
 
     def _get_time_window_from_events_policy(self, provider: str) -> EventsWindowDTO:
         """
@@ -768,7 +679,8 @@ class OddsService:
                 snapshot = OddsSnapshotDTO(
                     id=None,
                     event_id=event_odds.event_id,
-                    bookmaker_id=market_odds.bookmaker.id,
+                    bookmaker_id=market_odds.bookmaker.id,  # Temporary ID, will be replaced in persist
+                    bookmaker_key=bookmaker_key,
                     market_type=market_type,
                     outcomes=market_odds.outcomes,
                     timestamp_source=timestamp_source,
@@ -964,10 +876,197 @@ class OddsService:
                 for event in events_orm
             ]
 
+    def _collect_bookmakers(
+        self,
+        competition_odds: CompetitionOddsDTO
+    ) -> dict[str, BookmakerDTO]:
+        """
+        Collect unique bookmakers from competition odds.
+
+        Returns:
+            Dictionary mapping bookmaker_key -> BookmakerDTO (with minimal fields)
+        """
+        bookmakers: dict[str, BookmakerDTO] = {}
+
+        for event_odds in competition_odds.events:
+            for market_odds in event_odds.markets:
+                if market_odds.bookmaker and market_odds.bookmaker.key:
+                    bookmaker_key = market_odds.bookmaker.key
+                    if bookmaker_key not in bookmakers:
+                        bookmakers[bookmaker_key] = BookmakerDTO(
+                            id=market_odds.bookmaker.id,  # Temporary ID, will be replaced
+                            key=bookmaker_key,
+                            name=market_odds.bookmaker.name or bookmaker_key,
+                            region=market_odds.bookmaker.region or "unknown",
+                            is_active=True,
+                            created_at=now_utc(),
+                        )
+
+        return bookmakers
+
+    async def _resolve_bookmakers(
+        self,
+        session: AsyncSession,
+        bookmakers: dict[str, BookmakerDTO]
+    ) -> dict[str, UUID]:
+        """
+        Resolve bookmakers in database and get their IDs.
+
+        Returns:
+            Dictionary mapping bookmaker_key -> bookmaker_id (UUID)
+        """
+        bookmaker_repo = BookmakerRepository(session)
+        bookmaker_ids: dict[str, UUID] = {}
+
+        for bookmaker_key, bookmaker_dto in bookmakers.items():
+            bookmaker = await bookmaker_repo.get_by_key(bookmaker_key)
+            if bookmaker:
+                bookmaker_ids[bookmaker_key] = bookmaker.id
+            else:
+                bookmaker_id = await bookmaker_repo.get_or_create_by_key(
+                    key=bookmaker_key,
+                    name=bookmaker_dto.name,
+                    region=bookmaker_dto.region,
+                )
+                bookmaker_ids[bookmaker_key] = bookmaker_id
+
+        return bookmaker_ids
+
+    async def _persist_snapshots(
+        self,
+        session: AsyncSession,
+        snapshots: list[OddsSnapshotDTO],
+        bookmaker_ids: dict[str, UUID],
+    ) -> tuple[list[OddsSnapshotDTO], int, int, dict[UUID, str]]:
+        """
+        Persist snapshots to database.
+
+        Args:
+            session: Database session
+            snapshots: List of snapshots with bookmaker_key set
+            bookmaker_ids: Dictionary mapping bookmaker_key -> bookmaker_id
+
+        Returns:
+            Tuple of (final_snapshots, snapshots_inserted, snapshots_updated, bookmaker_id_to_key_map)
+        """
+        snapshot_repo = OddsSnapshotRepository(session)
+
+        final_snapshots: list[OddsSnapshotDTO] = []
+        snapshots_inserted = 0
+        snapshots_updated = 0
+
+        for snapshot in snapshots:
+            if not snapshot.bookmaker_key:
+                logger.debug(
+                    "bookmaker_key_missing_for_snapshot",
+                    event_id=str(snapshot.event_id),
+                    market_type=snapshot.market_type
+                )
+                continue
+
+            bookmaker_id = bookmaker_ids.get(snapshot.bookmaker_key)
+            if not bookmaker_id:
+                logger.warning(
+                    "bookmaker_id_not_found_for_key",
+                    bookmaker_key=snapshot.bookmaker_key,
+                    event_id=str(snapshot.event_id)
+                )
+                continue
+
+            existing = await snapshot_repo.get_latest_by_event_and_bookmaker(
+                event_id=snapshot.event_id,
+                bookmaker_id=bookmaker_id,
+                market_type=snapshot.market_type
+            )
+
+            final_snapshot = OddsSnapshotDTO(
+                id=snapshot.id,
+                event_id=snapshot.event_id,
+                bookmaker_id=bookmaker_id,
+                bookmaker_key=snapshot.bookmaker_key,
+                market_type=snapshot.market_type,
+                outcomes=snapshot.outcomes,
+                timestamp_source=snapshot.timestamp_source,
+                timestamp_ingested=snapshot.timestamp_ingested,
+                created_at=snapshot.created_at,
+            )
+
+            await snapshot_repo.upsert_snapshot(final_snapshot)
+
+            if existing:
+                snapshots_updated += 1
+            else:
+                snapshots_inserted += 1
+
+            final_snapshots.append(final_snapshot)
+
+        # Build bookmaker_id -> bookmaker_key mapping
+        bookmaker_id_to_key_map: Dict[UUID, str] = {}
+        for bookmaker_key, bookmaker_id in bookmaker_ids.items():
+            bookmaker_id_to_key_map[bookmaker_id] = bookmaker_key
+
+        return final_snapshots, snapshots_inserted, snapshots_updated, bookmaker_id_to_key_map
+
+    async def _persist_normalized(
+        self,
+        session: AsyncSession,
+        final_snapshots: list[OddsSnapshotDTO],
+        bookmaker_id_to_key_map: dict[UUID, str],
+    ) -> tuple[list[NormalizedOddsDTO], int, int]:
+        """
+        Aggregate and persist normalized odds to database.
+
+        Returns:
+            Tuple of (normalized, normalized_inserted, normalized_updated)
+        """
+        normalized_repo = NormalizedOddsRepository(session)
+
+        normalized = self.aggregate_to_normalized(final_snapshots, bookmaker_id_to_key_map=bookmaker_id_to_key_map)
+        normalized_inserted = 0
+        normalized_updated = 0
+
+        for norm_dto in normalized:
+            existing = await normalized_repo.get_latest_by_event(
+                event_id=norm_dto.event_id,
+                market_type=norm_dto.market_type
+            )
+
+            await normalized_repo.upsert_normalized(norm_dto)
+
+            if existing:
+                normalized_updated += 1
+            else:
+                normalized_inserted += 1
+
+        return normalized, normalized_inserted, normalized_updated
+
+    async def _update_odds_cache_for_competition(
+        self,
+        provider_key: str,
+        normalized: list[NormalizedOddsDTO],
+    ) -> None:
+        """
+        Update odds cache for competition by grouping normalized odds by event_id.
+        """
+        event_odds_map: dict[UUID, list[NormalizedOddsDTO]] = {}
+        for norm_dto in normalized:
+            if norm_dto.event_id not in event_odds_map:
+                event_odds_map[norm_dto.event_id] = []
+            event_odds_map[norm_dto.event_id].append(norm_dto)
+
+        for event_id, items in event_odds_map.items():
+            await self.odds_cache.write_event_odds_atomic(
+                provider_key=provider_key,
+                event_id=event_id,
+                items=items,
+                ttl_sec=None
+            )
+
     async def persist_competition_odds(
         self,
         competition_odds: CompetitionOddsDTO,
-        provider: Optional[str] = None,
+        provider: str,
+        odds_policy: OddsPolicyDTO,
     ) -> dict[str, int]:
         """
         Persist competition odds to database (snapshots and normalized).
@@ -979,10 +1078,12 @@ class OddsService:
            - Upsert snapshots
            - Aggregate to normalized
            - Upsert normalized
+        3. Update odds cache
 
         Args:
             competition_odds: CompetitionOddsDTO from fetch_odds_for_competition
-            provider: Provider name (e.g., 'odds_api'). If not provided, will try to infer from policy.
+            provider: Provider name (e.g., 'odds_api')
+            odds_policy: OddsPolicyDTO for filtering
 
         Returns:
             Dict with metrics: snapshots_inserted, snapshots_updated, normalized_inserted, normalized_updated
@@ -994,26 +1095,6 @@ class OddsService:
             provider=provider
         )
 
-        # Get odds policy for filtering
-        if not provider:
-            # Try to get provider from policy (use first available)
-            providers = self.policy_loader.get_providers()
-            provider = providers[0] if providers else None
-        
-        if not provider:
-            logger.warning(
-                "provider_not_found_for_persist",
-                provider_key=competition_odds.provider_key
-            )
-            return {
-                "snapshots_inserted": 0,
-                "snapshots_updated": 0,
-                "normalized_inserted": 0,
-                "normalized_updated": 0,
-            }
-        
-        odds_policy = self.policy_loader.get_odds_policy(provider)
-        
         snapshots = self.normalize_to_snapshots(competition_odds, odds_policy=odds_policy)
         if not snapshots:
             logger.info(
@@ -1027,127 +1108,28 @@ class OddsService:
                 "normalized_updated": 0,
             }
 
-        snapshots_inserted = 0
-        snapshots_updated = 0
-        normalized_inserted = 0
-        normalized_updated = 0
-
-        # Build bookmaker_key_map from filtered snapshots (after policy filtering)
-        # Map: (event_id, market_type, bookmaker_id) -> bookmaker_key
-        # Note: We need to map from snapshot's temporary bookmaker_id to actual bookmaker_key
-        # Since snapshots have temporary bookmaker.id from DTO, we need to find matching bookmaker_key
-        # from competition_odds.events
-        bookmaker_key_map: dict[tuple[UUID, str, UUID], str] = {}
-        snapshot_id_to_key_map: dict[UUID, str] = {}
+        # Collect and resolve bookmakers before main transaction
+        bookmakers = self._collect_bookmakers(competition_odds)
         
-        # Build mapping from snapshot's temporary bookmaker.id to bookmaker.key
-        for event_odds in competition_odds.events:
-            for market_odds in event_odds.markets:
-                if market_odds.bookmaker.key and market_odds.bookmaker.id:
-                    # Map temporary bookmaker.id to bookmaker.key
-                    snapshot_id_to_key_map[market_odds.bookmaker.id] = market_odds.bookmaker.key
-                    # Also store by (event_id, market_type, bookmaker_id) for lookup
-                    key = (event_odds.event_id, market_odds.market_type, market_odds.bookmaker.id)
-                    bookmaker_key_map[key] = market_odds.bookmaker.key
-
-        normalized: list[NormalizedOddsDTO] = []
-        final_snapshots: list[OddsSnapshotDTO] = []
+        async with self.session_factory() as resolve_session:
+            async with resolve_session.begin():
+                bookmaker_ids = await self._resolve_bookmakers(resolve_session, bookmakers)
 
         async with self.session_factory() as session:
             async with session.begin():
-                bookmaker_repo = BookmakerRepository(session)
-                snapshot_repo = OddsSnapshotRepository(session)
-                normalized_repo = NormalizedOddsRepository(session)
-
-                bookmaker_cache: dict[str, UUID] = {}
-
-                for snapshot in snapshots:
-                    # Get bookmaker_key from snapshot's temporary bookmaker.id
-                    bookmaker_key = snapshot_id_to_key_map.get(snapshot.bookmaker_id)
-
-                    if not bookmaker_key:
-                        logger.debug(
-                            "bookmaker_key_not_found_for_snapshot",
-                            event_id=str(snapshot.event_id),
-                            market_type=snapshot.market_type
-                        )
-                        continue
-
-                    if bookmaker_key not in bookmaker_cache:
-                        bookmaker = await bookmaker_repo.get_by_key(bookmaker_key)
-                        if not bookmaker:
-                            for event_odds in competition_odds.events:
-                                if event_odds.event_id == snapshot.event_id:
-                                    for market_odds in event_odds.markets:
-                                        if market_odds.bookmaker.key == bookmaker_key:
-                                            bookmaker_id = await bookmaker_repo.get_or_create_by_key(
-                                                key=bookmaker_key,
-                                                name=market_odds.bookmaker.name,
-                                                region=market_odds.bookmaker.region,
-                                            )
-                                            bookmaker_cache[bookmaker_key] = bookmaker_id
-                                            break
-                                    break
-                        else:
-                            bookmaker_cache[bookmaker_key] = bookmaker.id
-
-                    if bookmaker_key not in bookmaker_cache:
-                        logger.warning(
-                            "failed_to_resolve_bookmaker",
-                            bookmaker_key=bookmaker_key
-                        )
-                        continue
-
-                    bookmaker_id = bookmaker_cache[bookmaker_key]
-
-                    existing = await snapshot_repo.get_latest_by_event_and_bookmaker(
-                        event_id=snapshot.event_id,
-                        bookmaker_id=bookmaker_id,
-                        market_type=snapshot.market_type
+                final_snapshots, snapshots_inserted, snapshots_updated, bookmaker_id_to_key_map = \
+                    await self._persist_snapshots(
+                        session=session,
+                        snapshots=snapshots,
+                        bookmaker_ids=bookmaker_ids,
                     )
 
-                    final_snapshot = OddsSnapshotDTO(
-                        id=snapshot.id,
-                        event_id=snapshot.event_id,
-                        bookmaker_id=bookmaker_id,
-                        market_type=snapshot.market_type,
-                        outcomes=snapshot.outcomes,
-                        timestamp_source=snapshot.timestamp_source,
-                        timestamp_ingested=snapshot.timestamp_ingested,
-                        created_at=snapshot.created_at,
+                normalized, normalized_inserted, normalized_updated = \
+                    await self._persist_normalized(
+                        session=session,
+                        final_snapshots=final_snapshots,
+                        bookmaker_id_to_key_map=bookmaker_id_to_key_map,
                     )
-
-                    await snapshot_repo.upsert_snapshot(final_snapshot)
-
-                    if existing:
-                        snapshots_updated += 1
-                    else:
-                        snapshots_inserted += 1
-
-                    final_snapshots.append(final_snapshot)
-
-                # Build bookmaker_id -> bookmaker_key mapping for logging
-                # Use the bookmaker_cache which maps bookmaker_key -> bookmaker_id (UUID from DB)
-                # and reverse it to get bookmaker_id -> bookmaker_key
-                bookmaker_id_to_key_map: Dict[UUID, str] = {}
-                for bookmaker_key, bookmaker_id in bookmaker_cache.items():
-                    bookmaker_id_to_key_map[bookmaker_id] = bookmaker_key
-
-                normalized = self.aggregate_to_normalized(final_snapshots, bookmaker_id_to_key_map=bookmaker_id_to_key_map)
-                normalized_count = len(normalized)
-
-                for norm_dto in normalized:
-                    existing = await normalized_repo.get_latest_by_event(
-                        event_id=norm_dto.event_id,
-                        market_type=norm_dto.market_type
-                    )
-
-                    await normalized_repo.upsert_normalized(norm_dto)
-
-                    if existing:
-                        normalized_updated += 1
-                    else:
-                        normalized_inserted += 1
 
         logger.info(
             "persist_competition_odds_completed",
@@ -1166,19 +1148,10 @@ class OddsService:
             normalized_count=len(normalized),
         )
 
-        event_odds_map: dict[UUID, list[NormalizedOddsDTO]] = {}
-        for norm_dto in normalized:
-            if norm_dto.event_id not in event_odds_map:
-                event_odds_map[norm_dto.event_id] = []
-            event_odds_map[norm_dto.event_id].append(norm_dto)
-
-        for event_id, items in event_odds_map.items():
-            await self.odds_cache.write_event_odds_atomic(
-                provider_key=competition_odds.provider_key,
-                event_id=event_id,
-                items=items,
-                ttl_sec=None
-            )
+        await self._update_odds_cache_for_competition(
+            provider_key=competition_odds.provider_key,
+            normalized=normalized,
+        )
 
         return {
             "snapshots_inserted": snapshots_inserted,

@@ -31,6 +31,7 @@ class OddsSnapshotDTO(BaseModel):
     id: UUID | None = None
     event_id: UUID
     bookmaker_id: UUID
+    bookmaker_key: str | None = None  # Bookmaker key for mapping, not persisted to DB
     market_type: str
     outcomes: list[OddsOutcomeDTO]
     timestamp_source: datetime

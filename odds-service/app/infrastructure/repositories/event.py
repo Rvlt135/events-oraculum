@@ -244,6 +244,28 @@ class EventRepository(BaseRepository[Event]):
         )
         return list(result.scalars().all())
 
+    async def has_upcoming_events(self, competition_id: UUID, provider: str = "odds_api") -> bool:
+        """
+        Check if competition has any upcoming events.
+
+        Args:
+            competition_id: Competition UUID
+            provider: Provider name
+
+        Returns:
+            True if competition has upcoming events, False otherwise
+        """
+        current_time = now_utc()
+        result = await self.session.execute(
+            select(Event).where(
+                Event.competition_id == competition_id,
+                Event.provider == provider,
+                Event.commence_time >= current_time,
+                Event.status == "upcoming"
+            ).limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
     async def check_competition_active(self, provider_key: str, provider: str) -> Optional[bool]:
         """
         Check if competition is active by querying the database.
