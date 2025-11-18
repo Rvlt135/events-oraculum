@@ -1,34 +1,35 @@
 providers:
   openrouter:
     models:
-      z-ai/glm-4.5-air:free:
-        context_window: 131072
+      kwaipilot/kat-coder-pro:free:
+        context_window: 40960
         max_output_tokens: 2000
-        temperature: 0.2
+        temperature: 0.3
         supports_streaming: false
         supports_function_calling: true
-      openai/gpt-oss-20b:free:
-        context_window: 131072
+      mistralai/mistral-small-3.1-24b-instruct-2503:free:
+        context_window: 128000
         max_output_tokens: 2000
-        temperature: 0.2
+        temperature: 0.3
         supports_streaming: false
-        supports_function_calling: true
+        supports_function_calling: false
 
 
 default_provider: openrouter
-default_model: z-ai/glm-4.5-air:free
+default_model: kwaipilot/kat-coder-pro:free
 
 prioritizer:
   provider: openrouter
-  model: z-ai/glm-4.5-air:free
+  model: kwaipilot/kat-coder-pro:free
   fallback_models:
-    - openai/gpt-oss-20b:free
+    - mistralai/mistral-small-3.1-24b-instruct-2503:free
   timeout_ms: 30000
   batch_size: 20
   rate_limit_qps: 2
   max_events: 500
   enabled: true
   cache_ttl_sec: 86400
+  llm_mode: raw_json  # допустимые значения: "instructor", "raw_json"
 
 retry_config:
   max_attempts: 3

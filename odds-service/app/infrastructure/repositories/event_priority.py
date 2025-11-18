@@ -50,7 +50,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
                 "provider": provider,
                 "provider_key": provider_key,
                 "event_id": UUID(item["event_id"]) if isinstance(item["event_id"], str) else item["event_id"],
-                "priority": float(item["score"]),
+                "priority": float(item["priority"]),
                 "model": model,
                 "evaluated_at": now,
                 "meta": {},

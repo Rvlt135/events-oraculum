@@ -1,6 +1,7 @@
 """
 Prioritizer LLM client using OpenAI SDK + OpenRouter with Instructor validation.
 """
+import json
 import time
 import asyncio
 from typing import List, Dict, Any, Optional
@@ -12,6 +13,8 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
+from openai.types.shared_params import (ResponseFormatJSONObject)
+from pydantic import TypeAdapter
 
 from app.infrastructure.ai.config_loader import AIConfigLoader, RetryConfigDTO
 from app.infrastructure.ai.clients.schemas import EventPriorityBatch, EventPriorityScore
@@ -66,6 +69,10 @@ class PrioritizerLLMClient:
         if self.rate_limit_qps is None:
             raise ValueError("rate_limit_qps not found in prioritizer configuration")
 
+        self.llm_mode = prioritizer_config.get("llm_mode", "instructor")
+        if self.llm_mode not in ["instructor", "raw_json"]:
+            raise ValueError(f"Invalid llm_mode: {self.llm_mode}. Must be 'instructor' or 'raw_json'")
+
         # Load retry configuration from models.yml (LLM retry config)
         self.retry: RetryConfigDTO = ai_config.get_retry_config()
 
@@ -105,6 +112,7 @@ class PrioritizerLLMClient:
             batch_size=self.batch_size,
             rate_limit_qps=self.rate_limit_qps,
             timeout_ms=self.timeout_ms,
+            llm_mode=self.llm_mode,
             retry_max_attempts=self.retry.max_attempts,
             retry_retriable_codes=self.retry.retriable_status_codes
         )
@@ -262,7 +270,7 @@ class PrioritizerLLMClient:
                 try:
                     start_time = time.time()
 
-                    result = await self._call_llm(
+                    result = await self._call_llm_dispatch(
                         batch, 
                         model, 
                         temperature,
@@ -387,7 +395,39 @@ class PrioritizerLLMClient:
 
         return []
 
-    async def _call_llm(
+    async def _call_llm_dispatch(
+        self,
+        batch: List[Dict[str, Any]],
+        model: str,
+        temperature: Optional[float] = None,
+        attempt: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        total_models: Optional[int] = None,
+    ) -> EventPriorityBatch:
+        """
+        Dispatch LLM call based on configured mode.
+
+        Args:
+            batch: Event batch
+            model: Model to use
+            temperature: Temperature override
+            attempt: Current attempt number (1-indexed)
+            max_attempts: Maximum number of attempts
+            total_models: Total number of models to try
+
+        Returns:
+            Validated EventPriorityBatch
+        """
+        if self.llm_mode == "raw_json":
+            return await self._call_llm_raw_json(
+                batch, model, temperature, attempt, max_attempts, total_models
+            )
+        else:
+            return await self._call_llm_with_instructor(
+                batch, model, temperature, attempt, max_attempts, total_models
+            )
+
+    async def _call_llm_with_instructor(
         self,
         batch: List[Dict[str, Any]],
         model: str,
@@ -429,6 +469,16 @@ class PrioritizerLLMClient:
         
         msg = self._build_messages(self._system_prompt, user_message)
 
+        start_time = time.time()
+        logger.info(
+            "llm_request_start",
+            model=model,
+            batch_size=len(batch),
+            attempt=attempt,
+            max_attempts=max_attempts,
+            total_models=total_models,
+        )
+
         try:
             response = await self._instructor_client.chat.completions.create(
                 model=model,
@@ -438,7 +488,114 @@ class PrioritizerLLMClient:
                 max_tokens=max_tokens,
             )
             
+            duration = time.time() - start_time
+            usage = getattr(response, "usage", None)
+            logger.info(
+                "llm_response_received",
+                model=model,
+                duration=duration,
+                usage=usage.model_dump() if usage else None,
+            )
+            
             return response
+            
+        except Exception as e:
+            logger.error(
+                "llm_parse_failed",
+                model=model,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
+
+    async def _call_llm_raw_json(
+        self,
+        batch: List[Dict[str, Any]],
+        model: str,
+        temperature: Optional[float] = None,
+        attempt: Optional[int] = None,
+        max_attempts: Optional[int] = None,
+        total_models: Optional[int] = None,
+    ) -> EventPriorityBatch:
+        """
+        Call LLM with raw JSON response format (without Instructor).
+
+        Args:
+            batch: Event batch
+            model: Model to use
+            temperature: Temperature override
+            attempt: Current attempt number (1-indexed)
+            max_attempts: Maximum number of attempts
+            total_models: Total number of models to try
+
+        Returns:
+            Validated EventPriorityBatch
+        """
+        self._load_prompts()
+        events_summary = self._format_events_for_prompt(batch)
+        user_message = f"{self._instruction_prompt}\n\n{events_summary}"
+
+        model_config = self.ai_config.get_model_config(self.provider, model)
+        
+        if temperature is not None:
+            temp = temperature
+        else:
+            temp = model_config.get("temperature")
+            if temp is None:
+                raise ValueError(f"temperature not found in model configuration for {model}")
+        
+        max_tokens = model_config.get("max_output_tokens")
+        if max_tokens is None:
+            raise ValueError(f"max_output_tokens not found in model configuration for {model}")
+        
+        msg = self._build_messages(self._system_prompt, user_message)
+
+        start_time = time.time()
+        logger.info(
+            "llm_request_start",
+            model=model,
+            batch_size=len(batch),
+            attempt=attempt,
+            max_attempts=max_attempts,
+            total_models=total_models,
+        )
+
+        try:
+            priority_batch_adapter = TypeAdapter(EventPriorityBatch)
+
+            response = await self._openai_client.chat.completions.create(
+                model=model,
+                messages=msg,
+                temperature=temp,
+                max_tokens=max_tokens,
+                response_format=ResponseFormatJSONObject(type='json_object'),
+                # reasoning_effort="low",
+                extra_body={
+                    "reasoning": {"enabled": False},
+                    "include_reasoning": False,
+                }
+            )
+            
+            duration = time.time() - start_time
+            usage = getattr(response, "usage", None)
+            logger.info(
+                "llm_response_received",
+                model=model,
+                duration=duration,
+                usage=usage.model_dump() if usage else None,
+            )
+            
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                raise ValueError("Empty content in LLM response")
+
+            data = json.loads(content)
+
+            if isinstance(data, dict):
+                data = [data]
+
+            scores: EventPriorityBatch = priority_batch_adapter.validate_python(data)
+            return scores
             
         except Exception as e:
             logger.error(

@@ -9,7 +9,7 @@ from uuid import UUID
 class EventPriorityScore(BaseModel):
     """Single event priority score."""
     event_id: UUID = Field(description="Event UUID")
-    score: float = Field(ge=0.0, le=1.0, description="Priority score from 0.0 to 1.0")
+    priority: float = Field(ge=0.0, le=1.0, description="Priority score from 0.0 to 1.0")
 
 
 class EventPriorityBatch(RootModel[List[EventPriorityScore]]):

@@ -321,7 +321,7 @@ async def get_priority_ranked(
                 events.append({
                     "event_id": event.get("id"),
                     "commence_time": event.get("commence_time"),
-                    "priority": event.get("score", 0.0),
+                    "priority": event.get("priority", 0.0),
                 })
             except Exception as e:
                 logger.warning("failed_to_parse_ranked_event", error=str(e))

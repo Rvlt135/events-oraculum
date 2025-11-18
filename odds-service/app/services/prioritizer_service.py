@@ -493,7 +493,7 @@ class PrioritizerService:
             Events with score added
         """
         for event in events:
-            event["score"] = 0.0
+            event["priority"] = 0.0
 
         return events
 
@@ -521,7 +521,7 @@ class PrioritizerService:
                 metrics["llm_batches"] += 1
 
                 for score_item in scores:
-                    all_scores[str(score_item.event_id)] = score_item.score
+                    all_scores[str(score_item.event_id)] = score_item.priority
 
             except Exception as e:
                 logger.error("batch_prioritization_error", error=str(e))
@@ -529,7 +529,7 @@ class PrioritizerService:
 
         for event in events:
             event_id = str(event.get("id"))
-            event["score"] = all_scores.get(event_id, 0.0)
+            event["priority"] = all_scores.get(event_id, 0.0)
 
         return events
 
@@ -546,7 +546,7 @@ class PrioritizerService:
         return sorted(
             events,
             key=lambda e: (
-                -e.get("score", 0.0),
+                -e.get("priority", 0.0),
                 e.get("commence_time", "9999-12-31T23:59:59"),
                 e.get("id", "")
             )
@@ -611,7 +611,7 @@ class PrioritizerService:
             repo = EventPriorityRepository(session)
 
             priorities = [
-                {"event_id": e["id"], "score": e.get("score", 0.0)}
+                {"event_id": e["id"], "priority": e.get("priority", 0.0)}
                 for e in events
             ]
 
