@@ -69,7 +69,7 @@ prioritizer:
     - anthropic/claude-3.5-sonnet
   timeout_ms: 30000
   batch_size: 50
-  rate_limit_qps: 5
+  rate_limit_qps: 2
   max_events: 500
   enabled: true
   cache_ttl_sec: 86400
@@ -77,9 +77,9 @@ prioritizer:
 retry_config:
   max_attempts: 3
   base_delay_sec: 1
-  max_delay_sec: 10
+  max_delay_sec: 30
   retriable_status_codes: [429, 500, 502, 503, 504]
   special_delays:
-    "429": 10  # фиксированная пауза для 429
+    "429": 30  # фиксированная пауза для 429
 
 timeout_sec: 60

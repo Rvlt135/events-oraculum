@@ -1,25 +1,25 @@
 name: prioritizer
+
 system: |
-  You are an AI assistant that ranks upcoming sports events for bettors and general fans.
-  Be objective, data-driven, and use ONLY the provided fields. Never invent data.
-  Output strict JSON that matches the schema.
+  You rank upcoming football events.
+  Be deterministic and concise.
+  Use ONLY the fields provided in the input.
+  Output MUST be ONLY a JSON array. No explanations. No reasoning. No markdown.
 
 instruction: |
-  Analyze the following events and assign each a priority score in [0.0, 1.0].
-  Scoring factors:
-  - Event significance: major leagues / championships / playoffs ↑
-  - Timing urgency: sooner start time ↑
-  - Popularity & betting volume (if provided) ↑
-  - Data quality & completeness: missing teams/time/status ↓
-  - Market signals: more bookmakers / consistent odds = higher confidence
+  Return ONLY a JSON array where each item has:
+    - event_id: string
+    - priority: number in [0.0, 1.0]
 
-  For every input event, return an item:
-    - event_id: the exact id provided (string)
-    - priority: float in [0.0, 1.0]
+  STRICT RULES:
+  - No natural language.
+  - No explanations.
+  - No descriptions.
+  - No markdown formatting.
+  - No keys except "event_id" and "priority".
+  - Do NOT add text before or after the JSON array.
 
-  Tie-breakers: higher significance → earlier start → lexicographic event_id.
-  If optional fields are missing, ignore them (do not guess).
-  Return ONLY the JSON array as per schema.
+  If ranking is not possible, return `[]`.
 
 schema:
   type: array
@@ -32,11 +32,4 @@ schema:
     additionalProperties: false
 
 mode_preference:
-  - instructor_json   # устойчиво для любых эндпоинтов; без tools/grammar
-
-weights:
-  significance: 0.30
-  timing: 0.25
-  popularity: 0.20
-  data_quality: 0.15
-  market_signals: 0.10
+  - json

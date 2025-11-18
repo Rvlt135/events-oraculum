@@ -3,14 +3,14 @@ providers:
     models:
       z-ai/glm-4.5-air:free:
         context_window: 131072
-        max_output_tokens: 2048
-        temperature: 0.3
+        max_output_tokens: 2000
+        temperature: 0.2
         supports_streaming: false
         supports_function_calling: true
       openai/gpt-oss-20b:free:
         context_window: 131072
-        max_output_tokens: 2048
-        temperature: 0.3
+        max_output_tokens: 2000
+        temperature: 0.2
         supports_streaming: false
         supports_function_calling: true
 
@@ -25,7 +25,7 @@ prioritizer:
     - openai/gpt-oss-20b:free
   timeout_ms: 30000
   batch_size: 20
-  rate_limit_qps: 5
+  rate_limit_qps: 2
   max_events: 500
   enabled: true
   cache_ttl_sec: 86400
@@ -33,9 +33,9 @@ prioritizer:
 retry_config:
   max_attempts: 3
   base_delay_sec: 1
-  max_delay_sec: 10
+  max_delay_sec: 30
   retriable_status_codes: [429, 500, 502, 503, 504]
   special_delays:
-    "429": 10  # фиксированная пауза для 429
+    "429": 30  # фиксированная пауза для 429
 
 timeout_sec: 60
