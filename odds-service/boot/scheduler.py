@@ -4,7 +4,6 @@ from taskiq import TaskiqScheduler
 from taskiq.schedule_sources import LabelScheduleSource
 
 from app.tasks.broker import broker
-from app.config import settings
 # Import tasks module to ensure tasks are registered with broker
 from app.tasks import collector  # noqa: F401
 from app.tasks import prioritizer  # noqa: F401

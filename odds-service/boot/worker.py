@@ -2,8 +2,6 @@ import asyncio
 import structlog
 
 from app.tasks.broker import broker
-from app.tasks import collector
-from app.tasks import prioritizer
 
 structlog.configure(
     processors=[

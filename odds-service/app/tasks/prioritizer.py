@@ -157,7 +157,6 @@ async def enqueue_prioritization_after_collect(collect_result: Dict[str, str]) -
 
     logger.info("collect_events_successful_enqueueing_prioritization")
 
-    from app.tasks.broker import broker
     container = broker.state.container
     policy_loader = container.policy_loader
     

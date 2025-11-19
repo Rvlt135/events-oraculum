@@ -3,11 +3,10 @@ import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
-from app.infrastructure.repositories import SportRepository, CompetitionsRepository
 from app.utils.time_utils import now_utc, build_events_window
 from app.infrastructure.di.services import get_sports_service, get_events_service, get_odds_service
 from app.tasks.broker import broker
-from app.domain.entities.events_window import EventsWindowDTO, EventsPolicyDTO
+from app.domain.entities.events_window import EventsWindowDTO
 from app.tasks.prioritizer import enqueue_prioritization_after_collect
 
 if TYPE_CHECKING:

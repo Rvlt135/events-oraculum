@@ -64,7 +64,7 @@ Table user_sessions {
 // =============================================================================
 
 Table sports {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
   provider text [not null, default: 'odds_api', note: 'Источник данных, mvp - odds_api']
   category text [not null, note: 'напр. soccer, tennis, basketball, ice hockey']
   is_active boolean [not null, note: 'Выставляется явно инжестом (зеркало факта наличия активных competitions)']
@@ -79,7 +79,7 @@ Table sports {
 }
 
 Table competitions {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
   sport_id uuid [ref: > sports.id, on delete: CASCADE, not null]
   title text [not null, note: 'Напр.: UEFA Champions League или EPL']
   description text [note: 'Напр.: English Premier League, Опционально, из провайдера']
@@ -98,44 +98,54 @@ Table competitions {
 }
 
 Table teams {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
   sport_id uuid [ref: > sports.id, on delete: CASCADE, not null]
   name text [not null]
-  normalized_name text [not null, unique]
+  normalized_name text [not null]
   external_ids jsonb [default: '{}']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
 
   indexes {
+    (sport_id, normalized_name) [name: 'uq_teams_sport_normalized_name', unique: true]
     (sport_id) [name: 'idx_teams_sport_id']
-    (normalized_name) [name: 'idx_teams_normalized_name']
+    (sport_id, normalized_name) [name: 'idx_teams_sport_normalized_name']
   }
 }
 
 Table events {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
+  provider text [not null, default: 'odds_api']
+  external_id text [not null]
   sport_id uuid [ref: > sports.id, on delete: CASCADE, not null]
   competition_id uuid [ref: > competitions.id, on delete: CASCADE, not null]
-  home_team_id uuid [ref: > teams.id, on delete: CASCADE, not null]
-  away_team_id uuid [ref: > teams.id, on delete: CASCADE, not null]
-  external_id text [not null, unique]
+  home_team_id uuid [ref: > teams.id, on delete: CASCADE, note: 'nullable']
+  away_team_id uuid [ref: > teams.id, on delete: CASCADE, note: 'nullable']
+  home_team_name text [note: 'nullable']
+  away_team_name text [note: 'nullable']
   commence_time timestamptz [not null]
   status text [default: 'upcoming', note: 'upcoming, live, completed, cancelled']
+  participant_mode text [not null, default: 'unknown', note: 'enum: duel, solo, field, unknown']
+  participants jsonb [not null, default: '[]']
   event_metadata jsonb [default: '{}']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
+  ingested_at timestamptz [note: 'nullable']
+  last_seen_at timestamptz [note: 'nullable']
 
   indexes {
+    (provider, external_id) [name: 'uq_events_provider_external_id', unique: true]
     (sport_id) [name: 'idx_events_sport_id']
     (competition_id) [name: 'idx_events_competition_id']
     (commence_time) [name: 'idx_events_commence_time']
     (status) [name: 'idx_events_status']
     (external_id) [name: 'idx_events_external_id']
+    (competition_id, commence_time) [name: 'idx_events_competition_commence']
   }
 }
 
 Table bookmakers {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
   key text [not null, unique]
   name text [not null]
   region text [not null]
@@ -149,7 +159,7 @@ Table bookmakers {
 }
 
 Table odds_snapshots {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
   event_id uuid [ref: > events.id, on delete: CASCADE, not null]
   bookmaker_id uuid [ref: > bookmakers.id, on delete: CASCADE, not null]
   market_type text [not null, note: 'h2h, spreads, totals']
@@ -163,19 +173,20 @@ Table odds_snapshots {
     (bookmaker_id) [name: 'idx_odds_snapshots_bookmaker_id']
     (market_type) [name: 'idx_odds_snapshots_market_type']
     (timestamp_ingested) [name: 'idx_odds_snapshots_timestamp_ingested', type: 'btree', order: 'desc']
+    (event_id, bookmaker_id, market_type) [name: 'uq_odds_snapshots_event_book_mkt', unique: true]
   }
 }
 
 Table normalized_odds {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
   event_id uuid [ref: > events.id, on delete: CASCADE, not null]
   market_type text [not null]
   home_odds_avg numeric(10,2) [not null]
   away_odds_avg numeric(10,2) [not null]
-  draw_odds_avg numeric(10,2)
+  draw_odds_avg numeric(10,2) [note: 'nullable']
   home_odds_best numeric(10,2) [not null]
   away_odds_best numeric(10,2) [not null]
-  draw_odds_best numeric(10,2)
+  draw_odds_best numeric(10,2) [note: 'nullable']
   bookmakers_count integer [not null, default: 0]
   timestamp_source timestamptz [not null]
   timestamp_ingested timestamptz [not null]
@@ -186,20 +197,27 @@ Table normalized_odds {
     (event_id) [name: 'idx_normalized_odds_event_id']
     (market_type) [name: 'idx_normalized_odds_market_type']
     (timestamp_normalized) [name: 'idx_normalized_odds_timestamp_normalized', type: 'btree', order: 'desc']
+    (event_id, market_type) [name: 'uq_normalized_odds_event_market', unique: true]
   }
 }
 
 Table event_priorities {
-  id uuid [primary key, default: `uuid_generate_v4()`]
+  id uuid [pk, default: `uuid_generate_v4()`]
+  provider text [not null]
+  provider_key text [not null]
   event_id uuid [ref: > events.id, on delete: CASCADE, not null]
-  priority integer [not null]
-  reason text
+  priority numeric(4,3) [not null]
+  model text [not null]
+  evaluated_at timestamptz [not null, default: `now()`]
+  meta jsonb [note: 'nullable', default: '{}']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
 
   indexes {
-    (event_id) [name: 'idx_event_priorities_event_id', unique: true]
-    (priority) [name: 'idx_event_priorities_priority']
+    (provider_key, event_id) [name: 'uq_event_priorities_provider_key_event_id', unique: true]
+    (provider_key, priority) [name: 'idx_event_priorities_provider_key_priority', type: 'btree', order: 'desc']
+    (event_id) [name: 'idx_event_priorities_event_id']
+    (evaluated_at) [name: 'idx_event_priorities_evaluated_at']
   }
 }
 
