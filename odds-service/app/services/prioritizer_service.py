@@ -3,6 +3,7 @@ Prioritizer service for event prioritization.
 """
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from dateutil import parser
 from uuid import UUID
 import json
 import structlog
@@ -372,7 +373,6 @@ class PrioritizerService:
                     # Parse datetime if it's a string
                     commence_time = event_dict.get("commence_time")
                     if isinstance(commence_time, str):
-                        from dateutil import parser
                         commence_time = parser.parse(commence_time)
                     else:
                         commence_time = event_dict.get("commence_time")
@@ -547,7 +547,6 @@ class PrioritizerService:
             events,
             key=lambda e: (
                 -e.get("priority", 0.0),
-                e.get("commence_time", "9999-12-31T23:59:59"),
                 e.get("id", "")
             )
         )

@@ -7,19 +7,21 @@ system: |
   Output MUST be ONLY a JSON array. No explanations. No reasoning. No markdown.
 
 instruction: |
-  Return ONLY a JSON array where each item has:
-    - event_id: string
-    - priority: number in [0.0, 1.0]
+  You will receive a list of events. For EACH input event you MUST return EXACTLY ONE item.
 
-  STRICT RULES:
-  - No natural language.
-  - No explanations.
-  - No descriptions.
-  - No markdown formatting.
-  - No keys except "event_id" and "priority".
-  - Do NOT add text before or after the JSON array.
+  OUTPUT FORMAT (STRICT):
+  - Return ONLY a JSON array: [ { "event_id": "...", "priority": 0.0-1.0 }, ... ].
+  - Each array element MUST be an object with:
+      - event_id: string (MUST match one of the input event IDs, no new IDs).
+      - priority: number in [0.0, 1.0].
+  - The number of items in the array MUST equal the number of input events.
+  - Each event_id MUST appear AT MOST ONCE in the array (no duplicates).
+  - NEVER return a single JSON object with repeated "event_id"/"priority" fields.
+  - Do NOT add any other keys except "event_id" and "priority".
+  - Do NOT add any text before or after the JSON array.
+  - Do NOT wrap output in markdown (no ```).
 
-  If ranking is not possible, return `[]`.
+  If ranking is not possible, return an empty JSON array: [].
 
 schema:
   type: array

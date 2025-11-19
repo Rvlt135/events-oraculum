@@ -1,28 +1,28 @@
 providers:
   openrouter:
     models:
+      openrouter/sherlock-think-alpha:
+        context_window: 1840000
+        max_output_tokens: 2000
+        temperature: 0.3
+        supports_streaming: false
+        supports_function_calling: true
       kwaipilot/kat-coder-pro:free:
         context_window: 40960
         max_output_tokens: 2000
         temperature: 0.3
         supports_streaming: false
         supports_function_calling: true
-      mistralai/mistral-small-3.1-24b-instruct-2503:free:
-        context_window: 128000
-        max_output_tokens: 2000
-        temperature: 0.3
-        supports_streaming: false
-        supports_function_calling: false
 
 
 default_provider: openrouter
-default_model: kwaipilot/kat-coder-pro:free
+default_model: openrouter/sherlock-think-alpha
 
 prioritizer:
   provider: openrouter
-  model: kwaipilot/kat-coder-pro:free
+  model: openrouter/sherlock-think-alpha
   fallback_models:
-    - mistralai/mistral-small-3.1-24b-instruct-2503:free
+    - kwaipilot/kat-coder-pro:free
   timeout_ms: 30000
   batch_size: 20
   rate_limit_qps: 2

@@ -469,6 +469,13 @@ class PrioritizerLLMClient:
         
         msg = self._build_messages(self._system_prompt, user_message)
 
+        # TODO: Remove - temporary logging for debugging LLM prompts
+        logger.info(
+            "llm_prompt_debug",
+            system_prompt=self._system_prompt,
+            user_message=user_message,
+        )
+
         start_time = time.time()
         logger.info(
             "llm_request_start",
@@ -550,6 +557,13 @@ class PrioritizerLLMClient:
         
         msg = self._build_messages(self._system_prompt, user_message)
 
+        # TODO: Remove - temporary logging for debugging LLM prompts
+        logger.info(
+            "llm_prompt_debug",
+            system_prompt=self._system_prompt,
+            user_message=user_message,
+        )
+
         start_time = time.time()
         logger.info(
             "llm_request_start",
@@ -623,11 +637,10 @@ class PrioritizerLLMClient:
             sport = event.get("sport_key", "unknown")
             home = event.get("home_team", "")
             away = event.get("away_team", "")
-            commence_time = event.get("commence_time", "")
 
             lines.append(
                 f"{idx}. ID: {event_id} | Sport: {sport} | "
-                f"{home} vs {away} | Time: {commence_time}"
+                f"{home} vs {away}"
             )
 
         return "\n".join(lines)
