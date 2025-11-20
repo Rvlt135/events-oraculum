@@ -1,5 +1,5 @@
 """
-Public API routes for odds-service.
+Public API routes for collector-service.
 
 These routes provide read-only access to odds data and service information.
 """

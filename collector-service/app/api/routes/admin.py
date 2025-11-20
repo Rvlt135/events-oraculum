@@ -1,5 +1,5 @@
 """
-Admin routes for odds-service.
+Admin routes for collector-service.
 
 These routes are mounted under /_admin prefix and provide:
 - Manual task triggering

@@ -353,7 +353,7 @@ curl http://localhost:8080/v1/insights/recommendations \
 
 **Миграции:**
 ```bash
-cd odds-service
+cd collector-service
 alembic upgrade head  # Применить миграции
 alembic current       # Проверить текущую версию
 ```
@@ -437,7 +437,7 @@ cd layerbit-oraculs-bet
 # 2. Настроить переменные окружения
 # Скопировать и заполнить .env файлы для каждого сервиса:
 cp gateway-service/env.example gateway-service/.env
-cp odds-service/.env.example odds-service/.env  # Если есть
+cp collector-service/.env.example collector-service/.env  # Если есть
 cp edge-agents-service/.env.example edge-agents-service/.env  # Если есть
 
 # Для инфраструктуры можно использовать env.example (если есть):
@@ -478,7 +478,7 @@ alembic upgrade head
 alembic current  # проверить текущую версию миграций
 
 # Odds Service миграции
-cd ../odds-service
+cd ../collector-service
 source venv-odds/bin/activate  # или создайте виртуальное окружение
 pip install -r requirements.txt
 alembic upgrade head
@@ -503,7 +503,7 @@ alembic current  # проверить текущую версию миграци
 cd gateway-service
 alembic current
 
-cd ../odds-service
+cd ../collector-service
 alembic current
 
 # Посмотреть историю миграций
@@ -574,7 +574,7 @@ curl http://localhost:8080/health
 **Odds Service:**
 ```bash
 # 1. Применить миграции (если еще не применены)
-cd odds-service
+cd collector-service
 source venv-odds/bin/activate
 alembic upgrade head
 
@@ -584,7 +584,7 @@ cd ../infrastructure
 docker-compose -f docker-compose.odds.yml up -d
 
 # Вариант B: Локально (рекомендуется для разработки)
-cd ../odds-service
+cd ../collector-service
 source venv-odds/bin/activate
 
 # В отдельных терминалах:
@@ -658,7 +658,7 @@ alembic upgrade head
 alembic current  # проверить текущую версию
 
 # Odds Service миграции
-cd ../odds-service
+cd ../collector-service
 source venv-odds/bin/activate  # или создайте виртуальное окружение
 pip install -r requirements.txt
 alembic upgrade head
@@ -691,7 +691,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 
 **Odds Service:**
 ```bash
-cd odds-service
+cd collector-service
 source venv-odds/bin/activate
 
 # В отдельных терминалах:

@@ -4,7 +4,7 @@ Revision ID: 55aabbccddee
 Revises: 
 Create Date: 2025-01-10 14:00:00.000000
 
-This migration creates all tables for the odds-service database.
+This migration creates all tables for the collector-service database.
 """
 from typing import Sequence, Union
 

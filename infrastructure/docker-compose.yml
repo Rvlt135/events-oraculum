@@ -27,7 +27,7 @@ services:
       - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ../odds-service/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../collector-service/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -38,14 +38,14 @@ services:
 
   odds-admin-api:
     build:
-      context: ../odds-service
+      context: ../collector-service
       dockerfile: Dockerfile
     container_name: layerbit-odds-admin-api
     command: python -m boot.admin_api
     ports:
       - "8081:8081"
     env_file:
-      - ../odds-service/.env
+      - ../collector-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres
@@ -61,12 +61,12 @@ services:
 
   odds-worker:
     build:
-      context: ../odds-service
+      context: ../collector-service
       dockerfile: Dockerfile
     container_name: layerbit-odds-worker
     command: python -m boot.worker
     env_file:
-      - ../odds-service/.env
+      - ../collector-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres
@@ -82,12 +82,12 @@ services:
 
   odds-scheduler:
     build:
-      context: ../odds-service
+      context: ../collector-service
       dockerfile: Dockerfile
     container_name: layerbit-odds-scheduler
     command: python -m boot.scheduler
     env_file:
-      - ../odds-service/.env
+      - ../collector-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres

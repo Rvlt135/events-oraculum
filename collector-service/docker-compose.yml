@@ -3,14 +3,14 @@ version: '3.8'
 services:
   odds-api:
     build:
-      context: ../odds-service
+      context: ../collector-service
       dockerfile: Dockerfile
     container_name: layerbit-odds-api
     command: python -m app.main
     ports:
       - "8083:8083"
     env_file:
-      - ../odds-service/.env
+      - ../collector-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres
@@ -24,12 +24,12 @@ services:
 
   odds-worker:
     build:
-      context: ../odds-service
+      context: ../collector-service
       dockerfile: Dockerfile
     container_name: layerbit-odds-worker
     command: python -m boot.worker
     env_file:
-      - ../odds-service/.env
+      - ../collector-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres
@@ -40,12 +40,12 @@ services:
 
   odds-scheduler:
     build:
-      context: ../odds-service
+      context: ../collector-service
       dockerfile: Dockerfile
     container_name: layerbit-odds-scheduler
     command: python -m boot.scheduler
     env_file:
-      - ../odds-service/.env
+      - ../collector-service/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_HOST=postgres

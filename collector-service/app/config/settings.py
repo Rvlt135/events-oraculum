@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    service_name: str = Field(default="odds-service")
+    service_name: str = Field(default="collector-service")
     environment: str = Field(default="development")
     log_level: str = Field(default="INFO")
 
