@@ -24,7 +24,7 @@ odds_api:
     period: 30  # окно вперёд, дней (E2)
     batch_size_competitions: 10
     rate_limit:
-      delay_between_competitions_sec: 10  # пауза между опросами разных provider_key
+      delay_between_competitions_sec: 10  # пауза между опросами разных slug_key
       max_concurrency: 1                  # 1 = последовательная обработка (MVP)
     retry_policy:
       retriable_statuses: [429, 500, 502, 503, 504]
@@ -54,7 +54,7 @@ odds_api:
     events_view_limit: 200  # E10: Limit for GET /catalog/events/upcoming
 
   events_cache:
-    upcoming_ttl_sec: 300  # TTL for catalog:events:{provider_key}:upcoming cache
+    upcoming_ttl_sec: 300  # TTL for catalog:events:{slug_key}:upcoming cache
 
   prioritizer:
     enabled: true

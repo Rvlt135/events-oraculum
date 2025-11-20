@@ -15,7 +15,7 @@ class Competition(Base):
     title = Column(Text, nullable=False, comment='Напр.: UEFA Champions League или EPL')
     description = Column(Text, nullable=True, comment='Напр.: English Premier League, Опционально, из провайдера')
     provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, (mvp - odds_api)')
-    provider_key = Column(Text, nullable=False, comment='Из sports.key, напр.: "soccer_uefa_champs_league"')
+    slug_key = Column(Text, nullable=False, comment='Из sports.key, напр.: "soccer_uefa_champs_league"')
     plan_visibility = Column(Text, nullable=False, default="free")
 
     is_active = Column(Boolean, nullable=False, comment='payload.active из провайдера; без default, ставим явно в инжесте')
@@ -27,7 +27,7 @@ class Competition(Base):
     events = relationship("Event", back_populates="competition")
 
     __table_args__ = (
-        UniqueConstraint("provider", "provider_key", name="uq_competitions_provider_key"),
+        UniqueConstraint("provider", "slug_key", name="uq_competitions_slug_key"),
         Index("idx_competitions_sport_id", "sport_id"),
         Index("idx_competitions_is_active", "is_active"),
     )

@@ -19,17 +19,17 @@ class OddsCache:
         self.redis = redis_client
         self.key_prefix = "catalog:odds_models"
 
-    def _make_key(self, provider_key: str, event_id: UUID) -> str:
+    def _make_key(self, slug_key: str, event_id: UUID) -> str:
         """Generate cache key for an event's normalized odds_models."""
-        return f"{self.key_prefix}:{provider_key}:{event_id}"
+        return f"{self.key_prefix}:{slug_key}:{event_id}"
 
-    def _make_temp_key(self, provider_key: str, event_id: UUID) -> str:
+    def _make_temp_key(self, slug_key: str, event_id: UUID) -> str:
         """Generate temporary key for atomic swap."""
-        return f"{self.key_prefix}:{provider_key}:{event_id}:tmp"
+        return f"{self.key_prefix}:{slug_key}:{event_id}:tmp"
 
     async def write_event_odds_atomic(
         self,
-        provider_key: str,
+        slug_key: str,
         event_id: UUID,
         items: list[NormalizedOddsDTO],
         ttl_sec: Optional[int] = None
@@ -45,33 +45,33 @@ class OddsCache:
         If items is empty, deletes the key.
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             event_id: Event UUID
             items: List of NormalizedOddsDTO objects
             ttl_sec: Optional TTL in seconds (defaults to settings.cache_ttl_odds_sec)
         """
         if ttl_sec is None:
             ttl_sec = settings.cache_ttl_odds_sec
-        final_key = self._make_key(provider_key, event_id)
+        final_key = self._make_key(slug_key, event_id)
 
         if not items:
             try:
                 await self.redis.delete(final_key)
                 logger.info(
                     "odds_cache_event_cleared_empty",
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     event_id=str(event_id)
                 )
             except Exception as e:
                 logger.error(
                     "failed_to_clear_odds_cache",
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     event_id=str(event_id),
                     error=str(e)
                 )
             return
 
-        temp_key = self._make_temp_key(provider_key, event_id)
+        temp_key = self._make_temp_key(slug_key, event_id)
 
         try:
             pipe = self.redis.pipeline()
@@ -105,7 +105,7 @@ class OddsCache:
 
             logger.info(
                 "odds_cache_event_updated_atomic",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 event_id=str(event_id),
                 count=len(items),
                 ttl_sec=ttl_sec
@@ -114,7 +114,7 @@ class OddsCache:
         except Exception as e:
             logger.error(
                 "odds_cache_update_failed",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 event_id=str(event_id),
                 error=str(e),
                 exc_info=True
@@ -126,20 +126,20 @@ class OddsCache:
 
     async def read_event_odds(
         self,
-        provider_key: str,
+        slug_key: str,
         event_id: UUID
     ) -> list[NormalizedOddsDTO]:
         """
         Read normalized odds_models for an event from cache.
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             event_id: Event UUID
 
         Returns:
             List of NormalizedOddsDTO objects (empty if not found)
         """
-        final_key = self._make_key(provider_key, event_id)
+        final_key = self._make_key(slug_key, event_id)
 
         try:
             raw_items = await self.redis.lrange(final_key, 0, -1)
@@ -169,14 +169,14 @@ class OddsCache:
                 except Exception as e:
                     logger.warning(
                         "failed_to_parse_cached_odds",
-                        provider_key=provider_key,
+                        slug_key=slug_key,
                         event_id=str(event_id),
                         error=str(e)
                     )
 
             logger.debug(
                 "odds_cache_retrieved",
-                provider_key=provider_key,
+                slug_key=provider_key,
                 event_id=str(event_id),
                 count=len(items)
             )

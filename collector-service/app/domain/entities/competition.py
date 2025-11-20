@@ -11,7 +11,7 @@ class CompetitionEntity(BaseModel):
     id: UUID
     sport_id: UUID
     provider: str
-    provider_key: str
+    slug_key: str
     title: str
     plan_visibility: Literal["free", "pro", "unavailable"]
     is_active: bool

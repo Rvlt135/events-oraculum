@@ -84,14 +84,14 @@ Table competitions {
   title text [not null, note: 'Напр.: UEFA Champions League или EPL']
   description text [note: 'Напр.: English Premier League, Опционально, из провайдера']
   provider text [not null, default: 'odds_api', note: 'Источник данных, (mvp - odds_api)']
-  provider_key text [not null, note: 'Из sports.key, напр.: "soccer_uefa_champs_league"']
+  slug_key text [not null, note: 'Из sports.key, напр.: "soccer_uefa_champs_league"']
   plan_visibility text [not null, default: 'free']
   is_active boolean [not null, note: 'payload.active из провайдера; без default, ставим явно в инжесте']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`, note: 'При обновлении competition например is_active -> true или false']
 
   indexes {
-    (provider, provider_key) [name: 'uq_competitions_provider_key', unique: true]
+    (provider, slug_key) [name: 'uq_competitions_slug_key', unique: true]
     (sport_id) [name: 'idx_competitions_sport_id']
     (is_active) [name: 'idx_competitions_is_active']
   }
@@ -204,7 +204,7 @@ Table normalized_odds {
 Table event_priorities {
   id uuid [pk, default: `uuid_generate_v4()`]
   provider text [not null]
-  provider_key text [not null]
+  slug_key text [not null]
   event_id uuid [ref: > events.id, on delete: CASCADE, not null]
   priority numeric(4,3) [not null]
   model text [not null]
@@ -214,8 +214,8 @@ Table event_priorities {
   updated_at timestamptz [default: `now()`]
 
   indexes {
-    (provider_key, event_id) [name: 'uq_event_priorities_provider_key_event_id', unique: true]
-    (provider_key, priority) [name: 'idx_event_priorities_provider_key_priority', type: 'btree', order: 'desc']
+    (slug_key, event_id) [name: 'uq_event_priorities_slug_key_event_id', unique: true]
+    (slug_key, priority) [name: 'idx_event_priorities_slug_key_priority', type: 'btree', order: 'desc']
     (event_id) [name: 'idx_event_priorities_event_id']
     (evaluated_at) [name: 'idx_event_priorities_evaluated_at']
   }

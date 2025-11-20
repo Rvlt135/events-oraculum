@@ -208,7 +208,7 @@ odds-service/
     │
     ├── services/                 # Прикладная логика (оркестрация шагов)
     │   ├── sports_service.py     # sync sports+competitions, обновление кэша
-    │   └── events_service.py     # сбор events per provider_key (позже)
+    │   └── events_service.py     # сбор events per slug_key (позже)
     │
     ├── worker/                     # Фоновые задачи (TaskIQ)
     │   ├── broker.py             # конфигурация брокера

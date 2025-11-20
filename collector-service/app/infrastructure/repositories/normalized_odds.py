@@ -168,7 +168,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
             select(
                 NormalizedOdds,
                 Event.external_id,
-                Competition.provider_key.label("competition_key"),
+                Competition.slug_key.label("competition_key"),
                 HomeTeam.name.label("home_team"),
                 AwayTeam.name.label("away_team"),
                 Event.commence_time,
@@ -183,7 +183,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
         
         # Add competition filter if provided
         if competition_key:
-            query = query.where(Competition.provider_key == competition_key)
+            query = query.where(Competition.slug_key == competition_key)
         
         result = await self.session.execute(query)
         rows = result.all()
@@ -208,7 +208,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
                 "timestamp_normalized": normalized.timestamp_normalized,
                 "created_at": normalized.created_at,
                 "external_id": row[1],  # Event.external_id
-                "competition_key": row[2],  # Competition.provider_key
+                "competition_key": row[2],  # Competition.slug_key
                 "home_team": row[3],  # HomeTeam.name
                 "away_team": row[4],  # AwayTeam.name
                 "commence_time": row[5],  # Event.commence_time

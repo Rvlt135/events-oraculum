@@ -161,7 +161,7 @@ class OddsAPIClient:
 
     async def get_events(
         self,
-        provider_key: str,
+        slug_key: str,
         from_iso: str,
         to_iso: str,
     ) -> list[dict]:
@@ -169,7 +169,7 @@ class OddsAPIClient:
         Get events for a competition from The Odds API without retries.
 
         Args:
-            provider_key: Competition provider key (e.g., 'soccer_uefa_champs_league')
+            slug_key: Competition provider key (e.g., 'soccer_uefa_champs_league')
             from_iso: Start time in ISO-8601 format with Z suffix
             to_iso: End time in ISO-8601 format with Z suffix
 
@@ -179,7 +179,7 @@ class OddsAPIClient:
         Note:
             This method does NOT implement retries - retry logic should be handled by the caller.
         """
-        path = f"sports/{provider_key}/events"
+        path = f"sports/{slug_key}/events"
         url = self.base.build_url(path)
 
         params: Dict[str, Any] = {
@@ -190,14 +190,14 @@ class OddsAPIClient:
 
         logger.debug(
             "fetching_events",
-            provider_key=provider_key,
+            slug_key=slug_key,
             from_iso=from_iso,
             to_iso=to_iso,
             url=url
         )
 
         data = await self.base.get_json(path, params=params)
-        logger.debug("fetched_events", provider_key=provider_key, count=len(data))
+        logger.debug("fetched_events", slug_key=slug_key, count=len(data))
         return data
 
     async def health_check(self) -> bool:

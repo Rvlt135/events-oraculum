@@ -266,12 +266,12 @@ class EventRepository(BaseRepository[Event]):
         )
         return result.scalar_one_or_none() is not None
 
-    async def check_competition_active(self, provider_key: str, provider: str) -> Optional[bool]:
+    async def check_competition_active(self, slug_key: str, provider: str) -> Optional[bool]:
         """
         Check if competition is active by querying the database.
 
         Args:
-            provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+            slug_key: Competition slug_key (e.g., 'soccer_uefa_champs_league')
             provider: Provider name (e.g., 'odds_api')
 
         Returns:
@@ -280,7 +280,7 @@ class EventRepository(BaseRepository[Event]):
         result = await self.session.execute(
             select(Competition).where(
                 Competition.provider == provider,
-                Competition.provider_key == provider_key
+                Competition.slug_key == slug_key
             )
         )
         competition = result.scalar_one_or_none()

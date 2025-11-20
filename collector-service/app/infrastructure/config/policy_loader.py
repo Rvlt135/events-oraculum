@@ -218,20 +218,20 @@ class PolicyLoader:
             return "pro"
         return "unavailable"
     
-    def get_visibility_for_competition(self, provider: str, provider_key: str) -> PlanVisibility:
+    def get_visibility_for_competition(self, provider: str, slug_key: str) -> PlanVisibility:
         """
-        Get plan visibility for a competition by provider key.
+        Get plan visibility for a competition by slug key.
         
         Args:
             provider: Provider name (e.g., "odds_api")
-            provider_key: Competition provider key
+            slug_key: Competition slug key
             
         Returns:
             PlanVisibility: "free", "pro", or "unavailable"
         """
         competitions = self.get_competitions(provider)
         if competitions:
-            normalized_key = provider_key.strip().lower()
+            normalized_key = slug_key.strip().lower()
             if normalized_key in competitions.free:
                 return "free"
             if normalized_key in competitions.pro:
@@ -242,7 +242,7 @@ class PolicyLoader:
             return "unavailable"
         provider_config = self._cache.get(provider, {})
         competitions_config = provider_config.get("competitions", {})
-        normalized_key = provider_key.strip().lower()
+        normalized_key = slug_key.strip().lower()
         if normalized_key in competitions_config.get("free", []):
             return "free"
         if normalized_key in competitions_config.get("pro", []):

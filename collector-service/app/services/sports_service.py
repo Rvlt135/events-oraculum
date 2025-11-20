@@ -132,7 +132,7 @@ class SportsService:
                     
                     for item in resp:
                         try:
-                            provider_key = item.get("key", "").strip()
+                            slug_key = item.get("key", "").strip()
                             title = item.get("title", "")
                             description = item.get("description", "")
                             category = item.get("group", "").lower().strip()
@@ -140,7 +140,7 @@ class SportsService:
                             normalized_category = category.replace(" ", "_")
                             is_active = item.get("active", True)
                             
-                            if not provider_key or not normalized_category:
+                            if not slug_key or not normalized_category:
                                 logger.warning("invalid_competition_data", data=item)
                                 continue
                             
@@ -151,12 +151,12 @@ class SportsService:
                                 continue
                             
                             # Get plan visibility from policy
-                            plan_visibility = self._policy_loader.get_visibility_for_competition("odds_api", provider_key)
+                            plan_visibility = self._policy_loader.get_visibility_for_competition("odds_api", slug_key)
 
                             # Upsert competition
                             await competitions_repository.get_or_create(
                                 sport_id=sport_id,
-                                provider_key=provider_key,
+                                slug_key=slug_key,
                                 title=title,
                                 description=description if description else None,
                                 plan_visibility=plan_visibility,
@@ -265,7 +265,7 @@ class SportsService:
                                         id=comp.id,
                                         sport_id=comp.sport_id,
                                         provider=comp.provider,
-                                        provider_key=comp.provider_key,
+                                        slug_key=comp.slug_key,
                                         title=comp.title,
                                         plan_visibility=comp.plan_visibility,
                                         is_active=comp.is_active,
@@ -400,7 +400,7 @@ class SportsService:
                     sport_id=comp.sport_id,
                     title=comp.title,
                     provider=comp.provider,
-                    provider_key=comp.provider_key,
+                    slug_key=comp.slug_key,
                     plan_visibility=comp.plan_visibility,
                     is_active=comp.is_active,
                 )

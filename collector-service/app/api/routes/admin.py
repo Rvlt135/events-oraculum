@@ -219,7 +219,7 @@ async def get_upcoming_events_catalog(
     Get upcoming events from process cache (E10).
 
     Returns flat list of upcoming events aggregated from all enabled competitions.
-    Data source: catalog:events:{provider_key}:upcoming cache keys.
+    Data source: catalog:events:{slug_key}:upcoming cache keys.
 
     No filters, no pagination - returns up to limit from provider_policy.admin.events_view_limit.
     """
@@ -290,27 +290,27 @@ async def trigger_prioritization(
         )
 
 
-@router.get("/priority/{provider_key}")
+@router.get("/priority/{slug_key}")
 async def get_priority_ranked(
-    provider_key: str,
+    slug_key: str,
     redis: Redis = Depends(get_redis_cache),
     _auth: None = Depends(verify_admin_token),
 ):
     """
     Get ranked events for a competition from Redis.
 
-    Reads priority:events:{provider_key}:ranked cache key.
+    Reads priority:events:{slug_key}:ranked cache key.
     Returns ordered list of events with priorities or empty list if not found.
     """
-    logger.info("get_priority_ranked_endpoint", provider_key=provider_key)
+    logger.info("get_priority_ranked_endpoint", slug_key=slug_key)
 
-    cache_key = f"priority:events:{provider_key}:ranked"
+    cache_key = f"priority:events:{slug_key}:ranked"
 
     try:
         raw_events = await redis.lrange(cache_key, 0, -1)
 
         if not raw_events:
-            logger.info("priority_ranked_not_found", provider_key=provider_key)
+            logger.info("priority_ranked_not_found", slug_key=slug_key)
             return []
 
         import json
@@ -326,45 +326,45 @@ async def get_priority_ranked(
             except Exception as e:
                 logger.warning("failed_to_parse_ranked_event", error=str(e))
 
-        logger.info("priority_ranked_returned", provider_key=provider_key, count=len(events))
+        logger.info("priority_ranked_returned", slug_key=slug_key, count=len(events))
         return events
 
     except Exception as e:
-        logger.error("failed_to_get_priority_ranked", provider_key=provider_key, error=str(e))
+        logger.error("failed_to_get_priority_ranked", slug_key=slug_key, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch ranked events")
 
 
 @router.get("/odds_models/{event_id}")
 async def get_event_odds(
     event_id: UUID,
-    provider_key: Optional[str] = Query(default=None),
+    slug_key: Optional[str] = Query(default=None),
     odds_service = Depends(get_odds_service),
     _auth: None = Depends(verify_admin_token),
 ) -> Dict[str, Any]:
     """
     Get normalized odds_models for an event (cache-first, then DB).
 
-    Reads from catalog:odds_models:{provider_key}:{event_id} cache or falls back to DB.
+    Reads from catalog:odds_models:{slug_key}:{event_id} cache or falls back to DB.
     Returns compact JSON with markets, averages, best odds_models, and bookmakers count.
     """
-    logger.info("get_event_odds_endpoint", event_id=str(event_id), provider_key=provider_key)
+    logger.info("get_event_odds_endpoint", event_id=str(event_id), slug_key=slug_key)
 
     try:
-        # If provider_key not provided, try to find it from events cache
-        if not provider_key:
-            # Try to find provider_key by searching events cache
-            # This is a fallback - ideally provider_key should be provided
-            logger.debug("provider_key_not_provided", event_id=str(event_id))
+        # If slug_key not provided, try to find it from events cache
+        if not slug_key:
+            # Try to find slug_key by searching events cache
+            # This is a fallback - ideally slug_key should be provided
+            logger.debug("slug_key_not_provided", event_id=str(event_id))
 
         odds_list = await odds_service.get_event_odds(
-            provider_key=provider_key or "unknown",
+            slug_key=slug_key or "unknown",
             event_id=event_id
         )
 
         if not odds_list:
             return {
                 "event_id": str(event_id),
-                "provider_key": provider_key,
+                "slug_key": slug_key,
                 "has_odds": False,
                 "markets": []
             }
@@ -386,7 +386,7 @@ async def get_event_odds(
 
         return {
             "event_id": str(event_id),
-            "provider_key": provider_key,
+            "slug_key": slug_key,
             "has_odds": True,
             "markets": markets
         }
@@ -396,28 +396,28 @@ async def get_event_odds(
         raise HTTPException(status_code=500, detail="Failed to fetch event odds_models")
 
 
-@router.get("/catalog/odds_models/{provider_key}")
+@router.get("/catalog/odds_models/{slug_key}")
 async def get_odds_catalog(
-    provider_key: str,
+    slug_key: str,
     odds_service = Depends(get_odds_service),
     _auth: None = Depends(verify_admin_token),
 ) -> Dict[str, Any]:
     """
     Get upcoming events with odds_models availability for a competition.
 
-    Reads normalized odds_models from Redis (catalog:odds_models:{provider_key}:{event_id}),
+    Reads normalized odds_models from Redis (catalog:odds_models:{slug_key}:{event_id}),
     supplements with basic event info from events cache if available.
     Does not fail if event info is missing.
     """
-    logger.info("get_odds_catalog_endpoint", provider_key=provider_key)
+    logger.info("get_odds_catalog_endpoint", slug_key=slug_key)
 
     try:
         # Get upcoming events from events cache
-        upcoming_events = await odds_service.events_cache.read_upcoming(provider_key)
+        upcoming_events = await odds_service.events_cache.read_upcoming(slug_key)
 
         if not upcoming_events:
             return {
-                "provider_key": provider_key,
+                "slug_key": slug_key,
                 "count": 0,
                 "items": []
             }
@@ -427,14 +427,14 @@ async def get_odds_catalog(
             try:
                 # Read normalized odds_models from odds_models cache
                 odds_list = await odds_service.odds_cache.read_event_odds(
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     event_id=event.id
                 )
                 has_odds = len(odds_list) > 0
             except Exception as e:
                 logger.debug(
                     "failed_to_read_odds_for_event",
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     event_id=str(event.id),
                     error=str(e)
                 )
@@ -449,13 +449,13 @@ async def get_odds_catalog(
             })
 
         return {
-            "provider_key": provider_key,
+            "slug_key": slug_key,
             "count": len(items),
             "items": items
         }
 
     except Exception as e:
-        logger.error("failed_to_get_odds_catalog", provider_key=provider_key, error=str(e), exc_info=True)
+        logger.error("failed_to_get_odds_catalog", slug_key=slug_key, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch odds_models catalog")
 
 @router.post("/tasks/odds_models/collect", response_model=TaskTriggerResponse, status_code=202)

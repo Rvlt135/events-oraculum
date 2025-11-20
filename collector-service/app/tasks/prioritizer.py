@@ -57,37 +57,37 @@ async def prioritize_all() -> Dict[str, str]:
         total_errors = 0
         fallback_count = 0
 
-        for provider_key in all_keys:
+        for slug_key in all_keys:
             # Idempotency check: skip if already processed in this run
-            if await prioritizer_service.tasks_cache.check_idempotency(provider_key, run_id):
+            if await prioritizer_service.tasks_cache.check_idempotency(slug_key, run_id):
                 continue
 
             # Optional: acquire execution lock
-            lock_token = await prioritizer_service.tasks_cache.acquire_lock(provider_key)
+            lock_token = await prioritizer_service.tasks_cache.acquire_lock(slug_key)
             if lock_token is None:
-                logger.info("lock_not_acquired_skipping", provider_key=provider_key)
+                logger.info("lock_not_acquired_skipping", slug_key=slug_key)
                 continue
 
             try:
                 # Get events: cache first, then DB fallback
-                items = await prioritizer_service.get_upcoming_events_for_provider_key(
-                    provider_key=provider_key,
+                items = await prioritizer_service.get_upcoming_events_for_slug_key(
+                    slug_key=slug_key,
                     provider=provider
                 )
 
                 # Skip if no upcoming events
                 if not items:
-                    logger.info("skip_no_upcoming", provider_key=provider_key)
+                    logger.info("skip_no_upcoming", slug_key=slug_key)
                     continue
 
                 # Log prioritization start
-                logger.info("prioritization_started", provider_key=provider_key, count=len(items))
+                logger.info("prioritization_started", slug_key=slug_key, count=len(items))
 
                 # QPS limit check (soft limit)
                 await prioritizer_service.tasks_cache.check_qps_limit(model)
 
                 metrics = await prioritizer_service.rank(
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     provider=provider,
                     events=items,
                 )
@@ -95,7 +95,7 @@ async def prioritize_all() -> Dict[str, str]:
                 # Log prioritization completion
                 logger.info(
                     "prioritization_done",
-                    provider_key=provider_key,
+                    slug_key=provider_key,
                     processed=metrics["processed"],
                     llm_batches=metrics["llm_batches"],
                     errors=metrics["errors"],

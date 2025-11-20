@@ -9,7 +9,7 @@ class EventPriorityDTO(BaseModel):
     """DTO for event priority data."""
     id: UUID
     provider: str
-    provider_key: str
+    slug_key: str
     event_id: UUID
     priority: Decimal = Field(..., decimal_places=3, max_digits=4)
     model: str

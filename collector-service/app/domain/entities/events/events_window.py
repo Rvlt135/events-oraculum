@@ -43,7 +43,7 @@ class EventsWindowDTO(BaseModel):
 
 class EventKeyResultDTO(BaseModel):
     """DTO for single competition key result."""
-    provider_key: str
+    slug_key: str
     status: Literal["success", "failed", "skipped"]
     attempts: int
     duration_ms: int

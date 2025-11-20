@@ -252,7 +252,7 @@ class OddsService:
         provider: str,
     ) -> list[str]:
         """
-        Get list of provider_key for odds_models from Redis index with_upcoming.
+        Get list of slug_key for odds_models from Redis index with_upcoming.
 
         Falls back to DB if cache is empty, then restores cache.
 
@@ -260,7 +260,7 @@ class OddsService:
             provider: Provider name (e.g., 'odds_api')
 
         Returns:
-            Sorted list of provider_key that have upcoming events
+            Sorted list of slug_key that have upcoming events
         """
         logger.info("get_competitions_for_odds_started", provider=provider)
 
@@ -287,11 +287,11 @@ class OddsService:
                         provider=provider
                     )
                     if has_upcoming:
-                        keys_with_upcoming.append(competition.provider_key)
+                        keys_with_upcoming.append(competition.slug_key)
                 except Exception as e:
                     logger.warning(
                         "failed_to_check_upcoming_events",
-                        provider_key=competition.provider_key,
+                        slug_key=competition.slug_key,
                         error=str(e)
                     )
                     continue
@@ -374,7 +374,7 @@ class OddsService:
         self,
         external_events: list[ExternalOddsEventDTO],
         upcoming_events: list[EventShortDTO],
-        provider_key: str,
+        slug_key: str,
     ) -> CompetitionOddsDTO:
         """
         Map ExternalOddsEventDTO to CompetitionOddsDTO, filtering by upcoming events.
@@ -382,7 +382,7 @@ class OddsService:
         Args:
             external_events: List of external odds_models events from API
             upcoming_events: List of our local upcoming events
-            provider_key: Competition provider key
+            slug_key: Competition slug key
 
         Returns:
             CompetitionOddsDTO with filtered and mapped events
@@ -408,7 +408,7 @@ class OddsService:
                 logger.info(
                     "odds_event_not_in_local_events",
                     external_id=external_id,
-                    provider_key=provider_key
+                    slug_key=slug_key
                 )
                 continue
 
@@ -464,7 +464,7 @@ class OddsService:
                 event_odds = EventOddsDTO(
                     event_id=event_id,
                     external_id=external_id,
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     commence_time=external_event.commence_time,
                     home_team=external_event.home_team,
                     away_team=external_event.away_team,
@@ -475,18 +475,18 @@ class OddsService:
                 logger.info(
                     "odds_missing_for_event",
                     external_id=external_id,
-                    provider_key=provider_key
+                    provider_key=slug_key
                 )
 
         return CompetitionOddsDTO(
-            provider_key=provider_key,
+            slug_key=slug_key,
             events=event_odds_list,
         )
 
     async def fetch_odds_for_competition(
         self,
         provider: str,
-        provider_key: str,
+        slug_key: str,
         upcoming_events: list[EventShortDTO],
     ) -> CompetitionOddsDTO:
         """
@@ -494,7 +494,7 @@ class OddsService:
 
         Args:
             provider: Provider name (e.g., 'odds_api')
-            provider_key: Competition provider key (sport_key for external API)
+            slug_key: Competition slug key (sport_key for external API)
             upcoming_events: List of our local upcoming events
 
         Returns:
@@ -503,7 +503,7 @@ class OddsService:
         logger.info(
             "fetch_odds_for_competition_started",
             provider=provider,
-            provider_key=provider_key,
+            provider_key=slug_key,
             upcoming_events_count=len(upcoming_events)
         )
 
@@ -511,10 +511,10 @@ class OddsService:
             logger.warning(
                 "no_upcoming_events_for_odds",
                 provider=provider,
-                provider_key=provider_key
+                provider_key=slug_key
             )
             return CompetitionOddsDTO(
-                provider_key=provider_key,
+                slug_key=slug_key,
                 events=[],
             )
 
@@ -524,10 +524,10 @@ class OddsService:
             logger.warning(
                 "odds_policy_not_found",
                 provider=provider,
-                provider_key=provider_key
+                provider_key=slug_key
             )
             return CompetitionOddsDTO(
-                provider_key=provider_key,
+                slug_key=slug_key,
                 events=[],
             )
 
@@ -537,7 +537,7 @@ class OddsService:
         # Call external API
         try:
             raw_odds_data = await self.odds_client.fetch_odds(
-                sport=provider_key,
+                sport=slug_key,
                 regions=odds_policy.regions,
                 markets=odds_policy.markets,
                 commence_time_from=window.from_iso,
@@ -560,7 +560,7 @@ class OddsService:
                 except Exception as e:
                     logger.warning(
                         "failed_to_parse_external_odds_event",
-                        provider_key=provider_key,
+                        provider_key=slug_key,
                         event_data=event_data,
                         error=str(e)
                     )
@@ -570,13 +570,13 @@ class OddsService:
             result = await self._map_external_odds_to_competition_odds(
                 external_events=external_events,
                 upcoming_events=upcoming_events,
-                provider_key=provider_key,
+                slug_key=slug_key,
             )
 
             logger.info(
                 "fetch_odds_for_competition_completed",
                 provider=provider,
-                provider_key=provider_key,
+                provider_key=slug_key,
                 external_events_count=len(external_events),
                 filtered_events_count=len(result.events)
             )
@@ -587,12 +587,12 @@ class OddsService:
             logger.error(
                 "fetch_odds_for_competition_failed",
                 provider=provider,
-                provider_key=provider_key,
+                provider_key=slug_key,
                 error=str(e),
                 exc_info=True
             )
             return CompetitionOddsDTO(
-                provider_key=provider_key,
+                slug_key=slug_key,
                 events=[],
             )
 
@@ -616,7 +616,7 @@ class OddsService:
         """
         logger.info(
             "normalize_to_snapshots_started",
-            provider_key=competition_odds.provider_key,
+            provider_key=competition_odds.slug_key,
             events_count=len(competition_odds.events),
             has_policy=odds_policy is not None
         )
@@ -648,7 +648,7 @@ class OddsService:
                 if market_type not in allowed_markets:
                     logger.debug(
                         "market_filtered_by_policy",
-                        provider_key=competition_odds.provider_key,
+                        provider_key=competition_odds.slug_key,
                         event_id=str(event_odds.event_id),
                         market_type=market_type,
                         allowed_markets=list(allowed_markets)
@@ -661,7 +661,7 @@ class OddsService:
                 if allowed_bookmakers is not None and bookmaker_key not in allowed_bookmakers:
                     logger.debug(
                         "bookmaker_filtered_by_policy",
-                        provider_key=competition_odds.provider_key,
+                        provider_key=competition_odds.slug_key,
                         event_id=str(event_odds.event_id),
                         market_type=market_type,
                         bookmaker_key=bookmaker_key,
@@ -690,7 +690,7 @@ class OddsService:
 
         logger.info(
             "normalize_to_snapshots_completed",
-            provider_key=competition_odds.provider_key,
+            provider_key=competition_odds.slug_key,
             snapshots_count=len(snapshots),
             skipped_markets=skipped_markets,
             skipped_bookmakers=skipped_bookmakers,
@@ -826,19 +826,19 @@ class OddsService:
     async def get_upcoming_events_short(
         self,
         provider: str,
-        provider_key: str,
+        slug_key: str,
     ) -> list[EventShortDTO]:
         """
         Get upcoming events as EventShortDTO for odds_models collection.
 
         Args:
             provider: Provider name
-            provider_key: Competition provider key
+            slug_key: Competition slug key
 
         Returns:
             List of EventShortDTO
         """
-        events = await self.events_cache.read_upcoming(provider_key)
+        events = await self.events_cache.read_upcoming(slug_key)
 
         if events:
             return [
@@ -856,7 +856,7 @@ class OddsService:
 
             competition = await comp_repo.get_by_provider_key(
                 provider=provider,
-                provider_key=provider_key
+                slug_key=slug_key
             )
 
             if not competition:
@@ -1049,7 +1049,7 @@ class OddsService:
 
     async def _update_odds_cache_for_competition(
         self,
-        provider_key: str,
+        slug_key: str,
         normalized: list[NormalizedOddsDTO],
     ) -> None:
         """
@@ -1063,7 +1063,7 @@ class OddsService:
 
         for event_id, items in event_odds_map.items():
             await self.odds_cache.write_event_odds_atomic(
-                provider_key=provider_key,
+                provider_key=slug_key,
                 event_id=event_id,
                 items=items,
                 ttl_sec=None
@@ -1097,7 +1097,7 @@ class OddsService:
         """
         logger.info(
             "persist_competition_odds_started",
-            provider_key=competition_odds.provider_key,
+            provider_key=competition_odds.slug_key,
             events_count=len(competition_odds.events),
             provider=provider
         )
@@ -1106,7 +1106,7 @@ class OddsService:
         if not snapshots:
             logger.info(
                 "no_snapshots_to_persist",
-                provider_key=competition_odds.provider_key
+                provider_key=competition_odds.slug_key
             )
             return {
                 "snapshots_inserted": 0,
@@ -1140,7 +1140,7 @@ class OddsService:
 
         logger.info(
             "persist_competition_odds_completed",
-            competition_key=competition_odds.provider_key,
+            competition_key=competition_odds.slug_key,
             snapshots_inserted=snapshots_inserted,
             snapshots_updated=snapshots_updated,
             normalized_inserted=normalized_inserted,
@@ -1149,14 +1149,14 @@ class OddsService:
 
         logger.debug(
             "persist_competition_odds_details",
-            competition_key=competition_odds.provider_key,
+            competition_key=competition_odds.slug_key,
             events_count=len(competition_odds.events),
             snapshots_count=len(final_snapshots),
             normalized_count=len(normalized),
         )
 
         await self._update_odds_cache_for_competition(
-            provider_key=competition_odds.provider_key,
+            slug_key=competition_odds.slug_key,
             normalized=normalized,
         )
 
@@ -1169,7 +1169,7 @@ class OddsService:
 
     async def get_event_odds(
         self,
-        provider_key: str,
+        slug_key: str,
         event_id: UUID,
     ) -> list[NormalizedOddsDTO]:
         """
@@ -1184,14 +1184,14 @@ class OddsService:
            - If not found → return empty list + log
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             event_id: Event UUID
 
         Returns:
             List of NormalizedOddsDTO (empty if not found)
         """
         cached = await self.odds_cache.read_event_odds(
-            provider_key=provider_key,
+            provider_key=slug_key,
             event_id=event_id
         )
 
@@ -1227,7 +1227,7 @@ class OddsService:
                 ]
 
                 await self.odds_cache.write_event_odds_atomic(
-                    provider_key=provider_key,
+                    provider_key=slug_key,
                     event_id=event_id,
                     items=items,
                     ttl_sec=None
@@ -1237,7 +1237,7 @@ class OddsService:
 
         logger.info(
             "normalized_odds_not_found",
-            provider_key=provider_key,
+            provider_key=slug_key,
             event_id=str(event_id)
         )
 

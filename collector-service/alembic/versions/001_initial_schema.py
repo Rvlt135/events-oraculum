@@ -1,10 +1,11 @@
-"""initial_migration_create_all_tables
+"""initial_schema
 
-Revision ID: 55aabbccddee
+Revision ID: 001_initial_schema
 Revises: 
-Create Date: 2025-01-10 14:00:00.000000
+Create Date: 2025-11-20 21:06:42.672000
 
-This migration creates all tables for the collector-service database.
+Initial database schema for collector-service.
+All tables with current structure including slug_key in competitions and event_priorities.
 """
 from typing import Sequence, Union
 
@@ -13,14 +14,14 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '55aabbccddee'
+revision: str = '001_initial_schema'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Upgrade schema: Create all tables from scratch."""
+    """Create all tables with current schema."""
     
     # Create UUID extension
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
@@ -40,7 +41,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_sports_is_active', 'sports', ['is_active'])
     
-    # Create competitions table
+    # Create competitions table (with slug_key)
     op.create_table(
         'competitions',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
@@ -48,14 +49,14 @@ def upgrade() -> None:
         sa.Column('title', sa.Text(), nullable=False),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('provider', sa.Text(), nullable=False, server_default='odds_api'),
-        sa.Column('provider_key', sa.Text(), nullable=False),
+        sa.Column('slug_key', sa.Text(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False),
         sa.Column('plan_visibility', sa.Text(), nullable=False, server_default='free'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
         sa.ForeignKeyConstraint(['sport_id'], ['sports.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('provider', 'provider_key', name='uq_competitions_provider_key')
+        sa.UniqueConstraint('provider', 'slug_key', name='uq_competitions_slug_key')
     )
     op.create_index('idx_competitions_sport_id', 'competitions', ['sport_id'])
     op.create_index('idx_competitions_is_active', 'competitions', ['is_active'])
@@ -144,7 +145,8 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['event_id'], ['events.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['bookmaker_id'], ['bookmakers.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('event_id', 'bookmaker_id', 'market_type', name='uq_odds_snapshots_event_book_mkt')
     )
     op.create_index('idx_odds_snapshots_event_id', 'odds_snapshots', ['event_id'])
     op.create_index('idx_odds_snapshots_bookmaker_id', 'odds_snapshots', ['bookmaker_id'])
@@ -169,18 +171,19 @@ def upgrade() -> None:
         sa.Column('timestamp_normalized', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['event_id'], ['events.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('event_id', 'market_type', name='uq_normalized_odds_event_market')
     )
     op.create_index('idx_normalized_odds_event_id', 'normalized_odds', ['event_id'])
     op.create_index('idx_normalized_odds_market_type', 'normalized_odds', ['market_type'])
     op.create_index('idx_normalized_odds_timestamp_normalized', 'normalized_odds', ['timestamp_normalized'], postgresql_ops={'timestamp_normalized': 'DESC'})
     
-    # Create event_priorities table
+    # Create event_priorities table (with slug_key)
     op.create_table(
         'event_priorities',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('provider', sa.Text(), nullable=False),
-        sa.Column('provider_key', sa.Text(), nullable=False),
+        sa.Column('slug_key', sa.Text(), nullable=False),
         sa.Column('event_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('priority', sa.Numeric(4, 3), nullable=False),
         sa.Column('model', sa.Text(), nullable=False),
@@ -188,12 +191,12 @@ def upgrade() -> None:
         sa.Column('meta', postgresql.JSONB(astext_type=sa.Text()), nullable=True, server_default='{}'),
         sa.ForeignKeyConstraint(['event_id'], ['events.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('provider_key', 'event_id', name='uq_event_priorities_provider_key_event_id')
+        sa.UniqueConstraint('slug_key', 'event_id', name='uq_event_priorities_slug_key_event_id')
     )
     op.create_index(
-        'idx_event_priorities_provider_key_priority',
+        'idx_event_priorities_slug_key_priority',
         'event_priorities',
-        ['provider_key', 'priority'],
+        ['slug_key', 'priority'],
         postgresql_ops={'priority': 'DESC'}
     )
     op.create_index('idx_event_priorities_event_id', 'event_priorities', ['event_id'])
@@ -201,10 +204,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Downgrade schema: Drop all tables."""
+    """Drop all tables."""
     op.drop_index('idx_event_priorities_evaluated_at', table_name='event_priorities')
     op.drop_index('idx_event_priorities_event_id', table_name='event_priorities')
-    op.drop_index('idx_event_priorities_provider_key_priority', table_name='event_priorities')
+    op.drop_index('idx_event_priorities_slug_key_priority', table_name='event_priorities')
     op.drop_table('event_priorities')
     
     op.drop_index('idx_normalized_odds_timestamp_normalized', table_name='normalized_odds')
@@ -240,3 +243,4 @@ def downgrade() -> None:
     
     op.drop_index('idx_sports_is_active', table_name='sports')
     op.drop_table('sports')
+

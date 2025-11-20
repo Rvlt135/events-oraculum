@@ -24,59 +24,59 @@ class TasksCache:
             'llm_qps'
         ]
     ) -> str:
-        keys = {"job_prefix": "job:prioritize:{provider_key}:{run_id}",
-                "lock_prefix": "lock:prioritize:{provider_key}",
-                "lock_script": "lock:prioritize:{provider_key}",
+        keys = {"job_prefix": "job:prioritize:{slug_key}:{run_id}",
+                "lock_prefix": "lock:prioritize:{slug_key}",
+                "lock_script": "lock:prioritize:{slug_key}",
                 "llm_qps": "llm:qps:{model}"
                 }.get(key_cache)
         return keys
 
-    async def check_idempotency(self, provider_key: str, run_id: str) -> bool:
+    async def check_idempotency(self, slug_key: str, run_id: str) -> bool:
         """
-        Check if this provider_key was already processed in this run (idempotency).
+        Check if this slug_key was already processed in this run (idempotency).
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             run_id: Unique run identifier
 
         Returns:
             True if already processed (should skip), False if can proceed
         """
-        key = self.get_keys_prefix("job_prefix").format(provider_key=provider_key, run_id=run_id)
+        key = self.get_keys_prefix("job_prefix").format(slug_key=slug_key, run_id=run_id)
         try:
             # SET with NX (only if not exists) and EX (expire in 900 seconds)
             result = await self.redis.set(key, "1", nx=True, ex=900)
             if not result:
-                logger.info("idempotency_skip_already_processed", provider_key=provider_key, run_id=run_id)
+                logger.info("idempotency_skip_already_processed", slug_key=slug_key, run_id=run_id)
                 return True
             return False
         except Exception as e:
-            logger.error("idempotency_check_failed", provider_key=provider_key, error=str(e))
+            logger.error("idempotency_check_failed", slug_key=slug_key, error=str(e))
             # On error, allow processing to continue
             return False
 
-    async def acquire_lock(self, provider_key: str) -> Optional[str]:
+    async def acquire_lock(self, slug_key: str) -> Optional[str]:
         """
-        Acquire execution lock for provider_key (optional).
+        Acquire execution lock for slug_key (optional).
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
 
         Returns:
             Lock token if acquired, None if already locked
         """
         token = secrets.token_hex(16)
-        key = self.get_keys_prefix("lock_prefix").format(provider_key=provider_key)
+        key = self.get_keys_prefix("lock_prefix").format(slug_key=slug_key)
         try:
             # SET with NX (only if not exists) and PX (expire in 60000 milliseconds)
             result = await self.redis.set(key, token, nx=True, px=60000)
             if not result:
-                logger.info("lock_not_acquired_already_locked", provider_key=provider_key)
+                logger.info("lock_not_acquired_already_locked", slug_key=slug_key)
                 return None
-            logger.debug("lock_acquired", provider_key=provider_key, token=token[:8])
+            logger.debug("lock_acquired", slug_key=slug_key, token=token[:8])
             return token
         except Exception as e:
-            logger.error("lock_acquisition_failed", provider_key=provider_key, error=str(e))
+            logger.error("lock_acquisition_failed", slug_key=provider_key, error=str(e))
             return None
 
     async def release_lock(self, provider_key: str, token: str) -> None:

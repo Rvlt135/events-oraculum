@@ -152,6 +152,6 @@ class CompetitionDTO(BaseModel):
     sport_id: UUID
     title: str
     provider: str
-    provider_key: str
+    slug_key: str
     plan_visibility: Literal["free", "pro", "unavailable"]
     is_active: bool

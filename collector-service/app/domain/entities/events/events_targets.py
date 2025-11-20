@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 class FilteredReasonDTO(BaseModel):
     """DTO for filtered out competition with reason."""
-    provider_key: str
+    slug_key: str
     reason: Literal["not_found", "inactive"]
 
 

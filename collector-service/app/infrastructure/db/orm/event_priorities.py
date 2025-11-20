@@ -11,7 +11,7 @@ class EventPriority(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     provider = Column(Text, nullable=False)
-    provider_key = Column(Text, nullable=False)
+    slug_key = Column(Text, nullable=False)
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     priority = Column(Numeric(4, 3), nullable=False)
     model = Column(Text, nullable=False)
@@ -21,8 +21,8 @@ class EventPriority(Base):
     event = relationship("Event", back_populates="priorities")
 
     __table_args__ = (
-        UniqueConstraint("provider_key", "event_id", name="uq_event_priorities_provider_key_event_id"),
-        Index("idx_event_priorities_provider_key_priority", "provider_key", "priority", postgresql_ops={"priority": "DESC"}),
+        UniqueConstraint("slug_key", "event_id", name="uq_event_priorities_slug_key_event_id"),
+        Index("idx_event_priorities_slug_key_priority", "slug_key", "priority", postgresql_ops={"priority": "DESC"}),
         Index("idx_event_priorities_event_id", "event_id"),
         Index("idx_event_priorities_evaluated_at", "evaluated_at"),
     )

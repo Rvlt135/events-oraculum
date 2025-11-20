@@ -167,7 +167,7 @@ class EventsService:
         Process competitions with rate limiting and retry logic.
 
         Args:
-            keys: List of provider_keys in exact order to process (no sorting)
+            keys: List of slug_keys in exact order to process (no sorting)
             window: Time window for events collection
 
         Returns:
@@ -201,7 +201,7 @@ class EventsService:
             if not is_active:
                 logger.warning("competition_skipped_inactive", key=key)
                 per_key[key] = EventKeyResultDTO(
-                    provider_key=key,
+                    slug_key=key,
                     status="skipped",
                     attempts=0,
                     duration_ms=0,
@@ -275,19 +275,19 @@ class EventsService:
 
         return summary
 
-    async def check_competition_active(self, category: str, provider_key: str, provider: str) -> bool:
+    async def check_competition_active(self, category: str, slug_key: str, provider: str) -> bool:
         # TODO: change name method
         """
         Check if competition is active using cache-first approach with DB fallback.
 
         Priority:
-        1. Check competitions cache for provider_key
+        1. Check competitions cache for slug_key
         2. If cache miss, fallback to DB query
         3. If not found, return False (treat as inactive)
 
         Args:
             category: Sport category (e.g., 'soccer')
-            provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+            slug_key: Competition slug_key (e.g., 'soccer_uefa_champs_league')
             provider: Provider name (e.g., 'odds_api')
 
         Returns:
@@ -297,11 +297,11 @@ class EventsService:
         cached_catalog = await self._competitions_cache.get_catalog(category)
 
         if cached_catalog and "competitions" in cached_catalog:
-            # Cache hit - search for provider_key
+            # Cache hit - search for slug_key
             competitions_list = cached_catalog["competitions"]
 
             for comp_data in competitions_list:
-                if comp_data.get("provider_key") == provider_key:
+                if comp_data.get("slug_key") == slug_key:
                     is_active = comp_data.get("is_active", False)
 
                     if is_active:
@@ -311,7 +311,7 @@ class EventsService:
                             source="cache",
                             reason="active",
                             category=category,
-                            provider_key=provider_key,
+                            slug_key=slug_key,
                             provider=provider
                         )
                         return True
@@ -322,26 +322,26 @@ class EventsService:
                             source="cache",
                             reason="inactive",
                             category=category,
-                            provider_key=provider_key,
+                            slug_key=slug_key,
                             provider=provider
                         )
                         return False
 
-            # Found cache but not this provider_key
+            # Found cache but not this slug_key
             logger.info(
                 "comp_active_check",
                 result=False,
                 source="cache",
                 reason="not_found_cache",
                 category=category,
-                provider_key=provider_key,
+                slug_key=slug_key,
                 provider=provider
             )
         else:
             logger.info(
                 "comp_active_cache_miss",
                 category=category,
-                provider_key=provider_key,
+                slug_key=slug_key,
                 provider=provider
             )
 
@@ -349,7 +349,7 @@ class EventsService:
         async with self._session_factory() as session:
             event_repo = EventRepository(session)
             db_result = await event_repo.check_competition_active(
-                provider_key=provider_key,
+                slug_key=slug_key,
                 provider=provider
             )
 
@@ -361,7 +361,7 @@ class EventsService:
                     source="db",
                     reason="not_found_db",
                     category=category,
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     provider=provider
                 )
                 return False
@@ -373,7 +373,7 @@ class EventsService:
                     source="db",
                     reason="active",
                     category=category,
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     provider=provider
                 )
                 return True
@@ -385,31 +385,31 @@ class EventsService:
                     source="db",
                     reason="inactive",
                     category=category,
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     provider=provider
                 )
                 return False
 
-    async def _check_competition_active(self, provider: str, provider_key: str) -> bool:
+    async def _check_competition_active(self, provider: str, slug_key: str) -> bool:
         """
         Check if competition is active using cache-first approach with DB fallback.
 
-        Extracts category (sport) from provider_key, gets provider from policy,
+        Extracts category (sport) from slug_key, gets provider from policy,
         and uses check_competition_active.
 
         Args:
-            provider_key: Competition provider_key (e.g., 'soccer_uefa_champs_league')
+            slug_key: Competition slug_key (e.g., 'soccer_uefa_champs_league')
 
         Returns:
             True if active, False otherwise
         """
-        # Extract category from provider_key (e.g., 'soccer_uefa_champs_league' -> 'soccer')
-        category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
+        # Extract category from slug_key (e.g., 'soccer_uefa_champs_league' -> 'soccer')
+        category = slug_key.split("_")[0] if "_" in slug_key else "unknown"
 
 
         is_active = await self.check_competition_active(
             category=category,
-            provider_key=provider_key,
+            slug_key=slug_key,
             provider=provider
         )
 
@@ -422,7 +422,7 @@ class EventsService:
         Fetch events with exponential backoff retry logic.
 
         Args:
-            key: Competition provider_key
+            key: Competition slug_key
             window: Time window for events
             policy: Retry policy configuration
 
@@ -438,7 +438,7 @@ class EventsService:
 
             try:
                 events = await self._odds_client.get_events(
-                    provider_key=key,
+                    slug_key=key,
                     from_iso=window.from_iso,
                     to_iso=window.to_iso,
                 )
@@ -455,7 +455,7 @@ class EventsService:
 
                 return (
                     EventKeyResultDTO(
-                        provider_key=key,
+                        slug_key=key,
                         status="success",
                         attempts=attempts,
                         duration_ms=duration_ms,
@@ -487,7 +487,7 @@ class EventsService:
                     duration_ms = int((time.time() - start_time) * 1000)
                     return (
                         EventKeyResultDTO(
-                            provider_key=key,
+                            slug_key=key,
                             status="failed",
                             attempts=attempts,
                             duration_ms=duration_ms,
@@ -540,7 +540,7 @@ class EventsService:
 
         return (
             EventKeyResultDTO(
-                provider_key=key,
+                slug_key=key,
                 status="failed",
                 attempts=attempts,
                 duration_ms=duration_ms,
@@ -653,7 +653,7 @@ class EventsService:
         return home_team_id, away_team_id
 
     async def _save_events_to_db(
-        self, provider: str, provider_key: str, policy: EventsPolicyDTO, events_data: List[Dict]
+        self, provider: str, slug_key: str, policy: EventsPolicyDTO, events_data: List[Dict]
     ) -> int:
         """
         Convert API events to EventUpsertDTO and save to database (E5).
@@ -665,7 +665,7 @@ class EventsService:
 
         Args:
             provider: Provider name
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             events_data: List of event dictionaries from API
 
         Returns:
@@ -683,14 +683,14 @@ class EventsService:
                 event_repo = EventRepository(session)
                 team_repo = TeamRepository(session)
                 competition = await comp_repo.get_by_provider_key(
-                    provider=provider, provider_key=provider_key
+                    provider=provider, slug_key=slug_key
                 )
 
                 if not competition:
                     logger.warning(
                         "competition_not_found_for_save",
                         provider=provider,
-                        provider_key=provider_key
+                        provider_key=slug_key
                     )
                     return 0
                 # Save competition IDs while session is active to avoid lazy loading issues
@@ -702,8 +702,8 @@ class EventsService:
                 # Check if teams normalization is enabled from policy
                 teams_normalization_enabled = policy.teams_normalization_enabled
 
-                # Extract category from provider_key to get participant mode
-                category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
+                # Extract category from slug_key to get participant mode
+                category = slug_key.split("_")[0] if "_" in slug_key else "unknown"
                 participant_mode_str = self._policy_loader.get_participant_mode_for_sport(
                     provider=provider, sport_key=category
                 )
@@ -720,7 +720,7 @@ class EventsService:
                     try:
                         external_id = event_data.get("id")
                         if not external_id:
-                            logger.warning("event_missing_id", provider_key=provider_key)
+                            logger.warning("event_missing_id", provider_key=slug_key)
                             continue
 
                         # Build participants based on mode
@@ -772,7 +772,7 @@ class EventsService:
                         logger.error(
                             "failed_to_save_event",
                             provider=provider,
-                            provider_key=provider_key,
+                            provider_key=slug_key,
                             external_id=event_data.get("id"),
                             error=str(e),
                             exc_info=True
@@ -782,13 +782,13 @@ class EventsService:
         return saved_count
 
     async def _validate_competitions(
-        self, provider_keys: List[str], provider: str
+        self, slug_keys: List[str], provider: str
     ) -> tuple[List[str], List[FilteredReasonDTO]]:
         """
         Validate competitions against DB.
 
         Args:
-            provider_keys: List of competition provider_keys to validate
+            slug_keys: List of competition slug_keys to validate
             provider: Provider name (e.g., 'odds_api')
 
         Returns:
@@ -800,17 +800,17 @@ class EventsService:
         async with self._session_factory() as session:
             comp_repo = CompetitionsRepository(session)
 
-            for provider_key in provider_keys:
+            for slug_key in slug_keys:
                 try:
                     # Get competition from DB
                     competition = await comp_repo.get_by_provider_key(
-                        provider=provider, provider_key=provider_key
+                        provider=provider, slug_key=slug_key
                     )
 
                     if not competition:
                         filtered_out.append(
                             FilteredReasonDTO(
-                                provider_key=provider_key, reason="not_found"
+                                slug_key=slug_key, reason="not_found"
                             )
                         )
                         continue
@@ -818,27 +818,27 @@ class EventsService:
                     if not competition.is_active:
                         filtered_out.append(
                             FilteredReasonDTO(
-                                provider_key=provider_key, reason="inactive"
+                                slug_key=slug_key, reason="inactive"
                             )
                         )
                         continue
 
                     # Valid competition
-                    valid_keys.append(provider_key)
+                    valid_keys.append(slug_key)
 
                 except Exception as e:
                     logger.error(
                         "competition_validation_error",
-                        provider_key=provider_key,
+                        provider_key=slug_key,
                         error=str(e),
                     )
                     filtered_out.append(
-                        FilteredReasonDTO(provider_key=provider_key, reason="not_found")
+                        FilteredReasonDTO(slug_key=slug_key, reason="not_found")
                     )
 
         return valid_keys, filtered_out
 
-    async def _refresh_events_cache_for_competition(self, provider: str, provider_key: str) -> None:
+    async def _refresh_events_cache_for_competition(self, provider: str, slug_key: str) -> None:
         """
         Refresh events cache for a competition atomically.
 
@@ -846,10 +846,10 @@ class EventsService:
 
         Args:
             provider: Provider name
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
         """
-        # Extract category from provider_key to get competition from cache
-        category = provider_key.split("_")[0] if "_" in provider_key else "unknown"
+        # Extract category from slug_key to get competition from cache
+        category = slug_key.split("_")[0] if "_" in slug_key else "unknown"
 
         # Try to get competition from cache first
         competition_id = None
@@ -858,7 +858,7 @@ class EventsService:
         if cached_catalog and "competitions" in cached_catalog:
             competitions_list = cached_catalog["competitions"]
             for comp_data in competitions_list:
-                if comp_data.get("provider_key") == provider_key and comp_data.get("provider") == provider:
+                if comp_data.get("slug_key") == slug_key and comp_data.get("provider") == provider:
                     competition_id = comp_data.get("id")
                     if competition_id:
                         # Convert string UUID to UUID object if needed
@@ -871,14 +871,14 @@ class EventsService:
             async with self._session_factory() as session:
                 comp_repo = CompetitionsRepository(session)
                 competition = await comp_repo.get_by_provider_key(
-                    provider=provider, provider_key=provider_key
+                    provider=provider, slug_key=slug_key
                 )
 
                 if not competition:
                     logger.warning(
                         "cache_refresh_skip_no_competition",
                         provider=provider,
-                        provider_key=provider_key
+                        provider_key=slug_key
                     )
                     return
 
@@ -919,7 +919,7 @@ class EventsService:
 
         # Write to cache atomically (outside DB session)
         await self._events_cache.write_upcoming_atomic(
-            provider_key=provider_key,
+            provider_key=slug_key,
             provider=provider,
             items=events_dto,
             ttl_sec=None
@@ -928,7 +928,7 @@ class EventsService:
         logger.info(
             "events_cache_refreshed",
             provider=provider,
-            provider_key=provider_key,
+            provider_key=slug_key,
             upcoming_count=len(events_dto)
         )
 

@@ -23,7 +23,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
     async def upsert_batch(
         self,
         provider: str,
-        provider_key: str,
+        slug_key: str,
         priorities: List[dict],
         model: str,
     ) -> int:
@@ -32,7 +32,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
 
         Args:
             provider: Provider name
-            provider_key: Provider key
+            slug_key: Provider key
             priorities: List of {event_id, score} dicts
             model: Model used for scoring
 
@@ -48,7 +48,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
         for item in priorities:
             values.append({
                 "provider": provider,
-                "provider_key": provider_key,
+                "slug_key": slug_key,
                 "event_id": UUID(item["event_id"]) if isinstance(item["event_id"], str) else item["event_id"],
                 "priority": float(item["priority"]),
                 "model": model,
@@ -59,7 +59,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
         stmt = pg_insert(EventPriority).values(values)
 
         stmt = stmt.on_conflict_do_update(
-            constraint="uq_event_priorities_provider_key_event_id",
+            constraint="uq_event_priorities_slug_key_event_id",
             set_={
                 "priority": stmt.excluded.priority,
                 "model": stmt.excluded.model,
@@ -72,23 +72,23 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
 
         logger.info(
             "event_priorities_upserted",
-            provider_key=provider_key,
+            slug_key=slug_key,
             count=len(values),
             model=model
         )
 
         return len(values)
 
-    async def get_by_provider_key(
+    async def get_by_slug_key(
         self,
-        provider_key: str,
+        slug_key: str,
         limit: int = 1000
     ) -> List[EventPriority]:
         """
         Get priorities for provider key, ordered by priority DESC.
 
         Args:
-            provider_key: Provider key
+            slug_key: Provider key
             limit: Max records
 
         Returns:
@@ -96,7 +96,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
         """
         result = await self.session.execute(
             select(EventPriority)
-            .where(EventPriority.provider_key == provider_key)
+            .where(EventPriority.slug_key == slug_key)
             .order_by(EventPriority.priority.desc())
             .limit(limit)
         )

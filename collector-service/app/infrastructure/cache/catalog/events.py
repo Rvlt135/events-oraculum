@@ -12,19 +12,19 @@ logger = structlog.get_logger()
 
 
 class EventsCache:
-    """Cache for upcoming events grouped by competition provider_key."""
+    """Cache for upcoming events grouped by competition slug_key."""
 
     def __init__(self, redis_client: Redis):
         self.redis = redis_client
         self.key_prefix = "catalog:events"
 
-    def _make_key(self, provider_key: str) -> str:
+    def _make_key(self, slug_key: str) -> str:
         """Generate cache key for a competition's upcoming events."""
-        return f"{self.key_prefix}:{provider_key}:upcoming"
+        return f"{self.key_prefix}:{slug_key}:upcoming"
 
-    def _make_temp_key(self, provider_key: str) -> str:
+    def _make_temp_key(self, slug_key: str) -> str:
         """Generate temporary key for atomic swap."""
-        return f"{self.key_prefix}:{provider_key}:upcoming:tmp"
+        return f"{self.key_prefix}:{slug_key}:upcoming:tmp"
 
     def _make_upcoming_list_key(self, provider: str) -> str:
         """Generate key for competitions with upcoming events index."""
@@ -32,7 +32,7 @@ class EventsCache:
 
     async def write_upcoming_atomic(
         self,
-        provider_key: str = None,
+        slug_key: str = None,
         items: list[EventDTO] = None,
         provider: str = None,
         keys: list[str] = None,
@@ -54,10 +54,10 @@ class EventsCache:
         in batch, rather than a fixed number - separate task.
 
         Args:
-            provider_key: Competition provider_key (for writing events)
+            slug_key: Competition slug_key (for writing events)
             items: List of EventDTO objects (upcoming events only)
             provider: Competition provider service
-            keys: List of provider_key strings (for writing index only)
+            keys: List of slug_key strings (for writing index only)
             ttl_sec: Optional TTL in seconds (defaults to settings.cache_ttl_events_upcoming_sec)
         """
         if keys is not None and provider:
@@ -84,14 +84,14 @@ class EventsCache:
                 )
             return
 
-        if not provider_key or items is None or not provider:
+        if not slug_key or items is None or not provider:
             return
 
         if ttl_sec is None:
             ttl_sec = settings.cache_ttl_events_upcoming_sec
 
-        temp_key = self._make_temp_key(provider_key)
-        final_key = self._make_key(provider_key)
+        temp_key = self._make_temp_key(slug_key)
+        final_key = self._make_key(slug_key)
         list_key = self._make_upcoming_list_key(provider)
 
         try:
@@ -100,12 +100,12 @@ class EventsCache:
             if not items:
                 # Clear cache and remove from index
                 await pipe.delete(final_key)
-                await pipe.srem(list_key, provider_key)
+                await pipe.srem(list_key, slug_key)
                 await pipe.execute()
                 logger.debug(
                     "cleared_empty_events_cache",
                     provider=provider,
-                    provider_key=provider_key
+                    slug_key=slug_key
                 )
                 return
 
@@ -117,13 +117,13 @@ class EventsCache:
             await pipe.rename(temp_key, final_key)
             if ttl_sec:
                 await pipe.expire(final_key, ttl_sec)
-            await pipe.sadd(list_key, provider_key)
+            await pipe.sadd(list_key, slug_key)
             await pipe.execute()
 
             logger.info(
                 "events_cache_updated_atomic",
                 provider=provider,
-                provider_key=provider_key,
+                slug_key=slug_key,
                 count=len(items),
                 ttl_sec=ttl_sec
             )
@@ -132,7 +132,7 @@ class EventsCache:
             logger.error(
                 "events_cache_update_failed",
                 provider=provider,
-                provider_key=provider_key,
+                slug_key=slug_key,
                 error=str(e),
                 exc_info=True
             )
@@ -142,22 +142,22 @@ class EventsCache:
             except Exception:
                 pass
 
-    async def get_upcoming(self, provider_key: str = None, provider: str = None):
+    async def get_upcoming(self, slug_key: str = None, provider: str = None):
         """
         Get upcoming events for a competition from cache, or list of competition keys.
 
         Args:
-            provider_key: Competition provider_key (for getting events)
+            slug_key: Competition slug_key (for getting events)
             provider: Provider name (for getting list of keys with upcoming events)
 
         Returns:
-            List of EventDTO objects if provider_key provided, or list of provider_key strings if provider provided
+            List of EventDTO objects if slug_key provided, or list of slug_key strings if provider provided
         """
-        if provider and not provider_key:
+        if provider and not slug_key:
             # Return list of competition keys with upcoming events
             list_key = self._make_upcoming_list_key(provider)
             try:
-                provider_keys = await self.redis.smembers(list_key)
+                slug_keys = await self.redis.smembers(list_key)
                 keys_list = [key.decode('utf-8') if isinstance(key, bytes) else key for key in provider_keys]
                 return sorted(keys_list)
             except Exception as e:
@@ -168,7 +168,7 @@ class EventsCache:
                 )
                 return []
 
-        if not provider_key:
+        if not slug_key:
             return []
 
         # Return events for specific competition

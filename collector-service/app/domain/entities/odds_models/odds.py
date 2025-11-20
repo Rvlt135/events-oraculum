@@ -115,14 +115,14 @@ class EventBookmakerMarketOddsDTO(BaseModel):
 class EventOddsDTO(BaseModel):
        event_id: UUID              # наш events.id
        external_id: str            # id провайдера
-       provider_key: str           # sport_key / competition
+       slug_key: str           # sport_key / competition
        commence_time: datetime | None
        home_team: str | None
        away_team: str | None
        markets: list[EventBookmakerMarketOddsDTO]
 
 class CompetitionOddsDTO(BaseModel):
-       provider_key: str
+       slug_key: str
        events: list[EventOddsDTO]
 
 

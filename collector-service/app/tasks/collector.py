@@ -133,13 +133,13 @@ async def collect_events() -> Dict[str, str]:
             category = key.split("_")[0] if "_" in key else "unknown"
             is_active = await events_service.check_competition_active(
                 category=category,
-                provider_key=key,
+                slug_key=key,
                 provider=provider
             )
             if is_active:
                 active_keys.append(key)
             else:
-                logger.info("competition_filtered_inactive", provider_key=key)
+                logger.info("competition_filtered_inactive", slug_key=key)
 
         logger.info("active_competitions_filtered", total=len(all_competition_keys), active=len(active_keys))
 
@@ -322,7 +322,7 @@ async def collect_odds_task() -> Dict[str, str]:
             # Get upcoming events as EventShortDTO
             upcoming_events = await odds_service.get_upcoming_events_short(
                 provider=provider,
-                provider_key=competition_key,
+                slug_key=competition_key,
             )
 
             if not upcoming_events:
@@ -334,7 +334,7 @@ async def collect_odds_task() -> Dict[str, str]:
             # Fetch odds_models using new service method
             competition_odds = await odds_service.fetch_odds_for_competition(
                 provider=provider,
-                provider_key=competition_key,
+                slug_key=competition_key,
                 upcoming_events=upcoming_events,
             )
 
@@ -346,7 +346,7 @@ async def collect_odds_task() -> Dict[str, str]:
             if not competition_odds.events:
                 logger.info(
                     "odds_collect_summary",
-                    provider_key=competition_key,
+                    slug_key=competition_key,
                     events_count=events_count,
                     events_with_odds=0,
                     snapshots_written=0,
@@ -376,7 +376,7 @@ async def collect_odds_task() -> Dict[str, str]:
 
             logger.info(
                 "odds_collect_summary",
-                provider_key=competition_key,
+                slug_key=competition_key,
                 events_count=events_count,
                 events_with_odds=events_with_odds,
                 snapshots_written=snapshots_written,

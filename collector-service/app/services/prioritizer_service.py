@@ -50,28 +50,28 @@ class PrioritizerService:
         self._cache_ttl_sec = cache_ttl_sec
         # self._rate_limit_qps = rate_limit_qps # TODO: delete after tests
 
-    async def get_upcoming_events_from_cache(self, provider_key: str) -> List[EventDTO]:
+    async def get_upcoming_events_from_cache(self, slug_key: str) -> List[EventDTO]:
         """
         Get upcoming events from Redis cache.
 
         Args:
-            provider_key: Provider key for cache lookup
+            slug_key: Competition slug key for cache lookup
 
         Returns:
             List of EventDTO from cache or empty list
         """
         try:
-            cached = await self._events_cache.get_upcoming(provider_key)
+            cached = await self._events_cache.get_upcoming(slug_key)
 
             if cached:
-                logger.info("events_loaded_from_cache", provider_key=provider_key, count=len(cached))
+                logger.info("events_loaded_from_cache", slug_key=slug_key, count=len(cached))
                 return cached
 
-            logger.debug("no_events_in_cache", provider_key=provider_key)
+            logger.debug("no_events_in_cache", slug_key=slug_key)
             return []
 
         except Exception as e:
-            logger.error("cache_read_error", provider_key=provider_key, error=str(e))
+            logger.error("cache_read_error", slug_key=slug_key, error=str(e))
             return []
 
     async def get_upcoming_events_from_db(
@@ -128,23 +128,23 @@ class PrioritizerService:
                 logger.error("db_read_error", error=str(e), exc_info=True)
                 return []
 
-    async def get_upcoming_events_for_provider_key(
+    async def get_upcoming_events_for_slug_key(
         self,
-        provider_key: str,
+        slug_key: str,
         provider: str = "odds_api",
     ) -> List[EventDTO]:
         """
-        Get upcoming events for a provider_key (cache-first, then DB fallback).
+        Get upcoming events for a slug_key (cache-first, then DB fallback).
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             provider: Provider name
 
         Returns:
             List of EventDTO (empty if none found)
         """
         # Try cache first
-        events = await self.get_upcoming_events_from_cache(provider_key)
+        events = await self.get_upcoming_events_from_cache(slug_key)
 
         if events:
             return events
@@ -155,13 +155,13 @@ class PrioritizerService:
             event_repo = EventRepository(session)
 
             try:
-                competition = await comp_repo.get_by_provider_key(
+                competition = await comp_repo.get_by_slug_key(
                     provider=provider,
-                    provider_key=provider_key
+                    slug_key=slug_key
                 )
 
                 if not competition:
-                    logger.debug("competition_not_found", provider_key=provider_key, provider=provider)
+                    logger.debug("competition_not_found", slug_key=slug_key, provider=provider)
                     return []
 
                 events_orm = await event_repo.get_upcoming_by_competition(
@@ -194,15 +194,15 @@ class PrioritizerService:
                     result.append(dto)
 
                 logger.info(
-                    "events_loaded_from_db_for_provider_key",
-                    provider_key=provider_key,
+                    "events_loaded_from_db_for_slug_key",
+                    slug_key=slug_key,
                     count=len(result)
                 )
 
                 return result
 
             except Exception as e:
-                logger.error("db_read_error_for_provider_key", provider_key=provider_key, error=str(e), exc_info=True)
+                logger.error("db_read_error_for_slug_key", slug_key=slug_key, error=str(e), exc_info=True)
                 return []
 
     def deduplicate_events(self, events: List[EventDTO]) -> List[EventDTO]:
@@ -276,7 +276,7 @@ class PrioritizerService:
 
     async def collect_and_batch_events(
         self,
-        provider_key: str = "odds_api",
+        slug_key: str = "odds_api",
         max_events: int | None = None,
     ) -> List[List[Dict[str, Any]]]:
         """
@@ -286,7 +286,7 @@ class PrioritizerService:
         Deduplicates, sorts by commence_time ASC, and batches.
 
         Args:
-            provider_key: Provider key for cache lookup
+            slug_key: Provider key for cache lookup
             max_events: Maximum events (defaults to service max_events)
 
         Returns:
@@ -296,12 +296,12 @@ class PrioritizerService:
 
         logger.info(
             "collecting_events_for_prioritization",
-            provider_key=provider_key,
+            slug_key=slug_key,
             max_events=max_events,
             batch_size=self._batch_size
         )
 
-        events = await self.get_upcoming_events_from_cache(provider_key)
+        events = await self.get_upcoming_events_from_cache(slug_key)
 
         if not events:
             logger.info("cache_empty_falling_back_to_db")
@@ -327,7 +327,7 @@ class PrioritizerService:
 
     async def rank(
         self,
-        provider_key: str,
+        slug_key: str,
         provider: str = "odds_api",
         max_events: int | None = None,
         events: List[EventDTO] | None = None,
@@ -336,7 +336,7 @@ class PrioritizerService:
         Rank events using LLM or fallback to date sorting.
 
         Args:
-            provider_key: Provider key
+            slug_key: Provider key
             provider: Provider name
             max_events: Max events override
             events: Pre-fetched EventDTO list (optional, if None will fetch from cache/DB)
@@ -353,7 +353,7 @@ class PrioritizerService:
 
         logger.info(
             "ranking_started",
-            provider_key=provider_key,
+            slug_key=slug_key,
             enabled=self._enabled
         )
 

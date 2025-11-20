@@ -17,7 +17,7 @@ class CompetitionsRepository(BaseRepository[Competition]):
     async def get_or_create(
         self,
         sport_id: UUID,
-        provider_key: str,
+        slug_key: str,
         title: str,
         description: str = None,
         plan_visibility: str = "free",
@@ -25,7 +25,7 @@ class CompetitionsRepository(BaseRepository[Competition]):
     ) -> UUID:
         result = await self.session.execute(
             select(Competition).where(
-                Competition.provider_key == provider_key,
+                Competition.slug_key == slug_key,
                 Competition.provider == provider
             )
         )
@@ -35,14 +35,14 @@ class CompetitionsRepository(BaseRepository[Competition]):
             competition = Competition(
                 sport_id=sport_id,
                 provider=provider,
-                provider_key=provider_key,
+                slug_key=slug_key,
                 title=title,
                 description=description,
                 is_active=True,
                 plan_visibility=plan_visibility
             )
             competition = await self.create(competition)
-            logger.info("competition_created", key=provider_key, title=title, id=str(competition.id), plan_visibility=plan_visibility)
+            logger.info("competition_created", key=slug_key, title=title, id=str(competition.id), plan_visibility=plan_visibility)
         else:
             updated = False
             if competition.title != title:
@@ -54,26 +54,26 @@ class CompetitionsRepository(BaseRepository[Competition]):
             if competition.plan_visibility != plan_visibility:
                 competition.plan_visibility = plan_visibility
                 updated = True
-                logger.info("competition_plan_visibility_updated", key=provider_key, id=str(competition.id), plan_visibility=plan_visibility)
+                logger.info("competition_plan_visibility_updated", key=slug_key, id=str(competition.id), plan_visibility=plan_visibility)
 
             if updated:
                 await self.session.flush()
-                logger.info("competition_updated", key=provider_key, new_title=title)
+                logger.info("competition_updated", key=slug_key, new_title=title)
 
         return competition.id
 
     async def get_by_key(self, key: str) -> Optional[Competition]:
         result = await self.session.execute(
-            select(Competition).where(Competition.provider_key == key)
+            select(Competition).where(Competition.slug_key == key)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_provider_key(self, provider: str, provider_key: str) -> Optional[Competition]:
-        """Get competition by provider and provider_key."""
+    async def get_by_slug_key(self, provider: str, slug_key: str) -> Optional[Competition]:
+        """Get competition by provider and slug_key."""
         result = await self.session.execute(
             select(Competition).where(
                 Competition.provider == provider,
-                Competition.provider_key == provider_key
+                Competition.slug_key == slug_key
             )
         )
         return result.scalar_one_or_none()
