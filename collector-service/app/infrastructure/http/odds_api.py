@@ -37,10 +37,10 @@ class OddsAPIClient:
 
     async def fetch_odds_mock(self) -> List[Dict[str, Any]]:
         """
-        Fetch mock odds data from local JSON file.
+        Fetch mock odds_models data from local JSON file.
         
         Returns:
-            List of odds data dictionaries from odds_list.json
+            List of odds_models data dictionaries from odds_list.json
         """
         return load_mock_odds()
 
@@ -92,7 +92,7 @@ class OddsAPIClient:
         odds_format: str = "decimal",
     ) -> List[Dict[str, Any]]:
         """
-        Get odds for a sport from The Odds API.
+        Get odds_models for a sport from The Odds API.
 
         Args:
             sport: Sport key (e.g., 'soccer_uefa_champs_league')
@@ -109,13 +109,13 @@ class OddsAPIClient:
             odds_format: Odds format (default: "decimal")
 
         Returns:
-            List of odds data dictionaries
+            List of odds_models data dictionaries
         """
         if self.use_mock_odds:
             logger.info("using_mock_odds_data")
             return await self.fetch_odds_mock()
         
-        path = f"sports/{sport}/odds"
+        path = f"sports/{sport}/odds_models"
         url = self.base.build_url(path)
         
         params: Dict[str, Any] = {

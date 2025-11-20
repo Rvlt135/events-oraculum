@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.infrastructure.db.orm.odds import OddsSnapshot
-from app.domain.entities.odds import OddsSnapshotDTO
+from app.domain.entities.odds_models.odds import OddsSnapshotDTO
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
 
@@ -86,7 +86,7 @@ class OddsSnapshotRepository(BaseRepository[OddsSnapshot]):
         timestamp_source: datetime,
     ) -> UUID:
         """Deprecated: Use upsert_snapshot with OddsSnapshotDTO instead."""
-        from app.domain.entities.odds import OddsOutcomeDTO
+        from app.domain.entities.odds_models import OddsOutcomeDTO
         outcomes_list = outcomes.get("outcomes", []) if isinstance(outcomes, dict) else outcomes
         outcomes_dto = [
             OddsOutcomeDTO(**outcome) if isinstance(outcome, dict) else outcome

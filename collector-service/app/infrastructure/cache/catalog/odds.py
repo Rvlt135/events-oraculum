@@ -1,26 +1,26 @@
 """
-Odds cache for storing normalized odds per event with atomic updates.
+Odds cache for storing normalized odds_models per event with atomic updates.
 """
 from typing import Optional
 from uuid import UUID
 import structlog
 from redis.asyncio import Redis
 
-from app.domain.entities.odds import NormalizedOddsDTO, NormalizedOddsCacheDTO
+from app.domain.entities.odds_models.odds import NormalizedOddsDTO, NormalizedOddsCacheDTO
 from app.config.settings import settings
 
 logger = structlog.get_logger()
 
 
 class OddsCache:
-    """Cache for normalized odds grouped by event_id."""
+    """Cache for normalized odds_models grouped by event_id."""
 
     def __init__(self, redis_client: Redis):
         self.redis = redis_client
-        self.key_prefix = "catalog:odds"
+        self.key_prefix = "catalog:odds_models"
 
     def _make_key(self, provider_key: str, event_id: UUID) -> str:
-        """Generate cache key for an event's normalized odds."""
+        """Generate cache key for an event's normalized odds_models."""
         return f"{self.key_prefix}:{provider_key}:{event_id}"
 
     def _make_temp_key(self, provider_key: str, event_id: UUID) -> str:
@@ -35,7 +35,7 @@ class OddsCache:
         ttl_sec: Optional[int] = None
     ) -> None:
         """
-        Atomically write normalized odds for an event.
+        Atomically write normalized odds_models for an event.
 
         Uses atomic swap pattern:
         1. Write to temporary key
@@ -130,7 +130,7 @@ class OddsCache:
         event_id: UUID
     ) -> list[NormalizedOddsDTO]:
         """
-        Read normalized odds for an event from cache.
+        Read normalized odds_models for an event from cache.
 
         Args:
             provider_key: Competition provider_key

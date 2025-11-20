@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class OddsPolicyDTO(BaseModel):
-    """DTO for odds policy configuration."""
+    """DTO for odds_models policy configuration."""
     regions: list[str]
     markets: list[str]
     bookmakers: list[str]

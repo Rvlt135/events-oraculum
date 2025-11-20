@@ -5,7 +5,7 @@ services:
     build:
       context: ../collector-service
       dockerfile: Dockerfile
-    container_name: layerbit-odds-api
+    container_name: layerbit-odds_models-api
     command: python -m app.main
     ports:
       - "8083:8083"
@@ -26,7 +26,7 @@ services:
     build:
       context: ../collector-service
       dockerfile: Dockerfile
-    container_name: layerbit-odds-worker
+    container_name: layerbit-odds_models-worker
     command: python -m boot.worker
     env_file:
       - ../collector-service/.env
@@ -42,7 +42,7 @@ services:
     build:
       context: ../collector-service
       dockerfile: Dockerfile
-    container_name: layerbit-odds-scheduler
+    container_name: layerbit-odds_models-scheduler
     command: python -m boot.scheduler
     env_file:
       - ../collector-service/.env

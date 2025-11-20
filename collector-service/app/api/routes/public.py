@@ -1,7 +1,7 @@
 """
 Public API routes for collector-service.
 
-These routes provide read-only access to odds data and service information.
+These routes provide read-only access to odds_models data and service information.
 """
 
 from fastapi import APIRouter

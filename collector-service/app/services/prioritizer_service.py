@@ -7,8 +7,6 @@ from dateutil import parser
 from uuid import UUID
 import json
 import structlog
-import asyncio
-import secrets
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 import redis.asyncio as redis
 
@@ -19,7 +17,7 @@ from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.utils.time_utils import now_utc
-from app.domain.entities.event import EventDTO
+from app.domain.entities.events.event import EventDTO
 
 logger = structlog.get_logger()
 

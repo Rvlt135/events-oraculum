@@ -6,7 +6,7 @@ from app.config import settings
 from app.utils.time_utils import now_utc, build_events_window
 from app.infrastructure.di.services import get_sports_service, get_events_service, get_odds_service
 from app.tasks.broker import broker
-from app.domain.entities.events_window import EventsWindowDTO
+from app.domain.entities.events.events_window import EventsWindowDTO
 from app.tasks.prioritizer import enqueue_prioritization_after_collect
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-collection_duration = Histogram("odds_collection_duration_seconds", "Time spent collecting odds data")
+collection_duration = Histogram("odds_collection_duration_seconds", "Time spent collecting odds_models data")
 events_processed_total = Counter("odds_events_processed_total", "Total number of events processed")
 collection_errors_total = Counter("odds_collection_errors_total", "Total number of collection errors")
 
@@ -210,7 +210,7 @@ async def collect_events() -> Dict[str, str]:
 @broker.task(schedule=_task_schedule)
 async def collect_odds_task() -> Dict[str, str]:
     """
-    Collect odds for competitions with upcoming events from provider.
+    Collect odds_models for competitions with upcoming events from provider.
 
     Configuration from provider_policy.yml:
     - Competition list from events_policy.competitions (free + pro)
@@ -310,7 +310,7 @@ async def collect_odds_task() -> Dict[str, str]:
             keys=keys_for_odds
         )
 
-        # Process odds collection for selected competitions
+        # Process odds_models collection for selected competitions
         total_events_count = 0
         total_events_with_odds = 0
         total_snapshots_written = 0
@@ -331,7 +331,7 @@ async def collect_odds_task() -> Dict[str, str]:
             events_count = len(upcoming_events)
             total_events_count += events_count
 
-            # Fetch odds using new service method
+            # Fetch odds_models using new service method
             competition_odds = await odds_service.fetch_odds_for_competition(
                 provider=provider,
                 provider_key=competition_key,
@@ -356,7 +356,7 @@ async def collect_odds_task() -> Dict[str, str]:
                 )
                 continue
 
-            # Persist odds (normalize + write to DB + cache)
+            # Persist odds_models (normalize + write to DB + cache)
             metrics = await odds_service.persist_competition_odds(
                 competition_odds,
                 provider=provider,

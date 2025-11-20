@@ -7,8 +7,6 @@ import structlog
 from redis.asyncio import Redis
 import secrets
 
-from app.domain.entities.event import EventDTO
-
 logger = structlog.get_logger()
 
 

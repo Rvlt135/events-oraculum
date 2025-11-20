@@ -8,7 +8,7 @@ import yaml
 import structlog
 from pydantic import BaseModel
 
-from app.domain.entities.events_window import EventsPolicyDTO
+from app.domain.entities.events.events_window import EventsPolicyDTO
 from app.domain.policy.dto import OddsPolicyDTO
 
 logger = structlog.get_logger()
@@ -166,12 +166,12 @@ class PolicyLoader:
         return PrioritizerPolicyDTO(**dto_data)
     
     def get_odds_policy(self, provider: str) -> Optional[OddsPolicyDTO]:
-        """Get odds policy for provider as DTO."""
+        """Get odds_models policy for provider as DTO."""
         if not self._cache:
             return None
         
         provider_config = self._cache.get(provider, {})
-        odds_config = provider_config.get("odds", {})
+        odds_config = provider_config.get("odds_models", {})
         if not odds_config:
             return None
         

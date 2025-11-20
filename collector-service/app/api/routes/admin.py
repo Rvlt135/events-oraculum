@@ -45,9 +45,9 @@ async def get_snapshots(
     _auth: None = Depends(verify_admin_token),
 ) -> SnapshotsResponse:
     """
-    Get normalized odds snapshots.
+    Get normalized odds_models snapshots.
 
-    Returns aggregated odds data with averages and best odds
+    Returns aggregated odds_models data with averages and best odds_models
     from multiple bookmakers.
     """
     logger.info("fetching_snapshots", limit=limit, competition=competition)
@@ -78,13 +78,13 @@ async def trigger_collection_sport(
     _auth: None = Depends(verify_admin_token)
 ) -> TaskTriggerResponse:
     """
-    Manually trigger odds collection task.
+    Manually trigger odds_models collection task.
 
     This enqueues a collection task in TaskIQ that will:
-    1. Fetch odds from external API
+    1. Fetch odds_models from external API
     2. Normalize team names
-    3. Store events and odds snapshots
-    4. Calculate aggregated odds
+    3. Store events and odds_models snapshots
+    4. Calculate aggregated odds_models
     """
     logger.info("manual_collection_triggered")
 
@@ -334,7 +334,7 @@ async def get_priority_ranked(
         raise HTTPException(status_code=500, detail="Failed to fetch ranked events")
 
 
-@router.get("/odds/{event_id}")
+@router.get("/odds_models/{event_id}")
 async def get_event_odds(
     event_id: UUID,
     provider_key: Optional[str] = Query(default=None),
@@ -342,10 +342,10 @@ async def get_event_odds(
     _auth: None = Depends(verify_admin_token),
 ) -> Dict[str, Any]:
     """
-    Get normalized odds for an event (cache-first, then DB).
+    Get normalized odds_models for an event (cache-first, then DB).
 
-    Reads from catalog:odds:{provider_key}:{event_id} cache or falls back to DB.
-    Returns compact JSON with markets, averages, best odds, and bookmakers count.
+    Reads from catalog:odds_models:{provider_key}:{event_id} cache or falls back to DB.
+    Returns compact JSON with markets, averages, best odds_models, and bookmakers count.
     """
     logger.info("get_event_odds_endpoint", event_id=str(event_id), provider_key=provider_key)
 
@@ -393,19 +393,19 @@ async def get_event_odds(
 
     except Exception as e:
         logger.error("failed_to_get_event_odds", event_id=str(event_id), error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch event odds")
+        raise HTTPException(status_code=500, detail="Failed to fetch event odds_models")
 
 
-@router.get("/catalog/odds/{provider_key}")
+@router.get("/catalog/odds_models/{provider_key}")
 async def get_odds_catalog(
     provider_key: str,
     odds_service = Depends(get_odds_service),
     _auth: None = Depends(verify_admin_token),
 ) -> Dict[str, Any]:
     """
-    Get upcoming events with odds availability for a competition.
+    Get upcoming events with odds_models availability for a competition.
 
-    Reads normalized odds from Redis (catalog:odds:{provider_key}:{event_id}),
+    Reads normalized odds_models from Redis (catalog:odds_models:{provider_key}:{event_id}),
     supplements with basic event info from events cache if available.
     Does not fail if event info is missing.
     """
@@ -425,7 +425,7 @@ async def get_odds_catalog(
         items = []
         for event in upcoming_events:
             try:
-                # Read normalized odds from odds cache
+                # Read normalized odds_models from odds_models cache
                 odds_list = await odds_service.odds_cache.read_event_odds(
                     provider_key=provider_key,
                     event_id=event.id
@@ -456,22 +456,22 @@ async def get_odds_catalog(
 
     except Exception as e:
         logger.error("failed_to_get_odds_catalog", provider_key=provider_key, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch odds catalog")
+        raise HTTPException(status_code=500, detail="Failed to fetch odds_models catalog")
 
-@router.post("/tasks/odds/collect", response_model=TaskTriggerResponse, status_code=202)
+@router.post("/tasks/odds_models/collect", response_model=TaskTriggerResponse, status_code=202)
 async def trigger_odds_collection(
     _auth: None = Depends(verify_admin_token)
 ) -> TaskTriggerResponse:
     """
-    Manually trigger odds collection task (O1-T7).
+    Manually trigger odds_models collection task (O1-T7).
 
     This enqueues a `collect_odds_task` in TaskIQ that will:
     1. Load provider_policy.yml configuration
     2. Determine competitions with upcoming events (cache-first with DB fallback)
-    3. Fetch odds from external API for each competition
-    4. Normalize odds to snapshots and aggregated normalized odds
+    3. Fetch odds_models from external API for each competition
+    4. Normalize odds_models to snapshots and aggregated normalized odds_models
     5. Upsert to database (idempotent)
-    6. Update odds cache atomically per event
+    6. Update odds_models cache atomically per event
     7. Log summary with events_count, events_with_odds, snapshots_written, etc.
 
     No runtime parameters - all configuration from provider_policy.yml.

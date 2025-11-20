@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from httpx import HTTPStatusError
 from app.utils.text_utils import normalize_name
 
-from app.domain.entities.events_targets import EventsTargetsDTO, FilteredReasonDTO
-from app.domain.entities.events_window import (
+from app.domain.entities.events.events_targets import EventsTargetsDTO, FilteredReasonDTO
+from app.domain.entities.events.events_window import (
     EventsPolicyDTO,
     EventsWindowDTO,
     EventKeyResultDTO,
@@ -27,7 +27,7 @@ from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.config.policy_loader import PolicyLoader
-from app.domain.entities.event import EventDTO
+from app.domain.entities.events.event import EventDTO
 from app.domain.entities.participant import EventUpsertDTO, ParticipantItemDTO
 from app.services.participants_helper import build_participants
 

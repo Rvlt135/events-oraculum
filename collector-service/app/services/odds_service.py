@@ -1,6 +1,5 @@
 import re
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from uuid import UUID
 from collections import defaultdict
@@ -12,7 +11,7 @@ import structlog
 from app.utils.odds_math import safe_avg, safe_best
 
 if TYPE_CHECKING:
-    from app.domain.entities.events_window import EventsWindowDTO
+    from app.domain.entities.events.events_window import EventsWindowDTO
 
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.cache.catalog.odds import OddsCache
@@ -28,7 +27,7 @@ from app.infrastructure.repositories import (
     NormalizedOddsRepository,
     CompetitionsRepository,
 )
-from app.domain.entities.odds import (
+from app.domain.entities.odds_models.odds import (
     EventShortDTO,
     CompetitionOddsDTO,
     EventOddsDTO,
@@ -39,7 +38,7 @@ from app.domain.entities.odds import (
     OddsSnapshotDTO,
     NormalizedOddsDTO,
 )
-from app.domain.entities.events_window import EventsWindowDTO
+from app.domain.entities.events.events_window import EventsWindowDTO
 
 logger = structlog.get_logger()
 
@@ -253,7 +252,7 @@ class OddsService:
         provider: str,
     ) -> list[str]:
         """
-        Get list of provider_key for odds from Redis index with_upcoming.
+        Get list of provider_key for odds_models from Redis index with_upcoming.
 
         Falls back to DB if cache is empty, then restores cache.
 
@@ -381,7 +380,7 @@ class OddsService:
         Map ExternalOddsEventDTO to CompetitionOddsDTO, filtering by upcoming events.
 
         Args:
-            external_events: List of external odds events from API
+            external_events: List of external odds_models events from API
             upcoming_events: List of our local upcoming events
             provider_key: Competition provider key
 
@@ -491,7 +490,7 @@ class OddsService:
         upcoming_events: list[EventShortDTO],
     ) -> CompetitionOddsDTO:
         """
-        Fetch odds for competition from external API and filter by our upcoming events.
+        Fetch odds_models for competition from external API and filter by our upcoming events.
 
         Args:
             provider: Provider name (e.g., 'odds_api')
@@ -499,7 +498,7 @@ class OddsService:
             upcoming_events: List of our local upcoming events
 
         Returns:
-            CompetitionOddsDTO with filtered odds (empty if no upcoming events)
+            CompetitionOddsDTO with filtered odds_models (empty if no upcoming events)
         """
         logger.info(
             "fetch_odds_for_competition_started",
@@ -519,7 +518,7 @@ class OddsService:
                 events=[],
             )
 
-        # Get odds policy
+        # Get odds_models policy
         odds_policy = self.policy_loader.get_odds_policy(provider)
         if not odds_policy:
             logger.warning(
@@ -605,7 +604,7 @@ class OddsService:
         """
         Normalize CompetitionOddsDTO to list of OddsSnapshotDTO.
 
-        Converts provider-level odds data to snapshot DTOs without DB writes.
+        Converts provider-level odds_models data to snapshot DTOs without DB writes.
         Filters by policy.markets and policy.bookmakers if policy is provided.
 
         Args:
@@ -770,7 +769,7 @@ class OddsService:
                         else:
                             away_odds.append(outcome.price)
 
-            # Calculate averages and best odds with proper rounding
+            # Calculate averages and best odds_models with proper rounding
             home_avg = safe_avg(home_odds)
             away_avg = safe_avg(away_odds)
             draw_avg = safe_avg(draw_odds, default=None)
@@ -830,7 +829,7 @@ class OddsService:
         provider_key: str,
     ) -> list[EventShortDTO]:
         """
-        Get upcoming events as EventShortDTO for odds collection.
+        Get upcoming events as EventShortDTO for odds_models collection.
 
         Args:
             provider: Provider name
@@ -882,7 +881,7 @@ class OddsService:
         odds_policy: OddsPolicyDTO,
     ) -> dict[str, BookmakerDTO]:
         """
-        Collect unique bookmakers from competition odds.
+        Collect unique bookmakers from competition odds_models.
 
         Args:
             competition_odds: CompetitionOddsDTO with events and markets
@@ -1022,7 +1021,7 @@ class OddsService:
         bookmaker_id_to_key_map: dict[UUID, str],
     ) -> tuple[list[NormalizedOddsDTO], int, int]:
         """
-        Aggregate and persist normalized odds to database.
+        Aggregate and persist normalized odds_models to database.
 
         Returns:
             Tuple of (normalized, normalized_inserted, normalized_updated)
@@ -1054,7 +1053,7 @@ class OddsService:
         normalized: list[NormalizedOddsDTO],
     ) -> None:
         """
-        Update odds cache for competition by grouping normalized odds by event_id.
+        Update odds_models cache for competition by grouping normalized odds_models by event_id.
         """
         event_odds_map: dict[UUID, list[NormalizedOddsDTO]] = {}
         for norm_dto in normalized:
@@ -1077,7 +1076,7 @@ class OddsService:
         odds_policy: OddsPolicyDTO,
     ) -> dict[str, int]:
         """
-        Persist competition odds to database (snapshots and normalized).
+        Persist competition odds_models to database (snapshots and normalized).
 
         Flow:
         1. Normalize CompetitionOddsDTO to snapshots
@@ -1086,7 +1085,7 @@ class OddsService:
            - Upsert snapshots
            - Aggregate to normalized
            - Upsert normalized
-        3. Update odds cache
+        3. Update odds_models cache
 
         Args:
             competition_odds: CompetitionOddsDTO from fetch_odds_for_competition
@@ -1174,7 +1173,7 @@ class OddsService:
         event_id: UUID,
     ) -> list[NormalizedOddsDTO]:
         """
-        Get normalized odds for an event (read-through cache).
+        Get normalized odds_models for an event (read-through cache).
 
         Flow:
         1. Try to read from cache

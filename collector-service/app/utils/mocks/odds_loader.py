@@ -1,5 +1,5 @@
 """
-Utility for loading mock odds data from JSON file.
+Utility for loading mock odds_models data from JSON file.
 """
 import json
 from pathlib import Path
@@ -8,12 +8,12 @@ from typing import List, Dict, Any
 
 def load_mock_odds() -> List[Dict[str, Any]]:
     """
-    Load mock odds data from JSON file.
+    Load mock odds_models data from JSON file.
     
     Reads JSON from app/utils/mocks/odds_list.json and returns list of dictionaries.
     
     Returns:
-        List of odds data dictionaries
+        List of odds_models data dictionaries
         
     Raises:
         FileNotFoundError: If odds_list.json file doesn't exist
@@ -25,7 +25,7 @@ def load_mock_odds() -> List[Dict[str, Any]]:
     
     if not mock_file.exists():
         raise FileNotFoundError(
-            f"Mock odds file not found: {mock_file}. "
+            f"Mock odds_models file not found: {mock_file}. "
             "Please create odds_list.json in app/utils/mocks/ directory."
         )
     
@@ -41,7 +41,7 @@ def load_mock_odds() -> List[Dict[str, Any]]:
     
     if not isinstance(data, list):
         raise ValueError(
-            f"Mock odds file {mock_file} must contain a JSON array (list), "
+            f"Mock odds_models file {mock_file} must contain a JSON array (list), "
             f"but got {type(data).__name__}"
         )
     

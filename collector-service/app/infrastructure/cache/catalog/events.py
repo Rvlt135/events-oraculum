@@ -5,7 +5,7 @@ from typing import Optional
 import structlog
 from redis.asyncio import Redis
 
-from app.domain.entities.event import EventDTO
+from app.domain.entities.events.event import EventDTO
 from app.config.settings import settings
 
 logger = structlog.get_logger()

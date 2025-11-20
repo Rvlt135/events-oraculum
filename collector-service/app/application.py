@@ -88,7 +88,7 @@ def create_app(env: str = "development") -> FastAPI:
 
     app = FastAPI(
         title="Odds Service",
-        description="Sports odds collection and normalization service",
+        description="Sports odds_models collection and normalization service",
         version="0.1.0",
         lifespan=lifespan,
         default_response_class=ORJSONResponse,
