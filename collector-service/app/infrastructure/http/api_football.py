@@ -36,35 +36,34 @@ class APIFootballClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), retry=retry_if_exception_type(HTTPError))
     async def get_standings(self, league_id: int, season: int, team: Optional[int] = None) -> List[League]:
         params = {"league": league_id, "season": season}
-        if team:
+        if team is not None:
             params["team"] = team
 
         url = self.base.build_url("standings")
 
-        logger.info("fetching_standings", url=url)
+        logger.info("fetching_standings", url=url, params=params)
         try:
             raw_json = await self.base.get_json("standings", params=params)
         except Exception as exc:
             logger.error("standings_http_failed", error=str(exc))
             raise HTTPError("Failed to fetch standings from external API") from exc
 
-        if not isinstance(raw_json, (dict, list)):
+        if not isinstance(raw_json, dict):
             logger.error("standings_unexpected_type", type=type(raw_json).__name__)
             raise ValueError("Unexpected response type from standings API")
 
-        if isinstance(raw_json, dict):
-            errors = raw_json.get("errors") or raw_json.get("error")
-            if errors:
-                logger.error("standings_api_errors", errors=errors)
-                raise ValueError(f"Standings API returned errors: {errors}")
+        errors = raw_json.get("errors")
+        if (isinstance(errors, dict) and errors) or (isinstance(errors, list) and errors):
+            logger.error("standings_api_errors", errors=errors)
+            raise ValueError(f"Standings API returned errors: {errors}")
 
         response_data = raw_json.get("response")
         if not isinstance(response_data, list):
             logger.error("standings_invalid_response", raw=raw_json)
             raise ValueError("Expected 'response' to be a list of leagues")
+
         payload = {"response": response_data}
 
-        # 5. Валидация Pydantic
         try:
             standings = StandingsResponse.model_validate(payload)
         except ValidationError as exc:
