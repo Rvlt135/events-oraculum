@@ -15,6 +15,7 @@ from app.infrastructure.cache.catalog.odds import OddsCache
 from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
+from app.infrastructure.http.api_football import APIFootballClient
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
@@ -44,6 +45,7 @@ class Container:
         self.redis_cache: redis.Redis | None = None
         self.redis_broker: redis.Redis | None = None
         self.odds_client: OddsAPIClient | None = None
+        self.api_football_client: APIFootballClient | None = None
         self.ai_config: AIConfigLoader | None = None
         self.ai_client: PrioritizerLLMClient | None = None
         self.llm_service: LLMService | None = None
@@ -221,6 +223,12 @@ def create_container() -> Container:
         regions=settings.odds_api_regions,
         markets=settings.odds_api_markets,
         use_mock_odds=settings.odds_use_mock,
+    )
+
+    container.api_football_client = APIFootballClient(
+        api_key=settings.api_football_key,
+        base_url=settings.api_football_base_url,
+        use_mock_api_football=settings.api_football_use_mock,
     )
 
     # Create AI config loader with settings

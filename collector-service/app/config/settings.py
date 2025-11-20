@@ -29,9 +29,7 @@ class Settings(BaseSettings):
     odds_api_regions: List[str] = Field(default=["eu"])
     odds_api_markets: List[str] = Field(default=["h2h"])
     odds_api_competitions: List[str] = Field(default=["soccer_uefa_champs_league"])
-    
-    # Odds mock configuration
-    odds_use_mock: bool
+
 
     schedule_crons: List[str]
     schedule_sports_crons: List[str]
@@ -50,6 +48,16 @@ class Settings(BaseSettings):
     admin_prefix: str = Field(default="/_admin")
     admin_token: str = Field(default="")
     admin_docs_enabled: bool = Field(default=False)
+
+    # API Football secrets
+
+    api_football_base_url: str
+    api_football_key: str
+
+    # Odds mock configuration
+    odds_use_mock: bool
+    api_football_use_mock: bool
+
 
     # AI Provider API Keys
     openrouter_api_key: str
