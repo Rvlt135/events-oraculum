@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
 
@@ -54,6 +54,23 @@ class League(BaseModel):
     standings: List[List[StandingPosition]]
 
 
-# Main models
+class StandingsLeague(BaseModel):
+    league: League
+
+# Модели для пагинации и метаданных
+class Paging(BaseModel):
+    current: int
+    total: int
+
+class Parameters(BaseModel):
+    league: str
+    season: str
+
+# Полная модель ответа standings
 class StandingsResponse(BaseModel):
-    response: List[League]
+    get: str
+    parameters: Parameters
+    errors: List[Any]
+    results: int
+    paging: Paging
+    response: List[StandingsLeague]

@@ -3,7 +3,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 import structlog
 
 from app.infrastructure.http.client import BaseHttpClient
-from app.infrastructure.providers.odds.schemas import Sport, SportList
+from app.domain.entities.odds_api.dto import Sport, SportList
 from app.utils.mocks.odds_loader import load_mock_odds
 
 logger = structlog.get_logger()
