@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-collection_duration = Histogram("odds_collection_duration_seconds", "Time spent collecting odds_models data")
+collection_duration = Histogram("odds_collection_duration_seconds", "Time spent collecting odds data")
 events_processed_total = Counter("odds_events_processed_total", "Total number of events processed")
 collection_errors_total = Counter("odds_collection_errors_total", "Total number of collection errors")
 
@@ -210,7 +210,7 @@ async def collect_events() -> Dict[str, str]:
 @broker.task(schedule=_task_schedule)
 async def collect_odds_task() -> Dict[str, str]:
     """
-    Collect odds_models for competitions with upcoming events from provider.
+    Collect odds for competitions with upcoming events from provider.
 
     Configuration from provider_policy.yml:
     - Competition list from events_policy.competitions (free + pro)
@@ -310,7 +310,7 @@ async def collect_odds_task() -> Dict[str, str]:
             keys=keys_for_odds
         )
 
-        # Process odds_models collection for selected competitions
+        # Process odds collection for selected competitions
         total_events_count = 0
         total_events_with_odds = 0
         total_snapshots_written = 0
@@ -331,7 +331,7 @@ async def collect_odds_task() -> Dict[str, str]:
             events_count = len(upcoming_events)
             total_events_count += events_count
 
-            # Fetch odds_models using new service method
+            # Fetch odds using new service method
             competition_odds = await odds_service.fetch_odds_for_competition(
                 provider=provider,
                 slug_key=competition_key,
@@ -356,7 +356,7 @@ async def collect_odds_task() -> Dict[str, str]:
                 )
                 continue
 
-            # Persist odds_models (normalize + write to DB + cache)
+            # Persist odds (normalize + write to DB + cache)
             metrics = await odds_service.persist_competition_odds(
                 competition_odds,
                 provider=provider,

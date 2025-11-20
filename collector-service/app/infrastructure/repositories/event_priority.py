@@ -32,7 +32,7 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
 
         Args:
             provider: Provider name
-            slug_key: Provider key
+            slug_key: Competition slug key
             priorities: List of {event_id, score} dicts
             model: Model used for scoring
 
@@ -85,10 +85,10 @@ class EventPriorityRepository(BaseRepository[EventPriority]):
         limit: int = 1000
     ) -> List[EventPriority]:
         """
-        Get priorities for provider key, ordered by priority DESC.
+        Get priorities for competition slug key, ordered by priority DESC.
 
         Args:
-            slug_key: Provider key
+            slug_key: Competition slug key
             limit: Max records
 
         Returns:

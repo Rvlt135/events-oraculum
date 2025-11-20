@@ -252,7 +252,7 @@ class OddsService:
         provider: str,
     ) -> list[str]:
         """
-        Get list of slug_key for odds_models from Redis index with_upcoming.
+        Get list of slug_key for odds from Redis index with_upcoming.
 
         Falls back to DB if cache is empty, then restores cache.
 
@@ -380,7 +380,7 @@ class OddsService:
         Map ExternalOddsEventDTO to CompetitionOddsDTO, filtering by upcoming events.
 
         Args:
-            external_events: List of external odds_models events from API
+            external_events: List of external odds events from API
             upcoming_events: List of our local upcoming events
             slug_key: Competition slug key
 
@@ -475,7 +475,7 @@ class OddsService:
                 logger.info(
                     "odds_missing_for_event",
                     external_id=external_id,
-                    provider_key=slug_key
+                    slug_key=slug_key
                 )
 
         return CompetitionOddsDTO(
@@ -490,7 +490,7 @@ class OddsService:
         upcoming_events: list[EventShortDTO],
     ) -> CompetitionOddsDTO:
         """
-        Fetch odds_models for competition from external API and filter by our upcoming events.
+        Fetch odds for competition from external API and filter by our upcoming events.
 
         Args:
             provider: Provider name (e.g., 'odds_api')
@@ -498,12 +498,12 @@ class OddsService:
             upcoming_events: List of our local upcoming events
 
         Returns:
-            CompetitionOddsDTO with filtered odds_models (empty if no upcoming events)
+            CompetitionOddsDTO with filtered odds (empty if no upcoming events)
         """
         logger.info(
             "fetch_odds_for_competition_started",
             provider=provider,
-            provider_key=slug_key,
+            slug_key=slug_key,
             upcoming_events_count=len(upcoming_events)
         )
 
@@ -511,20 +511,20 @@ class OddsService:
             logger.warning(
                 "no_upcoming_events_for_odds",
                 provider=provider,
-                provider_key=slug_key
+                slug_key=slug_key
             )
             return CompetitionOddsDTO(
                 slug_key=slug_key,
                 events=[],
             )
 
-        # Get odds_models policy
+        # Get odds policy
         odds_policy = self.policy_loader.get_odds_policy(provider)
         if not odds_policy:
             logger.warning(
                 "odds_policy_not_found",
                 provider=provider,
-                provider_key=slug_key
+                slug_key=slug_key
             )
             return CompetitionOddsDTO(
                 slug_key=slug_key,
@@ -560,7 +560,7 @@ class OddsService:
                 except Exception as e:
                     logger.warning(
                         "failed_to_parse_external_odds_event",
-                        provider_key=slug_key,
+                        slug_key=slug_key,
                         event_data=event_data,
                         error=str(e)
                     )
@@ -576,7 +576,7 @@ class OddsService:
             logger.info(
                 "fetch_odds_for_competition_completed",
                 provider=provider,
-                provider_key=slug_key,
+                slug_key=slug_key,
                 external_events_count=len(external_events),
                 filtered_events_count=len(result.events)
             )
@@ -587,7 +587,7 @@ class OddsService:
             logger.error(
                 "fetch_odds_for_competition_failed",
                 provider=provider,
-                provider_key=slug_key,
+                slug_key=slug_key,
                 error=str(e),
                 exc_info=True
             )
@@ -604,7 +604,7 @@ class OddsService:
         """
         Normalize CompetitionOddsDTO to list of OddsSnapshotDTO.
 
-        Converts provider-level odds_models data to snapshot DTOs without DB writes.
+        Converts provider-level odds data to snapshot DTOs without DB writes.
         Filters by policy.markets and policy.bookmakers if policy is provided.
 
         Args:
@@ -616,7 +616,7 @@ class OddsService:
         """
         logger.info(
             "normalize_to_snapshots_started",
-            provider_key=competition_odds.slug_key,
+            slug_key=competition_odds.slug_key,
             events_count=len(competition_odds.events),
             has_policy=odds_policy is not None
         )
@@ -648,7 +648,7 @@ class OddsService:
                 if market_type not in allowed_markets:
                     logger.debug(
                         "market_filtered_by_policy",
-                        provider_key=competition_odds.slug_key,
+                        slug_key=competition_odds.slug_key,
                         event_id=str(event_odds.event_id),
                         market_type=market_type,
                         allowed_markets=list(allowed_markets)
@@ -661,7 +661,7 @@ class OddsService:
                 if allowed_bookmakers is not None and bookmaker_key not in allowed_bookmakers:
                     logger.debug(
                         "bookmaker_filtered_by_policy",
-                        provider_key=competition_odds.slug_key,
+                        slug_key=competition_odds.slug_key,
                         event_id=str(event_odds.event_id),
                         market_type=market_type,
                         bookmaker_key=bookmaker_key,
@@ -690,7 +690,7 @@ class OddsService:
 
         logger.info(
             "normalize_to_snapshots_completed",
-            provider_key=competition_odds.slug_key,
+            slug_key=competition_odds.slug_key,
             snapshots_count=len(snapshots),
             skipped_markets=skipped_markets,
             skipped_bookmakers=skipped_bookmakers,
@@ -769,7 +769,7 @@ class OddsService:
                         else:
                             away_odds.append(outcome.price)
 
-            # Calculate averages and best odds_models with proper rounding
+            # Calculate averages and best odds with proper rounding
             home_avg = safe_avg(home_odds)
             away_avg = safe_avg(away_odds)
             draw_avg = safe_avg(draw_odds, default=None)
@@ -829,7 +829,7 @@ class OddsService:
         slug_key: str,
     ) -> list[EventShortDTO]:
         """
-        Get upcoming events as EventShortDTO for odds_models collection.
+        Get upcoming events as EventShortDTO for odds collection.
 
         Args:
             provider: Provider name
@@ -854,7 +854,7 @@ class OddsService:
             comp_repo = CompetitionsRepository(session)
             event_repo = EventRepository(session)
 
-            competition = await comp_repo.get_by_provider_key(
+            competition = await comp_repo.get_by_slug_key(
                 provider=provider,
                 slug_key=slug_key
             )
@@ -881,7 +881,7 @@ class OddsService:
         odds_policy: OddsPolicyDTO,
     ) -> dict[str, BookmakerDTO]:
         """
-        Collect unique bookmakers from competition odds_models.
+        Collect unique bookmakers from competition odds.
 
         Args:
             competition_odds: CompetitionOddsDTO with events and markets
@@ -1021,7 +1021,7 @@ class OddsService:
         bookmaker_id_to_key_map: dict[UUID, str],
     ) -> tuple[list[NormalizedOddsDTO], int, int]:
         """
-        Aggregate and persist normalized odds_models to database.
+        Aggregate and persist normalized odds to database.
 
         Returns:
             Tuple of (normalized, normalized_inserted, normalized_updated)
@@ -1053,7 +1053,7 @@ class OddsService:
         normalized: list[NormalizedOddsDTO],
     ) -> None:
         """
-        Update odds_models cache for competition by grouping normalized odds_models by event_id.
+        Update odds cache for competition by grouping normalized odds by event_id.
         """
         event_odds_map: dict[UUID, list[NormalizedOddsDTO]] = {}
         for norm_dto in normalized:
@@ -1063,7 +1063,7 @@ class OddsService:
 
         for event_id, items in event_odds_map.items():
             await self.odds_cache.write_event_odds_atomic(
-                provider_key=slug_key,
+                slug_key=slug_key,
                 event_id=event_id,
                 items=items,
                 ttl_sec=None
@@ -1076,7 +1076,7 @@ class OddsService:
         odds_policy: OddsPolicyDTO,
     ) -> dict[str, int]:
         """
-        Persist competition odds_models to database (snapshots and normalized).
+        Persist competition odds to database (snapshots and normalized).
 
         Flow:
         1. Normalize CompetitionOddsDTO to snapshots
@@ -1085,7 +1085,7 @@ class OddsService:
            - Upsert snapshots
            - Aggregate to normalized
            - Upsert normalized
-        3. Update odds_models cache
+        3. Update odds cache
 
         Args:
             competition_odds: CompetitionOddsDTO from fetch_odds_for_competition
@@ -1097,7 +1097,7 @@ class OddsService:
         """
         logger.info(
             "persist_competition_odds_started",
-            provider_key=competition_odds.slug_key,
+            slug_key=competition_odds.slug_key,
             events_count=len(competition_odds.events),
             provider=provider
         )
@@ -1106,7 +1106,7 @@ class OddsService:
         if not snapshots:
             logger.info(
                 "no_snapshots_to_persist",
-                provider_key=competition_odds.slug_key
+                slug_key=competition_odds.slug_key
             )
             return {
                 "snapshots_inserted": 0,
@@ -1173,7 +1173,7 @@ class OddsService:
         event_id: UUID,
     ) -> list[NormalizedOddsDTO]:
         """
-        Get normalized odds_models for an event (read-through cache).
+        Get normalized odds for an event (read-through cache).
 
         Flow:
         1. Try to read from cache
@@ -1191,7 +1191,7 @@ class OddsService:
             List of NormalizedOddsDTO (empty if not found)
         """
         cached = await self.odds_cache.read_event_odds(
-            provider_key=slug_key,
+            slug_key=slug_key,
             event_id=event_id
         )
 
@@ -1227,7 +1227,7 @@ class OddsService:
                 ]
 
                 await self.odds_cache.write_event_odds_atomic(
-                    provider_key=slug_key,
+                    slug_key=slug_key,
                     event_id=event_id,
                     items=items,
                     ttl_sec=None
@@ -1237,7 +1237,7 @@ class OddsService:
 
         logger.info(
             "normalized_odds_not_found",
-            provider_key=slug_key,
+            slug_key=slug_key,
             event_id=str(event_id)
         )
 

@@ -76,18 +76,18 @@ class TasksCache:
             logger.debug("lock_acquired", slug_key=slug_key, token=token[:8])
             return token
         except Exception as e:
-            logger.error("lock_acquisition_failed", slug_key=provider_key, error=str(e))
+            logger.error("lock_acquisition_failed", slug_key=slug_key, error=str(e))
             return None
 
-    async def release_lock(self, provider_key: str, token: str) -> None:
+    async def release_lock(self, slug_key: str, token: str) -> None:
         """
         Release execution lock using compare-and-delete.
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
             token: Lock token from acquire_lock
         """
-        key = self.get_keys_prefix("lock_script").format(provider_key=provider_key)
+        key = self.get_keys_prefix("lock_script").format(slug_key=slug_key)
         try:
             # Lua script for atomic compare-and-delete
             script = """
@@ -99,11 +99,11 @@ class TasksCache:
             """
             result = await self.redis.eval(script, 1, key, token)
             if result:
-                logger.debug("lock_released", provider_key=provider_key, token=token[:8])
+                logger.debug("lock_released", slug_key=slug_key, token=token[:8])
             else:
-                logger.warning("lock_release_failed_token_mismatch", provider_key=provider_key)
+                logger.warning("lock_release_failed_token_mismatch", slug_key=slug_key)
         except Exception as e:
-            logger.error("lock_release_failed", provider_key=provider_key, error=str(e))
+            logger.error("lock_release_failed", slug_key=slug_key, error=str(e))
 
     async def check_qps_limit(self, model: str) -> None:
         """

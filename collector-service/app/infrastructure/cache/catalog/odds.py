@@ -1,5 +1,5 @@
 """
-Odds cache for storing normalized odds_models per event with atomic updates.
+Odds cache for storing normalized odds per event with atomic updates.
 """
 from typing import Optional
 from uuid import UUID
@@ -13,14 +13,14 @@ logger = structlog.get_logger()
 
 
 class OddsCache:
-    """Cache for normalized odds_models grouped by event_id."""
+    """Cache for normalized odds grouped by event_id."""
 
     def __init__(self, redis_client: Redis):
         self.redis = redis_client
-        self.key_prefix = "catalog:odds_models"
+        self.key_prefix = "catalog:odds"
 
     def _make_key(self, slug_key: str, event_id: UUID) -> str:
-        """Generate cache key for an event's normalized odds_models."""
+        """Generate cache key for an event's normalized odds."""
         return f"{self.key_prefix}:{slug_key}:{event_id}"
 
     def _make_temp_key(self, slug_key: str, event_id: UUID) -> str:
@@ -35,7 +35,7 @@ class OddsCache:
         ttl_sec: Optional[int] = None
     ) -> None:
         """
-        Atomically write normalized odds_models for an event.
+        Atomically write normalized odds for an event.
 
         Uses atomic swap pattern:
         1. Write to temporary key
@@ -130,7 +130,7 @@ class OddsCache:
         event_id: UUID
     ) -> list[NormalizedOddsDTO]:
         """
-        Read normalized odds_models for an event from cache.
+        Read normalized odds for an event from cache.
 
         Args:
             slug_key: Competition slug_key
@@ -176,7 +176,7 @@ class OddsCache:
 
             logger.debug(
                 "odds_cache_retrieved",
-                slug_key=provider_key,
+                slug_key=slug_key,
                 event_id=str(event_id),
                 count=len(items)
             )
@@ -185,7 +185,7 @@ class OddsCache:
         except Exception as e:
             logger.error(
                 "odds_cache_retrieval_failed",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 event_id=str(event_id),
                 error=str(e)
             )

@@ -263,7 +263,7 @@ async def dispose_container(container: Container) -> None:
     """
     logger.info("disposing_container")
     
-    # Shutdown: close AI client, LLM service, Redis, odds_models client, and dispose engine
+    # Shutdown: close AI client, LLM service, Redis, odds client, and dispose engine
     if container.ai_client:
         await container.ai_client.close()
 

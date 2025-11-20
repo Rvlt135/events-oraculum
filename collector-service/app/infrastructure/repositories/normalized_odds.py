@@ -25,7 +25,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
 
     async def upsert_normalized(self, dto: NormalizedOddsDTO) -> UUID:
         """
-        Upsert normalized odds_models by key (event_id, market_type).
+        Upsert normalized odds by key (event_id, market_type).
 
         Key: (event_id, market_type) - unique constraint.
 
@@ -38,7 +38,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
             dto: NormalizedOddsDTO (id and created_at can be None for new records)
 
         Returns:
-            UUID of normalized odds_models (existing or newly created)
+            UUID of normalized odds (existing or newly created)
         """
         stmt = (
             insert(NormalizedOdds)
@@ -155,7 +155,7 @@ class NormalizedOddsRepository(BaseRepository[NormalizedOdds]):
         self, limit: int = 100, competition_key: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Get normalized odds_models snapshots with related event, competition, and team data.
+        Get normalized odds snapshots with related event, competition, and team data.
         
         Optimized query using SQLAlchemy 2.0 ORM with proper joins and aliases.
         """

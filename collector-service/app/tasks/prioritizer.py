@@ -95,7 +95,7 @@ async def prioritize_all() -> Dict[str, str]:
                 # Log prioritization completion
                 logger.info(
                     "prioritization_done",
-                    slug_key=provider_key,
+                    slug_key=slug_key,
                     processed=metrics["processed"],
                     llm_batches=metrics["llm_batches"],
                     errors=metrics["errors"],
@@ -109,12 +109,12 @@ async def prioritize_all() -> Dict[str, str]:
                     fallback_count += 1
 
             except Exception as e:
-                logger.error("prioritize_all_competition_failed", provider_key=provider_key, error=str(e))
+                logger.error("prioritize_all_competition_failed", slug_key=slug_key, error=str(e))
                 total_errors += 1
             finally:
                 # Release lock if acquired
                 if lock_token:
-                    await prioritizer_service.tasks_cache.release_lock(provider_key, lock_token)
+                    await prioritizer_service.tasks_cache.release_lock(slug_key, lock_token)
 
         duration = (now_utc() - start_time).total_seconds()
 

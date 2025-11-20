@@ -35,7 +35,7 @@ docker-compose up -d postgres redis
 
 ```bash
 # PostgreSQL
-docker run -d --name odds_models-postgres \
+docker run -d --name odds-postgres \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=layerbit \
@@ -43,7 +43,7 @@ docker run -d --name odds_models-postgres \
   postgres:15-alpine
 
 # Redis
-docker run -d --name odds_models-redis \
+docker run -d --name odds-redis \
   -p 6379:6379 \
   redis:7-alpine
 ```
@@ -51,8 +51,8 @@ docker run -d --name odds_models-redis \
 ### 3. Настройка Python окружения
 
 ```bash
-python3.12 -m venv venv-odds_models
-source venv-odds_models/bin/activate  # Linux/Mac
+python3.12 -m venv venv-odds
+source venv-odds/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
@@ -152,17 +152,17 @@ alembic heads  # должен быть только один head
 
 1. Убедитесь, что БД создана:
 ```bash
-docker exec -it odds_models-postgres psql -U postgres -c "CREATE DATABASE layerbit;"
+docker exec -it odds-postgres psql -U postgres -c "CREATE DATABASE layerbit;"
 ```
 
 2. Проверьте подключение:
 ```bash
-docker exec -it odds_models-postgres psql -U postgres -d layerbit -c "SELECT 1;"
+docker exec -it odds-postgres psql -U postgres -d layerbit -c "SELECT 1;"
 ```
 
 3. Если нужно сбросить (только для разработки):
 ```bash
-docker exec -it odds_models-postgres psql -U postgres -d layerbit -c "DROP TABLE IF EXISTS alembic_version;"
+docker exec -it odds-postgres psql -U postgres -d layerbit -c "DROP TABLE IF EXISTS alembic_version;"
 alembic upgrade head
 ```
 

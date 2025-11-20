@@ -166,12 +166,12 @@ class PolicyLoader:
         return PrioritizerPolicyDTO(**dto_data)
     
     def get_odds_policy(self, provider: str) -> Optional[OddsPolicyDTO]:
-        """Get odds_models policy for provider as DTO."""
+        """Get odds policy for provider as DTO."""
         if not self._cache:
             return None
         
         provider_config = self._cache.get(provider, {})
-        odds_config = provider_config.get("odds_models", {})
+        odds_config = provider_config.get("odds", {})
         if not odds_config:
             return None
         

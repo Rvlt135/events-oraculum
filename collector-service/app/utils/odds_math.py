@@ -1,5 +1,5 @@
 """
-Utility functions for odds_models calculations with proper Decimal rounding.
+Utility functions for odds calculations with proper Decimal rounding.
 """
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Union, Optional
@@ -12,7 +12,7 @@ def safe_avg(values: List[Union[float, Decimal]], default: Optional[Decimal] = D
     Args:
         values: List of numeric values (float or Decimal)
         default: Value to return if list is empty. Defaults to Decimal("0.00").
-                 Pass None to return None for empty lists (e.g., for draw odds_models).
+                 Pass None to return None for empty lists (e.g., for draw odds).
     
     Returns:
         Decimal rounded to 2 decimal places, or default if list is empty
@@ -32,7 +32,7 @@ def safe_best(values: List[Union[float, Decimal]], default: Optional[Decimal] = 
     Args:
         values: List of numeric values (float or Decimal)
         default: Value to return if list is empty. Defaults to Decimal("0.00").
-                 Pass None to return None for empty lists (e.g., for draw odds_models).
+                 Pass None to return None for empty lists (e.g., for draw odds).
     
     Returns:
         Decimal rounded to 2 decimal places, or default if list is empty

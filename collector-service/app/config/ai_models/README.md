@@ -60,7 +60,7 @@ llm_service = await get_llm_service()
 response = await llm_service.complete(
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Explain betting odds_models."}
+        {"role": "user", "content": "Explain betting odds."}
     ]
 )
 

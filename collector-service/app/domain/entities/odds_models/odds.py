@@ -16,7 +16,7 @@ class BookmakerDTO(BaseModel):
 
 
 class OddsOutcomeDTO(BaseModel):
-    """DTO for odds_models outcome in snapshot."""
+    """DTO for odds outcome in snapshot."""
     name: str
     role: Literal["home", "away", "draw", "unknown"]
     team_id: UUID | None

@@ -682,7 +682,7 @@ class EventsService:
                 comp_repo = CompetitionsRepository(session)
                 event_repo = EventRepository(session)
                 team_repo = TeamRepository(session)
-                competition = await comp_repo.get_by_provider_key(
+                competition = await comp_repo.get_by_slug_key(
                     provider=provider, slug_key=slug_key
                 )
 
@@ -690,7 +690,7 @@ class EventsService:
                     logger.warning(
                         "competition_not_found_for_save",
                         provider=provider,
-                        provider_key=slug_key
+                        slug_key=slug_key
                     )
                     return 0
                 # Save competition IDs while session is active to avoid lazy loading issues
@@ -720,7 +720,7 @@ class EventsService:
                     try:
                         external_id = event_data.get("id")
                         if not external_id:
-                            logger.warning("event_missing_id", provider_key=slug_key)
+                            logger.warning("event_missing_id", slug_key=slug_key)
                             continue
 
                         # Build participants based on mode
@@ -772,7 +772,7 @@ class EventsService:
                         logger.error(
                             "failed_to_save_event",
                             provider=provider,
-                            provider_key=slug_key,
+                            slug_key=slug_key,
                             external_id=event_data.get("id"),
                             error=str(e),
                             exc_info=True
@@ -803,7 +803,7 @@ class EventsService:
             for slug_key in slug_keys:
                 try:
                     # Get competition from DB
-                    competition = await comp_repo.get_by_provider_key(
+                    competition = await get_by_slug_key(
                         provider=provider, slug_key=slug_key
                     )
 
@@ -829,7 +829,7 @@ class EventsService:
                 except Exception as e:
                     logger.error(
                         "competition_validation_error",
-                        provider_key=slug_key,
+                        slug_key=slug_key,
                         error=str(e),
                     )
                     filtered_out.append(
@@ -870,7 +870,7 @@ class EventsService:
         if not competition_id:
             async with self._session_factory() as session:
                 comp_repo = CompetitionsRepository(session)
-                competition = await comp_repo.get_by_provider_key(
+                competition = await get_by_slug_key(
                     provider=provider, slug_key=slug_key
                 )
 
@@ -878,7 +878,7 @@ class EventsService:
                     logger.warning(
                         "cache_refresh_skip_no_competition",
                         provider=provider,
-                        provider_key=slug_key
+                        slug_key=slug_key
                     )
                     return
 
@@ -919,7 +919,7 @@ class EventsService:
 
         # Write to cache atomically (outside DB session)
         await self._events_cache.write_upcoming_atomic(
-            provider_key=slug_key,
+            slug_key=slug_key,
             provider=provider,
             items=events_dto,
             ttl_sec=None
@@ -928,7 +928,7 @@ class EventsService:
         logger.info(
             "events_cache_refreshed",
             provider=provider,
-            provider_key=slug_key,
+            slug_key=slug_key,
             upcoming_count=len(events_dto)
         )
 
@@ -957,7 +957,7 @@ class EventsService:
         """
         Get upcoming events from cache for all enabled competitions (E10).
 
-        Aggregates events from catalog:events:{provider_key}:upcoming cache keys.
+        Aggregates events from catalog:events:{slug_key}:upcoming cache keys.
         Returns flat list limited by provider_policy.admin.events_view_limit (default 200).
 
         No filters, no pagination - simple cache read.
@@ -993,16 +993,16 @@ class EventsService:
 
         # Aggregate events from all competitions
         all_events: List[EventDTO] = []
-        for provider_key in all_competition_keys:
+        for slug_key in all_competition_keys:
             try:
-                events = await self._events_cache.read_upcoming(provider_key)
+                events = await self._events_cache.read_upcoming(slug_key)
                 if events:
                     # Use EventDTO objects directly
                     all_events.extend(events)
             except Exception as e:
                 logger.warning(
                     "failed_to_read_events_cache",
-                    provider_key=provider_key,
+                    slug_key=slug_key,
                     error=str(e)
                 )
                 continue

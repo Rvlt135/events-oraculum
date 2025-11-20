@@ -286,7 +286,7 @@ class PrioritizerService:
         Deduplicates, sorts by commence_time ASC, and batches.
 
         Args:
-            slug_key: Provider key for cache lookup
+            slug_key: Competition slug key for cache lookup
             max_events: Maximum events (defaults to service max_events)
 
         Returns:
@@ -336,7 +336,7 @@ class PrioritizerService:
         Rank events using LLM or fallback to date sorting.
 
         Args:
-            slug_key: Provider key
+            slug_key: Competition slug key
             provider: Provider name
             max_events: Max events override
             events: Pre-fetched EventDTO list (optional, if None will fetch from cache/DB)
@@ -359,7 +359,7 @@ class PrioritizerService:
 
         # Use provided events or fetch them
         if events is None:
-            events = await self.get_upcoming_events_from_cache(provider_key)
+            events = await self.get_upcoming_events_from_cache(slug_key)
 
             if not events:
                 logger.info("cache_empty_falling_back_to_db")
@@ -394,7 +394,7 @@ class PrioritizerService:
                     events.append(dto)
 
         if not events:
-            logger.warning("no_events_to_rank", provider_key=provider_key)
+            logger.warning("no_events_to_rank", slug_key=slug_key)
             return metrics
 
         events = self.deduplicate_events(events)
@@ -418,14 +418,14 @@ class PrioritizerService:
 
         ranked = self._stable_sort_by_priority(ranked)
 
-        await self._write_to_redis(provider_key, ranked)
-        await self._write_to_db(provider_key, provider, ranked)
+        await self._write_to_redis(slug_key, ranked)
+        await self._write_to_db(slug_key, provider, ranked)
 
         metrics["processed"] = len(ranked)
 
         logger.info(
             "ranking_complete",
-            provider_key=provider_key,
+            slug_key=slug_key,
             processed=metrics["processed"],
             llm_batches=metrics["llm_batches"],
             errors=metrics["errors"],
@@ -440,7 +440,7 @@ class PrioritizerService:
         
         Only includes essential fields needed for prioritization:
         - id (required for score assignment)
-        - provider/provider_key (if available)
+        - provider/slug_key (if available)
         - home_team_name -> home_team
         - away_team_name -> away_team
         - commence_time (ISO string)
@@ -549,15 +549,15 @@ class PrioritizerService:
             )
         )
 
-    async def _write_to_redis(self, provider_key: str, events: List[Dict[str, Any]]) -> None:
+    async def _write_to_redis(self, slug_key: str, events: List[Dict[str, Any]]) -> None:
         """
         Write ranked events to Redis with atomic swap.
 
         Args:
-            provider_key: Provider key
+            slug_key: Competition slug key
             events: Ranked events
         """
-        cache_key = f"priority:events:{provider_key}:ranked"
+        cache_key = f"priority:events:{slug_key}:ranked"
         temp_key = f"{cache_key}:tmp"
 
         try:
@@ -578,13 +578,13 @@ class PrioritizerService:
 
             logger.info(
                 "ranked_events_written_to_redis",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 count=len(events),
                 cache_ttl_sec=self._cache_ttl_sec
             )
 
         except Exception as e:
-            logger.error("redis_write_failed", provider_key=provider_key, error=str(e))
+            logger.error("redis_write_failed", slug_key=slug_key, error=str(e))
             try:
                 await self._redis_cache.delete(temp_key)
             except Exception:
@@ -592,7 +592,7 @@ class PrioritizerService:
 
     async def _write_to_db(
         self,
-        provider_key: str,
+        slug_key: str,
         provider: str,
         events: List[Dict[str, Any]],
     ) -> None:
@@ -600,7 +600,7 @@ class PrioritizerService:
         Write priorities to database.
 
         Args:
-            provider_key: Provider key
+            slug_key: Competition slug key
             provider: Provider name
             events: Events with scores
         """
@@ -620,7 +620,7 @@ class PrioritizerService:
 
             count = await repo.upsert_batch(
                 provider=provider,
-                provider_key=provider_key,
+                slug_key=slug_key,
                 priorities=priorities,
                 model=model,
             )
@@ -629,6 +629,6 @@ class PrioritizerService:
 
             logger.info(
                 "priorities_written_to_db",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 count=count
             )

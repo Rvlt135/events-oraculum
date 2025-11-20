@@ -158,7 +158,7 @@ class EventsCache:
             list_key = self._make_upcoming_list_key(provider)
             try:
                 slug_keys = await self.redis.smembers(list_key)
-                keys_list = [key.decode('utf-8') if isinstance(key, bytes) else key for key in provider_keys]
+                keys_list = [key.decode('utf-8') if isinstance(key, bytes) else key for key in slug_keys]
                 return sorted(keys_list)
             except Exception as e:
                 logger.error(
@@ -172,7 +172,7 @@ class EventsCache:
             return []
 
         # Return events for specific competition
-        final_key = self._make_key(provider_key)
+        final_key = self._make_key(slug_key)
 
         try:
             # Get all events from list
@@ -186,13 +186,13 @@ class EventsCache:
                 except Exception as e:
                     logger.warning(
                         "failed_to_parse_cached_event",
-                        provider_key=provider_key,
+                        slug_key=slug_key,
                         error=str(e)
                     )
 
             logger.debug(
                 "events_cache_retrieved",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 count=len(events)
             )
             return events
@@ -200,24 +200,24 @@ class EventsCache:
         except Exception as e:
             logger.error(
                 "events_cache_retrieval_failed",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 error=str(e)
             )
             return []
 
-    async def read_upcoming(self, provider_key: str) -> list[EventDTO]:
+    async def read_upcoming(self, slug_key: str) -> list[EventDTO]:
         """
         Read upcoming events for a competition from cache.
 
         This method is an alias for get_upcoming() to match the service layer interface.
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
 
         Returns:
             List of EventDTO objects
         """
-        return await self.get_upcoming(provider_key)
+        return await self.get_upcoming(slug_key)
 
     async def get_many(self, cache_key: str) -> list[dict]:
         """
@@ -248,22 +248,22 @@ class EventsCache:
             logger.error("events_cache_get_many_failed", cache_key=cache_key, error=str(e))
             return []
 
-    async def invalidate(self, provider_key: str) -> None:
+    async def invalidate(self, slug_key: str) -> None:
         """
         Invalidate (delete) events cache for a competition.
 
         Args:
-            provider_key: Competition provider_key
+            slug_key: Competition slug_key
         """
-        final_key = self._make_key(provider_key)
+        final_key = self._make_key(slug_key)
 
         try:
             await self.redis.delete(final_key)
-            logger.debug("events_cache_invalidated", provider_key=provider_key)
+            logger.debug("events_cache_invalidated", slug_key=slug_key)
         except Exception as e:
             logger.error(
                 "events_cache_invalidation_failed",
-                provider_key=provider_key,
+                slug_key=slug_key,
                 error=str(e)
             )
 
