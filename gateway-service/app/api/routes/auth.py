@@ -1,5 +1,5 @@
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 
 from app.api.di.deps import get_auth_service, get_google_auth_service
@@ -15,7 +15,12 @@ from app.api.schemas.user import (
     TelegramInfo,
     UserProfile,
 )
-from app.services.auth_service import AuthService, GoogleAuthService
+from app.services.auth_service import (
+    EmailAuthService,
+    GoogleAuthService,
+    TelegramAuthService,
+    TokenService,
+)
 from app.services.exceptions import ValidationError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -32,7 +37,7 @@ async def google_oauth_start(
     
     try:
         auth_url = await auth_service.get_authorization_url(
-            request=request, return_to=return_to)
+            request=request, return_path=return_to)
         
         return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
     
@@ -59,14 +64,12 @@ async def google_oauth_start(
 
 @router.get("/google/callback")
 async def google_oauth_callback(
-    response: Response,
     code: str = Query(),
     state: str = Query(),
     auth_service: GoogleAuthService = Depends(get_google_auth_service),
 ) -> RedirectResponse:
     try:
-        response = await auth_service.login_with_google(code, state)
-        return response
+        return await auth_service.login_with_google(code, state)
 
     except Exception as e:
         raise HTTPException(
@@ -75,29 +78,21 @@ async def google_oauth_callback(
         )
 
 
-@router.post("/email/register", response_model=AuthResponse)
+@router.post("/register")
 async def register_with_email(
-    req: EmailRegisterRequest,
+    reg_data: EmailRegisterRequest,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
-):
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
+    auth_service: EmailAuthService = Depends(get_auth_service),
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.register_with_email(
-            req.email, req.password, user_agent,
-        )
+        return await auth_service.register_with_email(
+            reg_data, request, return_to)
 
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT if "already" in str(e).lower() else status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {e!s}",
         )
 
 
@@ -105,13 +100,12 @@ async def register_with_email(
 async def login_with_email(
     req: EmailLoginRequest,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: EmailAuthService = Depends(get_auth_service),
 ):
     try:
         user_agent = request.headers.get("user-agent")
         user, access_token, refresh_token = await auth_service.login_with_email(
-            req.email, req.password, user_agent
-        )
+            req.email, req.password, user_agent)
 
         return AuthResponse(
             user=UserProfile.model_validate(user),
@@ -130,7 +124,7 @@ async def login_with_email(
 @router.post("/token/refresh")
 async def refresh_token(
     req: TokenRefreshRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: TokenService = Depends(get_auth_service),
 ):
     try:
         access_token = await auth_service.refresh_access_token(req.refresh_token)
@@ -146,7 +140,7 @@ async def refresh_token(
 async def login_with_telegram(
     req: TelegramAuthRequest,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: TelegramAuthService = Depends(get_auth_service),
 ):
     try:
         user_agent = request.headers.get("user-agent")
@@ -208,7 +202,7 @@ async def login_with_telegram(
 @router.post("/logout")
 async def logout(
     req: TokenRefreshRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: EmailAuthService = Depends(get_auth_service),
 ):
     try:
         await auth_service.logout(req.refresh_token)

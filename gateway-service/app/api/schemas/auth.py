@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class AuthType(str, Enum):
@@ -14,11 +14,19 @@ class AuthType(str, Enum):
 class EmailRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
+    invite_code: str 
+    referral_code: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Referal Code",
+    )
 
 
 class EmailLoginRequest(BaseModel):
     email: EmailStr
     password: str
+
 
 
 class AuthTokens(BaseModel):

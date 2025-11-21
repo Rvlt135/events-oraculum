@@ -10,7 +10,7 @@ from app.infrastructure.cache.session_cache import SessionCache
 from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.db.session import get_session
 from app.infrastructure.security.password import PasswordService
-from app.services.auth_service import AuthService, GoogleAuthService, TokenService
+from app.services.auth_service import EmailAuthService, GoogleAuthService, TokenService
 
 
 def get_settings() -> Settings:
@@ -77,5 +77,6 @@ async def get_token_service(
 async def get_auth_service(
     db: AsyncSession = Depends(get_session),
     user_cache: UserCache =  Depends(get_user_cache),
-) -> AuthService:
-    return AuthService(db_session=db, user_cache=user_cache)
+    session_cashe: SessionCache = Depends(get_session_cache)
+) -> EmailAuthService:
+    return EmailAuthService(db_session=db, user_cache=user_cache, session_cache=session_cashe)
