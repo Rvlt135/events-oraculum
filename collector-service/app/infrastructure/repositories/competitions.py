@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,8 @@ class CompetitionsRepository(BaseRepository[Competition]):
         title: str,
         description: str = None,
         plan_visibility: str = "free",
-        provider: str = "odds_api"
+        provider: str = "odds_api",
+        api_sources: Optional[Dict[str, Any]] = None
     ) -> UUID:
         result = await self.session.execute(
             select(Competition).where(
@@ -32,6 +33,7 @@ class CompetitionsRepository(BaseRepository[Competition]):
         competition = result.scalar_one_or_none()
 
         if not competition:
+            api_sources_dict = api_sources or {}
             competition = Competition(
                 sport_id=sport_id,
                 provider=provider,
@@ -39,7 +41,8 @@ class CompetitionsRepository(BaseRepository[Competition]):
                 title=title,
                 description=description,
                 is_active=True,
-                plan_visibility=plan_visibility
+                plan_visibility=plan_visibility,
+                api_sources=api_sources_dict
             )
             competition = await self.create(competition)
             logger.info("competition_created", key=slug_key, title=title, id=str(competition.id), plan_visibility=plan_visibility)
@@ -55,6 +58,17 @@ class CompetitionsRepository(BaseRepository[Competition]):
                 competition.plan_visibility = plan_visibility
                 updated = True
                 logger.info("competition_plan_visibility_updated", key=slug_key, id=str(competition.id), plan_visibility=plan_visibility)
+            
+            if api_sources:
+                current_api_sources = competition.api_sources or {}
+                api_sources_updated = False
+                for key, value in api_sources.items():
+                    if current_api_sources.get(key) != value:
+                        current_api_sources[key] = value
+                        api_sources_updated = True
+                if api_sources_updated:
+                    competition.api_sources = current_api_sources
+                    updated = True
 
             if updated:
                 await self.session.flush()

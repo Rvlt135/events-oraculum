@@ -124,6 +124,10 @@ class SportsService:
             async with self._session_factory() as read_session:
                 category_to_sport_id = await self._get_category_to_sport_id_mapping(read_session)
             
+            # Get API Football mapping from policy
+            api_fb = self._policy_loader.get_api_football("odds_api")
+            api_fb_by_slug = api_fb.competitions if api_fb else {}
+            
             # Create session and upsert competitions
             synced_count = 0
             async with self._session_factory() as session:
@@ -152,6 +156,20 @@ class SportsService:
                             
                             # Get plan visibility from policy
                             plan_visibility = self._policy_loader.get_visibility_for_competition("odds_api", slug_key)
+                            
+                            # Check for API Football mapping
+                            api_sources = None
+                            api_fb_comp = api_fb_by_slug.get(slug_key)
+                            if api_fb_comp:
+                                api_sources = {
+                                    "api_football": {
+                                        "league_id": api_fb_comp.league_id,
+                                        "seasons": {
+                                            "current": api_fb_comp.seasons.current,
+                                            "previous": api_fb_comp.seasons.previous
+                                        }
+                                    }
+                                }
 
                             # Upsert competition
                             await competitions_repository.get_or_create(
@@ -160,7 +178,8 @@ class SportsService:
                                 title=title,
                                 description=description if description else None,
                                 plan_visibility=plan_visibility,
-                                provider="odds_api"
+                                provider="odds_api",
+                                api_sources=api_sources
                             )
                             
                             synced_count += 1
