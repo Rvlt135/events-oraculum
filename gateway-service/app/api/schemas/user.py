@@ -27,6 +27,8 @@ class UserProfile(BaseModel):
     trial_end_at: datetime | None
     created_at: datetime
     telegram: TelegramInfo | None = Field(None, description="Telegram user information")
+    ref_code: str
+    referrer_code: str | None = Field(None, description="Referral code of the user who referred this user")
 
     model_config = ConfigDict(from_attributes=True)
 
