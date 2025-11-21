@@ -41,6 +41,8 @@ class User(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False
     )
+    ref_code: Mapped[str] = mapped_column(String(8), unique=True, index=True)
+    refferer_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
     identities: Mapped[list["UserIdentity"]] = relationship("UserIdentity", back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list["UserSession"]] = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
