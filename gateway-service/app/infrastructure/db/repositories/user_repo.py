@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.db.orm.user import User, PlanType
-from app.infrastructure.db.orm.user_identity import IdentityProvider
 
 
 class UserRepository:
@@ -45,20 +44,27 @@ class UserRepository:
         trial_end_at: datetime | None = None,
         telegram_account_id: int | None = None,
         telegram_is_premium: bool | None = None,
+        referrer_code: str | None = None,
     ) -> User:
-        user = User(
-            email=email,
-            email_verified=email_verified,
-            password_hash=password_hash,
-            telegram_account_id=telegram_account_id,
-            telegram_is_premium=telegram_is_premium,
-            plan_type=plan_type,
-            trial_end_at=trial_end_at,
-        )
-        self.session.add(user)
-        await self.session.flush()
-        await self.session.refresh(user)
-        return user
+        for _ in range(10):
+            try:
+                user = User(
+                    email=email,
+                    email_verified=email_verified,
+                    password_hash=password_hash,
+                    telegram_account_id=telegram_account_id,
+                    telegram_is_premium=telegram_is_premium,
+                    plan_type=plan_type,
+                    trial_end_at=trial_end_at,
+                    referrer_code=referrer_code,
+                )
+                self.session.add(user)
+                await self.session.flush()
+                await self.session.refresh(user)
+                return user
+            except Exception:
+                await self.session.rollback()
+        raise Exception("Failed to create user after multiple attempts due to ref_code collisions.")
 
     async def update(self, user: User) -> User:
         from datetime import UTC
