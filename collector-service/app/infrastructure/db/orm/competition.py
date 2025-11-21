@@ -1,6 +1,6 @@
 from uuid import uuid4
 from sqlalchemy import Column, Boolean, DateTime, ForeignKey, Text, Index, func, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from app.infrastructure.db.orm.base import Base
@@ -17,6 +17,7 @@ class Competition(Base):
     provider = Column(Text, nullable=False, default='odds_api', comment='Источник данных, (mvp - odds_api)')
     slug_key = Column(Text, nullable=False, comment='Из sports.key, напр.: "soccer_uefa_champs_league"')
     plan_visibility = Column(Text, nullable=False, default="free")
+    api_sources = Column(JSONB, default=dict)
 
     is_active = Column(Boolean, nullable=False, comment='payload.active из провайдера; без default, ставим явно в инжесте')
 

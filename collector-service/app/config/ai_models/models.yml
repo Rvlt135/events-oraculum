@@ -1,8 +1,8 @@
 providers:
   openrouter:
     models:
-      openrouter/sherlock-think-alpha:
-        context_window: 1840000
+      mistralai/mistral-7b-instruct:
+        context_window: 32768
         max_output_tokens: 2000
         temperature: 0.3
         supports_streaming: false
@@ -16,13 +16,13 @@ providers:
 
 
 default_provider: openrouter
-default_model: openrouter/sherlock-think-alpha
+default_model: kwaipilot/kat-coder-pro:free
 
 prioritizer:
   provider: openrouter
-  model: openrouter/sherlock-think-alpha
+  model: kwaipilot/kat-coder-pro:free
   fallback_models:
-    - kwaipilot/kat-coder-pro:free
+    - mistralai/mistral-7b-instruct
   timeout_ms: 30000
   batch_size: 20
   rate_limit_qps: 2

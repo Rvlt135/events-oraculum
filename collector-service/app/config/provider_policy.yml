@@ -14,11 +14,25 @@ odds_api:
 #      - soccer_uefa_champs_league_qualification
 #      - soccer_epl
     pro:
-      - americanfootball_nfl_preseason
-      - tennis_atp_wimbledon
+      - soccer_epl
+#      - soccer_fifa_world_cup_winner
+#      - soccer_germany_bundesliga
+#      - tennis_atp_wimbledon
 #      - americanfootball_ufl
 #      - basketball_nba
 #      - icehockey_nhl
+
+  api_football:
+    soccer_uefa_champs_league:
+      league_id: 2
+      seasons:
+        current: 2025
+        previous: 2024
+    soccer_epl:
+      league_id: 39
+      seasons:
+        current: 2025
+        previous: 2024
 
   events_window:
     period: 30  # окно вперёд, дней (E2)
@@ -79,5 +93,3 @@ odds_api:
     include_rotation_numbers: false
     max_events_per_request: 20
     use_event_ids: false
-
-provider_api_football:

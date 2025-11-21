@@ -37,3 +37,45 @@ def normalize_name(raw: str) -> str:
     normalized = normalized.strip()
 
     return normalized
+
+
+def create_slug(name: str) -> str:
+    """
+    Create URL-friendly slug from name.
+
+    Converts name to slug format:
+    - Unicode NFC normalization
+    - Lowercase conversion
+    - Replace spaces with hyphens
+    - Remove special characters (keep only alphanumeric and hyphens)
+    - Collapse multiple hyphens to single hyphen
+    - Trim leading/trailing hyphens
+
+    Args:
+        name: Name string to convert to slug
+
+    Returns:
+        Slug string (e.g., "manchester-united" from "Manchester United")
+    """
+    if not name:
+        return ""
+
+    # Unicode NFC normalization
+    slug = unicodedata.normalize("NFC", name)
+
+    # Lowercase
+    slug = slug.lower()
+
+    # Replace spaces and underscores with hyphens
+    slug = re.sub(r"[\s_]+", "-", slug)
+
+    # Remove special characters, keep only alphanumeric and hyphens
+    slug = re.sub(r"[^a-z0-9\-]", "", slug)
+
+    # Collapse multiple hyphens to single hyphen
+    slug = re.sub(r"-+", "-", slug)
+
+    # Trim leading/trailing hyphens
+    slug = slug.strip("-")
+
+    return slug

@@ -269,6 +269,7 @@ class SportsService:
                                         title=comp.title,
                                         plan_visibility=comp.plan_visibility,
                                         is_active=comp.is_active,
+                                        api_sources=comp.api_sources or {},
                                     )
                                     for comp in competitions
                                 ]
@@ -403,6 +404,7 @@ class SportsService:
                     slug_key=comp.slug_key,
                     plan_visibility=comp.plan_visibility,
                     is_active=comp.is_active,
+                    api_sources=comp.api_sources or {},
                 )
                 for comp in competitions_orm
             ]

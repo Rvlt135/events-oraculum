@@ -6,6 +6,7 @@ import structlog
 
 from app.infrastructure.db.orm.teams import Team
 from app.utils.time_utils import now_utc
+from app.utils.text_utils import create_slug
 from app.infrastructure.repositories.base import BaseRepository
 from sqlalchemy.dialects.postgresql import insert
 
@@ -25,9 +26,11 @@ class TeamRepository(BaseRepository[Team]):
         team = result.scalar_one_or_none()
 
         if not team:
+            team_slug = create_slug(normalized_name)
             team = Team(
                 name=name,
                 normalized_name=normalized_name,
+                team_slug=team_slug,
                 sport_id=sport_id,
                 external_ids=external_ids
             )
@@ -117,10 +120,12 @@ class TeamRepository(BaseRepository[Team]):
         else:
             # Team doesn't exist - create new
             external_ids = {provider: {raw: True}}
+            team_slug = create_slug(normalized)
 
             team = Team(
                 name=raw,
                 normalized_name=normalized,
+                team_slug=team_slug,
                 sport_id=sport_id,
                 external_ids=external_ids,
             )

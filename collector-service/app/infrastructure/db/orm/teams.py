@@ -11,6 +11,7 @@ class Team(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(Text, nullable=False)
     normalized_name = Column(Text, nullable=False)
+    team_slug = Column(Text, nullable=False)
     sport_id = Column(UUID(as_uuid=True), ForeignKey("sports.id", ondelete="CASCADE"), nullable=False)
     external_ids = Column(JSONB, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -20,6 +21,8 @@ class Team(Base):
 
     __table_args__ = (
         UniqueConstraint("sport_id", "normalized_name", name="uq_teams_sport_normalized_name"),
+        UniqueConstraint("sport_id", "team_slug", name="uq_teams_sport_team_slug"),
         Index("idx_teams_sport_id", "sport_id"),
         Index("idx_teams_sport_normalized_name", "sport_id", "normalized_name"),
+        Index("idx_teams_sport_team_slug", "sport_id", "team_slug"),
     )

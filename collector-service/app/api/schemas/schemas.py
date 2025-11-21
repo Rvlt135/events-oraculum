@@ -155,3 +155,4 @@ class CompetitionDTO(BaseModel):
     slug_key: str
     plan_visibility: Literal["free", "pro", "unavailable"]
     is_active: bool
+    api_sources: Dict[str, Any] = Field(default_factory=dict)

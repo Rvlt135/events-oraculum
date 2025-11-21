@@ -40,6 +40,23 @@ class CompetitionsPlanDTO(BaseModel):
     pro: list[str] = []
 
 
+class ApiFootballSeasonsDTO(BaseModel):
+    """DTO for API Football seasons configuration."""
+    current: int
+    previous: int
+
+
+class ApiFootballCompetitionDTO(BaseModel):
+    """DTO for API Football competition configuration."""
+    league_id: int
+    seasons: ApiFootballSeasonsDTO
+
+
+class ApiFootballDTO(BaseModel):
+    """DTO for API Football configuration."""
+    competitions: Dict[str, ApiFootballCompetitionDTO] = {}
+
+
 class PolicyLoader:
     """Policy loader with in-memory cache."""
     
@@ -185,6 +202,22 @@ class PolicyLoader:
         provider_config = self._cache.get(provider, {})
         competitions_config = provider_config.get("competitions", {})
         return CompetitionsPlanDTO(**competitions_config) if competitions_config else None
+    
+    def get_api_football(self, provider: str) -> Optional[ApiFootballDTO]:
+        """Get API Football configuration for provider as DTO."""
+        if not self._cache:
+            return None
+        
+        provider_config = self._cache.get(provider, {})
+        api_football_config = provider_config.get("api_football", {})
+        if not api_football_config:
+            return None
+        
+        competitions = {}
+        for slug_key, comp_config in api_football_config.items():
+            competitions[slug_key] = ApiFootballCompetitionDTO(**comp_config)
+        
+        return ApiFootballDTO(competitions=competitions)
     
     def get_visibility_for_category(self, provider: str, category: str) -> PlanVisibility:
         """

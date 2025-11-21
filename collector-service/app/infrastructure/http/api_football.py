@@ -4,6 +4,7 @@ import structlog
 from httpx import HTTPError
 
 from app.domain.entities.api_football.statistics_dto import TeamStatisticsResponse
+from app.domain.entities.api_football.teams_by_league import TeamsResponse
 from app.infrastructure.http.client import BaseHttpClient
 from app.domain.entities.api_football.standings_dto import StandingsResponse, League
 from pydantic import ValidationError
@@ -91,4 +92,33 @@ class APIFootballClient:
             raise ValueError("Unexpected API response structure for team_statistics") from exc
 
         logger.info("team_statistics_parsed_success")
+        return response
+
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def get_teams_by_league(self, league_id: int, season: int) -> TeamsResponse:
+        params = {"season": season, "league_id": league_id}
+        logger.info("teams_by_leagues_fetching", params=params)
+        try:
+            raw_json = await self.base.get_json("teams", params=params)
+        except Exception as exc:
+            logger.error("teams_by_leagues_http_failed", error=str(exc))
+            raise HTTPError("Failed to fetch teams_by_leagues from external API") from exc
+
+        if not isinstance(raw_json, dict):
+            logger.error("teams_by_leagues_unexpected_type", type=type(raw_json).__name__)
+            raise ValueError("Unexpected response type from teams_by_leagues API")
+
+        errors = raw_json.get("errors")
+        if (isinstance(errors, dict) and errors) or (isinstance(errors, list) and errors):
+            logger.error("teams_by_leagues_api_errors", errors=errors)
+            raise ValueError(f"teams_by_leagues API returned errors: {errors}")
+
+        try:
+            response = TeamsResponse.model_validate(raw_json)
+        except ValidationError as exc:
+            logger.warning("teams_by_leagues_validation_failed", error=str(exc))
+            raise ValueError("Unexpected API response structure for teams_by_leagues") from exc
+
+        logger.info("teams_by_leagues_parsed_success")
         return response

@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CompetitionEntity(BaseModel):
@@ -15,4 +15,5 @@ class CompetitionEntity(BaseModel):
     title: str
     plan_visibility: Literal["free", "pro", "unavailable"]
     is_active: bool
+    api_sources: Dict[str, Any] = Field(default_factory=dict)
 

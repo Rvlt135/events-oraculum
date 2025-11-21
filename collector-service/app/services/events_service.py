@@ -870,7 +870,7 @@ class EventsService:
         if not competition_id:
             async with self._session_factory() as session:
                 comp_repo = CompetitionsRepository(session)
-                competition = await get_by_slug_key(
+                competition = await comp_repo.get_by_slug_key(
                     provider=provider, slug_key=slug_key
                 )
 
