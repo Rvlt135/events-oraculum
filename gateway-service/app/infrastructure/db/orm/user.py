@@ -11,6 +11,7 @@ from app.infrastructure.db.orm.base import Base
 if TYPE_CHECKING:
     from app.infrastructure.db.orm.user_identity import UserIdentity
     from app.infrastructure.db.orm.user_session import UserSession
+    from app.infrastructure.db.orm.invite_code import InviteCode
 
 
 class PlanType(str, Enum):
@@ -46,4 +47,4 @@ class User(Base):
 
     identities: Mapped[list["UserIdentity"]] = relationship("UserIdentity", back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list["UserSession"]] = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
-
+    invite_codes: Mapped["InviteCode"] = relationship("InviteCode", back_populates="User", cascade="all, delete-orphan")

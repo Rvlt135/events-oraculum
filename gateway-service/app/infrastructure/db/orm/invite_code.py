@@ -15,8 +15,8 @@ class InviteCode(Base):
     __tablename__ = "invite_codes"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    code = Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     registration_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="invite_codes")
+    user: Mapped["User"] = relationship("User", back_populates="invite_code")
