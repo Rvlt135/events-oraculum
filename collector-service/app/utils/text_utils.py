@@ -79,3 +79,19 @@ def create_slug(name: str) -> str:
     slug = slug.strip("-")
 
     return slug
+
+
+def create_team_slug(name: str) -> str:
+    """
+    Create team slug from raw team name.
+
+    This is a dedicated function for creating team slugs used as unique identifiers.
+    Uses the same logic as create_slug for consistency.
+
+    Args:
+        name: Raw team name string
+
+    Returns:
+        Team slug string (e.g., "manchester-united" from "Manchester United")
+    """
+    return create_slug(name)

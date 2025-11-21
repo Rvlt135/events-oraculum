@@ -141,3 +141,91 @@ class TeamRepository(BaseRepository[Team]):
             )
 
             return team.id
+
+    async def find_by_slug(self, sport_id: UUID, team_slug: str) -> Optional[Team]:
+        """
+        Find team by sport_id and team_slug.
+
+        Args:
+            sport_id: Sport UUID
+            team_slug: Team slug to search for
+
+        Returns:
+            Team if found, None otherwise
+        """
+        result = await self.session.execute(
+            select(Team).where(
+                Team.sport_id == sport_id,
+                Team.team_slug == team_slug
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def upsert_from_api_football(
+        self, sport_id: UUID, team_name: str, team_id: int, team_slug: str
+    ) -> UUID:
+        """
+        Upsert team from API Football data.
+
+        Searches by (sport_id, team_slug) to find existing team.
+        If found, updates external_ids.api_football.team_id.
+        If not found, creates new team.
+
+        Args:
+            sport_id: Sport UUID
+            team_name: Raw team name from API Football
+            team_id: API Football team ID
+            team_slug: Computed team slug
+
+        Returns:
+            Team UUID
+        """
+        team = await self.find_by_slug(sport_id, team_slug)
+
+        if team:
+            current_external_ids = team.external_ids or {}
+
+            if "api_football" not in current_external_ids:
+                current_external_ids["api_football"] = {}
+
+            current_external_ids["api_football"]["team_id"] = team_id
+
+            team.external_ids = current_external_ids
+            team.updated_at = now_utc()
+            await self.session.flush()
+
+            logger.debug(
+                "team_upserted_api_football",
+                team_id=str(team.id),
+                api_football_team_id=team_id,
+                team_slug=team_slug,
+                action="updated"
+            )
+
+            return team.id
+        else:
+            from app.utils.text_utils import normalize_name
+
+            normalized_name = normalize_name(team_name)
+            external_ids = {"api_football": {"team_id": team_id}}
+
+            team = Team(
+                name=team_name,
+                normalized_name=normalized_name,
+                team_slug=team_slug,
+                sport_id=sport_id,
+                external_ids=external_ids,
+            )
+            self.session.add(team)
+            await self.session.flush()
+
+            logger.info(
+                "team_upserted_api_football",
+                team_id=str(team.id),
+                name=team_name,
+                api_football_team_id=team_id,
+                team_slug=team_slug,
+                action="created"
+            )
+
+            return team.id

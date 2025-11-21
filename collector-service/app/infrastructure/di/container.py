@@ -25,6 +25,7 @@ from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
 from app.services.prioritizer_service import PrioritizerService
+from app.services.teams_sync_service import TeamsSyncService
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.config.settings import settings
 
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from app.services.events_service import EventsService
     from app.services.llm_service import LLMService
     from app.services.prioritizer_service import PrioritizerService
+    from app.services.teams_sync_service import TeamsSyncService
 
 logger = structlog.get_logger()
 
@@ -180,6 +182,19 @@ class Container:
             redis_cache=self.redis_cache,
             events_cache=events_cache,
             odds_cache=odds_cache,
+            policy_loader=self.policy_loader,
+        )
+
+    def create_teams_sync_service(self) -> "TeamsSyncService":
+        """
+        Factory method for TeamsSyncService.
+
+        Returns:
+            TeamsSyncService instance with dependencies from container
+        """
+        return TeamsSyncService(
+            api_football_client=self.api_football_client,
+            session_factory=self.session_factory,
             policy_loader=self.policy_loader,
         )
 
