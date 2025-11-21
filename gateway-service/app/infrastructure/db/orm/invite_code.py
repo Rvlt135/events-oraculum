@@ -19,4 +19,4 @@ class InviteCode(Base):
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     registration_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="invite_code")
+    user: Mapped["User"] = relationship("User", back_populates="invite_codes")
