@@ -6,6 +6,7 @@ from sqlalchemy import String, Boolean, DateTime, BigInteger, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.orm.base import Base
+from app.infrastructure.db.orm.utils import generate_referral_code
 
 
 if TYPE_CHECKING:
@@ -42,9 +43,9 @@ class User(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False
     )
-    ref_code: Mapped[str] = mapped_column(String(8), unique=True, index=True)
-    refferer_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    ref_code: Mapped[str] = mapped_column(String(8), unique=True, index=True, default=generate_referral_code)
+    referrer_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
     identities: Mapped[list["UserIdentity"]] = relationship("UserIdentity", back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list["UserSession"]] = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
-    invite_codes: Mapped["InviteCode"] = relationship("InviteCode", back_populates="User", cascade="all, delete-orphan")
+    invite_codes: Mapped["InviteCode"] = relationship("InviteCode", back_populates="user", cascade="all, delete-orphan")
