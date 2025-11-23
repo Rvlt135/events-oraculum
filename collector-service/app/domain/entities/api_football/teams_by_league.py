@@ -5,26 +5,26 @@ from typing import List, Optional
 class Team(BaseModel):
     id: int
     name: str
-    code: str
+    code: Optional[str] = None
     country: str
-    founded: int
+    founded: Optional[int] = None
     national: bool
     logo: str
 
 # Модель стадиона
 class Venue(BaseModel):
-    id: int
-    name: str
-    address: str
-    city: str
-    capacity: int
-    surface: str
-    image: str
+    id: Optional[int] = None
+    name: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    capacity: Optional[int] = None
+    surface: Optional[str] = None
+    image: Optional[str] = None
 
 # Модель элемента response (команда + стадион)
 class TeamVenue(BaseModel):
     team: Team
-    venue: Venue
+    venue: Optional[Venue] = None
 
 # Модель пагинации
 class Paging(BaseModel):

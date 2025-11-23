@@ -9,7 +9,7 @@ import time
 import structlog
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from httpx import HTTPStatusError
-from app.utils.text_utils import normalize_name
+from app.utils.text_utils import create_team_slug
 
 from app.domain.entities.events.events_targets import EventsTargetsDTO, FilteredReasonDTO
 from app.domain.entities.events.events_window import (
@@ -585,6 +585,9 @@ class EventsService:
         participants: List[ParticipantItemDTO],
         home_team_name: Optional[str],
         away_team_name: Optional[str],
+        has_api_football: bool = False,
+        competition_id: Optional[UUID] = None,
+        slug_key: Optional[str] = None,
     ) -> tuple[Optional[UUID], Optional[UUID]]:
         """
         Resolve team IDs for event participants based on participant mode.
@@ -597,6 +600,9 @@ class EventsService:
             participants: List of participant DTOs
             home_team_name: Home team name (for duel mode)
             away_team_name: Away team name (for duel mode)
+            has_api_football: Whether competition has API-Football coverage
+            competition_id: Competition UUID (for logging)
+            slug_key: Competition slug_key (for logging)
 
         Returns:
             Tuple of (home_team_id, away_team_id)
@@ -607,46 +613,105 @@ class EventsService:
         if participant_mode == "duel":
             # Handle duel mode (home/away)
             if home_team_name:
-                normalized_home = normalize_name(home_team_name)
-                home_team_id = await team_repo.resolve_or_create_by_alias(
-                    sport_id=sport_id,
-                    provider=provider,
-                    normalized=normalized_home,
-                    raw=home_team_name
-                )
+                team_slug = create_team_slug(home_team_name)
+                
+                if has_api_football:
+                    # For API-Football competitions: only search, don't create
+                    team = await team_repo.find_by_slug(sport_id, team_slug)
+                    if team:
+                        home_team_id = team.id
+                    else:
+                        logger.warning(
+                            "team_not_found_api_football_competition",
+                            competition_id=str(competition_id) if competition_id else None,
+                            slug_key=slug_key,
+                            provider=provider,
+                            team_name=home_team_name,
+                            team_slug=team_slug,
+                            team_role="home",
+                        )
+                else:
+                    # For regular competitions: search and create if not found
+                    normalized_home = create_team_slug(home_team_name)
+                    home_team_id = await team_repo.resolve_or_create_by_alias(
+                        sport_id=sport_id,
+                        provider=provider,
+                        normalized=normalized_home,
+                        raw=home_team_name
+                    )
 
                 # Update participants with team_id
-                for p in participants:
-                    if p.role == "home":
-                        p.team_id = home_team_id
+                if home_team_id:
+                    for p in participants:
+                        if p.role == "home":
+                            p.team_id = home_team_id
 
             if away_team_name:
-                normalized_away = normalize_name(away_team_name)
-                away_team_id = await team_repo.resolve_or_create_by_alias(
-                    sport_id=sport_id,
-                    provider=provider,
-                    normalized=normalized_away,
-                    raw=away_team_name
-                )
+                team_slug = create_team_slug(away_team_name)
+                
+                if has_api_football:
+                    # For API-Football competitions: only search, don't create
+                    team = await team_repo.find_by_slug(sport_id, team_slug)
+                    if team:
+                        away_team_id = team.id
+                    else:
+                        logger.warning(
+                            "team_not_found_api_football_competition",
+                            competition_id=str(competition_id) if competition_id else None,
+                            slug_key=slug_key,
+                            provider=provider,
+                            team_name=away_team_name,
+                            team_slug=team_slug,
+                            team_role="away",
+                        )
+                else:
+                    # For regular competitions: search and create if not found
+                    normalized_away = create_team_slug(away_team_name)
+                    away_team_id = await team_repo.resolve_or_create_by_alias(
+                        sport_id=sport_id,
+                        provider=provider,
+                        normalized=normalized_away,
+                        raw=away_team_name
+                    )
 
                 # Update participants with team_id
-                for p in participants:
-                    if p.role == "away":
-                        p.team_id = away_team_id
+                if away_team_id:
+                    for p in participants:
+                        if p.role == "away":
+                            p.team_id = away_team_id
 
         elif participant_mode == "solo":
             # Handle solo mode (single participant)
             if participants and len(participants) > 0:
                 solo_name = participants[0].name
                 if solo_name:
-                    normalized_solo = normalize_name(solo_name)
-                    solo_team_id = await team_repo.resolve_or_create_by_alias(
-                        sport_id=sport_id,
-                        provider=provider,
-                        normalized=normalized_solo,
-                        raw=solo_name
-                    )
-                    participants[0].team_id = solo_team_id
+                    team_slug = create_team_slug(solo_name)
+                    
+                    if has_api_football:
+                        # For API-Football competitions: only search, don't create
+                        team = await team_repo.find_by_slug(sport_id, team_slug)
+                        if team:
+                            participants[0].team_id = team.id
+                        else:
+                            logger.warning(
+                                "team_not_found_api_football_competition",
+                                competition_id=str(competition_id) if competition_id else None,
+                                slug_key=slug_key,
+                                provider=provider,
+                                team_name=solo_name,
+                                team_slug=team_slug,
+                                team_role="solo",
+                            )
+                    else:
+                        # For regular competitions: search and create if not found
+                        normalized_solo = create_team_slug(solo_name)
+                        solo_team_id = await team_repo.resolve_or_create_by_alias(
+                            sport_id=sport_id,
+                            provider=provider,
+                            normalized=normalized_solo,
+                            raw=solo_name
+                        )
+                        participants[0].team_id = solo_team_id
 
         # field mode: no team_id resolution
 
@@ -697,6 +762,12 @@ class EventsService:
                 sport_id = competition.sport_id
                 competition_id = competition.id
                 
+                # Check if competition has API-Football coverage
+                has_api_football = bool(
+                    competition.api_sources and 
+                    competition.api_sources.get("api_football")
+                )
+                
                 # Expunge competition object to avoid lazy loading issues in transaction
 
                 # Check if teams normalization is enabled from policy
@@ -740,9 +811,12 @@ class EventsService:
                                 provider=provider,
                                 participant_mode=participant_mode,
                                 participants=participants,
-                            home_team_name=home_team_name,
-                            away_team_name=away_team_name,
-                        )
+                                home_team_name=home_team_name,
+                                away_team_name=away_team_name,
+                                has_api_football=has_api_football,
+                                competition_id=competition_id,
+                                slug_key=slug_key,
+                            )
 
                         # Create EventUpsertDTO
                         dto = EventUpsertDTO(

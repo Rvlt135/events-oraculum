@@ -61,27 +61,30 @@ class BaseHttpClient:
         path = path.lstrip("/")
         return f"{self.base_url}/{path}"
     
-    async def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    async def get_json(self, path: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> Any:
         """
         Perform GET request and return parsed JSON.
         
         - Respects rate limiter
         - Merges default_params with request params
+        - Merges default_headers with request headers
         - Raises httpx.HTTPStatusError on non-2xx responses
         - Returns raw JSON (dict/list)
         
         Args:
             path: URL path relative to base_url
             params: Query parameters (merged with default_params)
+            headers: Request headers (merged with default_headers)
             
         Returns:
             Parsed JSON response
         """
         url = self.build_url(path)
         merged_params = _merge_dicts(self._default_params, params)
+        merged_headers = _merge_dicts(self._default_headers, headers)
         
         async with self.limiter:
-            response = await self._client.get(url, params=merged_params)
+            response = await self._client.get(url, params=merged_params, headers=merged_headers)
             response.raise_for_status()
             return response.json()
     

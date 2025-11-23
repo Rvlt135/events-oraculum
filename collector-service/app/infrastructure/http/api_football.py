@@ -28,13 +28,13 @@ class APIFootballClient:
             base_url=base_url,
             timeout=30.0,
             limiter=None,  # BaseHttpClient will create default limiter
-            default_params={"x-apisports-key": api_key},
+            default_headers={"x-apisports-key": api_key},
         )
 
     async def close(self) -> None:
         await self.base.aclose()
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), retry=retry_if_exception_type(HTTPError))
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=3), retry=retry_if_exception_type(HTTPError))
     async def get_standings(self, league_id: int, season: int, team: Optional[int] = None) -> StandingsResponse:
         params = {"league": league_id, "season": season}
         if team is not None:
@@ -66,9 +66,9 @@ class APIFootballClient:
         return response
 
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=3), retry=retry_if_exception_type(HTTPError))
     async def get_team_statistics(self, league_id: int, season: int, team_id: int) -> TeamStatisticsResponse:
-        params = {"season": season, "league_id": league_id, "team_id": team_id}
+        params = {"season": season, "league": league_id, "team_id": team_id}
         logger.info("team_statistics_fetching", params=params)
         try:
             raw_json = await self.base.get_json("teams/statistics", params=params)
@@ -95,10 +95,9 @@ class APIFootballClient:
         return response
 
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=3), retry=retry_if_exception_type(HTTPError))
     async def get_teams_by_league(self, league_id: int, season: int) -> TeamsResponse:
-        params = {"season": season, "league_id": league_id}
-        logger.info("teams_by_leagues_fetching", params=params)
+        params = {"season": season, "league": league_id}
         try:
             raw_json = await self.base.get_json("teams", params=params)
         except Exception as exc:
@@ -115,6 +114,7 @@ class APIFootballClient:
             raise ValueError(f"teams_by_leagues API returned errors: {errors}")
 
         try:
+
             response = TeamsResponse.model_validate(raw_json)
         except ValidationError as exc:
             logger.warning("teams_by_leagues_validation_failed", error=str(exc))

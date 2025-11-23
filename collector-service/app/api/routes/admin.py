@@ -29,6 +29,7 @@ from app.api.dependencies import get_db_session, get_sports_service, get_events_
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_events, collect_odds_task
 from app.tasks.prioritizer import prioritize_all
+from app.tasks.sync_teams import sync_teams_from_api_football
 from app.infrastructure.repositories import NormalizedOddsRepository
 
 logger = structlog.get_logger()
@@ -73,7 +74,7 @@ async def get_snapshots(
         raise
 
 
-@router.post("/collect/sports", response_model=TaskTriggerResponse)
+@router.post("/tasks/collect/sports", response_model=TaskTriggerResponse)
 async def trigger_collection_sport(
     _auth: None = Depends(verify_admin_token)
 ) -> TaskTriggerResponse:
@@ -488,6 +489,54 @@ async def trigger_odds_collection(
         )
     except Exception as e:
         logger.error("failed_to_enqueue_odds_collection", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )
+
+
+@router.post("/tasks/sync/teams/api-football", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_teams_sync_from_api_football(
+    request: Request,
+    provider: str = Query(default="odds_api", description="Provider name"),
+    _auth: None = Depends(verify_admin_token),
+) -> TaskTriggerResponse:
+    """
+    Manually trigger teams sync from API Football.
+
+    This enqueues a `sync_teams_from_api_football` task in TaskIQ that will:
+    1. Load API Football configuration from provider_policy.yml
+    2. Fetch teams for each configured competition
+    3. Upsert teams to database using team_slug as unique identifier
+
+    Args:
+        provider: Provider name (default: "odds_api")
+    """
+    logger.info("teams_sync_from_api_football_triggered_manually", provider=provider)
+
+    try:
+        container = request.app.state.container
+        policy_loader = container.policy_loader
+        
+        api_fb = policy_loader.get_api_football(provider)
+        competitions_list = list(api_fb.competitions.keys()) if api_fb else []
+        
+        logger.info(
+            "teams_sync_enqueuing",
+            provider=provider,
+            competitions_count=len(competitions_list),
+            competitions=competitions_list
+        )
+
+        task = await sync_teams_from_api_football.kiq(provider=provider)
+
+        return TaskTriggerResponse(
+            status="queued",
+            message=f"Teams sync task enqueued for {len(competitions_list)} competitions",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_teams_sync", provider=provider, error=str(e))
         return TaskTriggerResponse(
             status="error",
             message=f"Failed to enqueue task: {str(e)}",

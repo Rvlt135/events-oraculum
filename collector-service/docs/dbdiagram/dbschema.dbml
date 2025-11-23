@@ -76,6 +76,8 @@ Table sports {
     (provider, category) [name: 'uq_sports_provider_category', unique: true]
     (is_active) [name: 'idx_sports_is_active']
   }
+
+  Note: 'Sport categories like soccer, basketball, etc.'
 }
 
 Table competitions {
@@ -86,6 +88,7 @@ Table competitions {
   provider text [not null, default: 'odds_api', note: 'Источник данных, (mvp - odds_api)']
   slug_key text [not null, note: 'Из sports.key, напр.: "soccer_uefa_champs_league"']
   plan_visibility text [not null, default: 'free']
+  api_sources jsonb [default: '{}', note: 'Additional API source information']
   is_active boolean [not null, note: 'payload.active из провайдера; без default, ставим явно в инжесте']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`, note: 'При обновлении competition например is_active -> true или false']
@@ -95,6 +98,8 @@ Table competitions {
     (sport_id) [name: 'idx_competitions_sport_id']
     (is_active) [name: 'idx_competitions_is_active']
   }
+
+  Note: 'Sport competitions/leagues/tournaments'
 }
 
 Table teams {
@@ -102,15 +107,20 @@ Table teams {
   sport_id uuid [ref: > sports.id, on delete: CASCADE, not null]
   name text [not null]
   normalized_name text [not null]
+  team_slug text [not null, note: 'URL-friendly team identifier']
   external_ids jsonb [default: '{}']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
 
   indexes {
     (sport_id, normalized_name) [name: 'uq_teams_sport_normalized_name', unique: true]
+    (sport_id, team_slug) [name: 'uq_teams_sport_team_slug', unique: true]
     (sport_id) [name: 'idx_teams_sport_id']
     (sport_id, normalized_name) [name: 'idx_teams_sport_normalized_name']
+    (sport_id, team_slug) [name: 'idx_teams_sport_team_slug']
   }
+
+  Note: 'Sports teams participating in events'
 }
 
 Table events {
@@ -126,8 +136,8 @@ Table events {
   commence_time timestamptz [not null]
   status text [default: 'upcoming', note: 'upcoming, live, completed, cancelled']
   participant_mode text [not null, default: 'unknown', note: 'enum: duel, solo, field, unknown']
-  participants jsonb [not null, default: '[]']
-  event_metadata jsonb [default: '{}']
+  participants jsonb [not null, default: '[]', note: 'Flexible participant storage']
+  event_metadata jsonb [default: '{}', note: 'Additional event metadata']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
   ingested_at timestamptz [note: 'nullable']
@@ -142,6 +152,8 @@ Table events {
     (external_id) [name: 'idx_events_external_id']
     (competition_id, commence_time) [name: 'idx_events_competition_commence']
   }
+
+  Note: 'Sporting events/matches'
 }
 
 Table bookmakers {
@@ -156,6 +168,8 @@ Table bookmakers {
     (key) [name: 'idx_bookmakers_key']
     (is_active) [name: 'idx_bookmakers_is_active']
   }
+
+  Note: 'Bookmakers providing odds data'
 }
 
 Table odds_snapshots {
@@ -175,6 +189,8 @@ Table odds_snapshots {
     (timestamp_ingested) [name: 'idx_odds_snapshots_timestamp_ingested', type: 'btree', order: 'desc']
     (event_id, bookmaker_id, market_type) [name: 'uq_odds_snapshots_event_book_mkt', unique: true]
   }
+
+  Note: 'Raw odds data snapshots from bookmakers'
 }
 
 Table normalized_odds {
@@ -199,36 +215,40 @@ Table normalized_odds {
     (timestamp_normalized) [name: 'idx_normalized_odds_timestamp_normalized', type: 'btree', order: 'desc']
     (event_id, market_type) [name: 'uq_normalized_odds_event_market', unique: true]
   }
+
+  Note: 'Normalized and aggregated odds data'
 }
 
 Table event_priorities {
   id uuid [pk, default: `uuid_generate_v4()`]
-  provider text [not null]
-  slug_key text [not null]
   event_id uuid [ref: > events.id, on delete: CASCADE, not null]
-  priority numeric(4,3) [not null]
-  model text [not null]
-  evaluated_at timestamptz [not null, default: `now()`]
-  meta jsonb [note: 'nullable', default: '{}']
+  priority integer [not null, default: 0]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
 
   indexes {
-    (slug_key, event_id) [name: 'uq_event_priorities_slug_key_event_id', unique: true]
-    (slug_key, priority) [name: 'idx_event_priorities_slug_key_priority', type: 'btree', order: 'desc']
-    (event_id) [name: 'idx_event_priorities_event_id']
-    (evaluated_at) [name: 'idx_event_priorities_evaluated_at']
+    (event_id) [name: 'idx_event_priorities_event_id', unique: true]
+    (priority) [name: 'idx_event_priorities_priority']
   }
+
+  Note: 'Priority levels for events to determine processing order'
 }
 
-// Relationships
-Ref: competitions.sport_id > sports.id
-Ref: events.sport_id > sports.id
-Ref: events.competition_id > competitions.id
-Ref: events.home_team_id > teams.id
-Ref: events.away_team_id > teams.id
-Ref: odds_snapshots.event_id > events.id
-Ref: odds_snapshots.bookmaker_id > bookmakers.id
-Ref: normalized_odds.event_id > events.id
-Ref: event_priorities.event_id > events.id
-Ref: teams.sport_id > sports.id
+// =============================================================================
+// RELATIONSHIPS
+// =============================================================================
+
+Ref: sports.id < competitions.sport_id
+Ref: sports.id < events.sport_id
+Ref: sports.id < teams.sport_id
+Ref: competitions.id < events.competition_id
+Ref: events.id < odds_snapshots.event_id
+Ref: events.id < normalized_odds.event_id
+Ref: events.id < event_priorities.event_id
+Ref: bookmakers.id < odds_snapshots.bookmaker_id
+Ref: teams.id < events.home_team_id
+Ref: teams.id < events.away_team_id
+
+// User management relationships
+Ref: users.id < user_identities.user_id
+Ref: users.id < user_sessions.user_id

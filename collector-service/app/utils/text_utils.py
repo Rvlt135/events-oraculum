@@ -4,6 +4,22 @@ Text utility functions for normalization and processing.
 import unicodedata
 import re
 
+TRANSLIT = {
+    "ø": "o",
+    "ö": "o",
+    "ä": "a",
+    "æ": "ae",
+    "œ": "oe",
+    "ß": "ss",
+    "ł": "l",
+    "š": "s",
+}
+
+TOKEN_CANON = {
+    "st": "saint",
+    "st.": "saint",
+}
+
 
 def normalize_name(raw: str) -> str:
     """
@@ -46,6 +62,7 @@ def create_slug(name: str) -> str:
     Converts name to slug format:
     - Unicode NFC normalization
     - Lowercase conversion
+    - Transliteration of special characters
     - Replace spaces with hyphens
     - Remove special characters (keep only alphanumeric and hyphens)
     - Collapse multiple hyphens to single hyphen
@@ -66,6 +83,12 @@ def create_slug(name: str) -> str:
     # Lowercase
     slug = slug.lower()
 
+    # Transliteration before character removal
+    result = []
+    for char in slug:
+        result.append(TRANSLIT.get(char, char))
+    slug = "".join(result)
+
     # Replace spaces and underscores with hyphens
     slug = re.sub(r"[\s_]+", "-", slug)
 
@@ -80,13 +103,51 @@ def create_slug(name: str) -> str:
 
     return slug
 
+def canon_parts(slug: str) -> list[str]:
+    """
+    Canonicalize slug parts using token mapping.
+
+    Args:
+        slug: Slug string (e.g., "st-gilloise")
+
+    Returns:
+        List of canonicalized parts (e.g., ["saint", "gilloise"])
+    """
+    parts = [p for p in slug.split("-") if p]
+    return [TOKEN_CANON.get(p, p) for p in parts]
+
+
+def slugs_match(api_slug: str, odds_slug: str) -> bool:
+    """
+    Check if two slugs match using canonicalized token comparison.
+
+    Args:
+        api_slug: Slug from API-Football
+        odds_slug: Slug from odds-api
+
+    Returns:
+        True if slugs match, False otherwise
+    """
+    if api_slug == odds_slug:
+        return True
+
+    api_parts = canon_parts(api_slug)
+    odds_parts = canon_parts(odds_slug)
+
+    # Compare first n tokens (1-2)
+    n = min(len(api_parts), len(odds_parts), 2)
+    if n > 0 and api_parts[:n] == odds_parts[:n]:
+        return True
+
+    return False
+
 
 def create_team_slug(name: str) -> str:
     """
     Create team slug from raw team name.
 
     This is a dedicated function for creating team slugs used as unique identifiers.
-    Uses the same logic as create_slug for consistency.
+    Uses create_slug for consistency.
 
     Args:
         name: Raw team name string

@@ -6,9 +6,9 @@ import structlog
 
 from app.infrastructure.db.orm.teams import Team
 from app.utils.time_utils import now_utc
-from app.utils.text_utils import create_slug
 from app.infrastructure.repositories.base import BaseRepository
 from sqlalchemy.dialects.postgresql import insert
+from app.utils.text_utils import create_team_slug, normalize_name
 
 logger = structlog.get_logger()
 
@@ -26,7 +26,7 @@ class TeamRepository(BaseRepository[Team]):
         team = result.scalar_one_or_none()
 
         if not team:
-            team_slug = create_slug(normalized_name)
+            team_slug = create_team_slug(name)
             team = Team(
                 name=name,
                 normalized_name=normalized_name,
@@ -69,26 +69,28 @@ class TeamRepository(BaseRepository[Team]):
         self, sport_id: UUID, provider: str, normalized: str, raw: str
     ) -> UUID:
         """
-        Resolve team by normalized name or create if not exists.
+        Resolve team by team_slug or create if not exists.
 
-        Finds team by (sport_id, normalized_name), creates if not found,
+        Finds team by (sport_id, team_slug), creates if not found,
         and ensures external_ids[provider][raw]=true without overwriting other aliases.
 
         Args:
             sport_id: Sport UUID
             provider: Provider name (e.g., 'odds_api')
-            normalized: Normalized team name (lower, trimmed, NFC)
+            normalized: Team slug (created via create_team_slug)
             raw: Raw team name from provider
 
         Returns:
             Team UUID
         """
+        # Use normalized as team_slug for searching (it's already a slug from create_team_slug)
+        team_slug = normalized
 
-        # Try to find existing team by (sport_id, normalized_name)
+        # Try to find existing team by (sport_id, team_slug)
         result = await self.session.execute(
             select(Team).where(
                 Team.sport_id == sport_id,
-                Team.normalized_name == normalized
+                Team.team_slug == team_slug
             )
         )
         team = result.scalar_one_or_none()
@@ -111,7 +113,7 @@ class TeamRepository(BaseRepository[Team]):
             logger.debug(
                 "team_alias_added",
                 team_id=str(team.id),
-                normalized=normalized,
+                team_slug=team_slug,
                 provider=provider,
                 raw=raw
             )
@@ -120,11 +122,11 @@ class TeamRepository(BaseRepository[Team]):
         else:
             # Team doesn't exist - create new
             external_ids = {provider: {raw: True}}
-            team_slug = create_slug(normalized)
+            normalized_name = normalize_name(raw)
 
             team = Team(
                 name=raw,
-                normalized_name=normalized,
+                normalized_name=normalized_name,
                 team_slug=team_slug,
                 sport_id=sport_id,
                 external_ids=external_ids,
@@ -136,7 +138,7 @@ class TeamRepository(BaseRepository[Team]):
                 "team_created_with_alias",
                 team_id=str(team.id),
                 name=raw,
-                normalized=normalized,
+                team_slug=team_slug,
                 provider=provider
             )
 
@@ -205,7 +207,7 @@ class TeamRepository(BaseRepository[Team]):
             return team.id
         else:
             from app.utils.text_utils import normalize_name
-
+            
             normalized_name = normalize_name(team_name)
             external_ids = {"api_football": {"team_id": team_id}}
 
