@@ -9,6 +9,7 @@ from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
 from sqlalchemy.dialects.postgresql import insert
 from app.utils.text_utils import create_team_slug, normalize_name
+from app.utils.text_utils import normalize_name
 
 logger = structlog.get_logger()
 
@@ -206,8 +207,7 @@ class TeamRepository(BaseRepository[Team]):
 
             return team.id
         else:
-            from app.utils.text_utils import normalize_name
-            
+
             normalized_name = normalize_name(team_name)
             external_ids = {"api_football": {"team_id": team_id}}
 

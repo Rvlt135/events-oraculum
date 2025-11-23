@@ -13,6 +13,28 @@ TRANSLIT = {
     "ß": "ss",
     "ł": "l",
     "š": "s",
+    "á": "a",
+    "à": "a",
+    "â": "a",
+    "ã": "a",
+    "å": "a",
+    "é": "e",
+    "è": "e",
+    "ê": "e",
+    "í": "i",
+    "ğ": "g",
+    "ì": "i",
+    "î": "i",
+    "ó": "o",
+    "ò": "o",
+    "ô": "o",
+    "õ": "o",
+    "ü": "u",
+    "ú": "u",
+    "ù": "u",
+    "û": "u",
+    "ç": "c",
+    "ñ": "n",
 }
 
 TOKEN_CANON = {
@@ -20,6 +42,15 @@ TOKEN_CANON = {
     "st.": "saint",
 }
 
+SERVICE_TOKENS = {"fc", "afc", "fk", "club", "cf", "ac", "bc", "cd", "as"}
+
+TEAM_ALIAS = {
+    # TODO: Move to the alias table
+    "wolverhampton-wanderers": "wolves",
+    "athletic-bilbao": "athletic-club",
+    "sporting-cp": "sporting-lisbon",
+    "bayern-munich": "bayern-munchen"
+}
 
 def normalize_name(raw: str) -> str:
     """
@@ -103,6 +134,27 @@ def create_slug(name: str) -> str:
 
     return slug
 
+
+def apply_alias(slug: str) -> str:
+    return TEAM_ALIAS.get(slug, slug)
+
+def match_slug(odds_slug: str, api_slugs: list[str]) -> str | None:
+    if odds_slug in api_slugs:
+        return odds_slug
+
+    # 1. alias-слой
+    normalized = apply_alias(odds_slug)
+    if normalized in api_slugs:
+        return normalized
+
+    # 2. fallback — мягкий slugs_match
+    for api_slug in api_slugs:
+        if slugs_match(api_slug, odds_slug):
+            return api_slug
+
+    return None
+
+
 def canon_parts(slug: str) -> list[str]:
     """
     Canonicalize slug parts using token mapping.
@@ -114,31 +166,20 @@ def canon_parts(slug: str) -> list[str]:
         List of canonicalized parts (e.g., ["saint", "gilloise"])
     """
     parts = [p for p in slug.split("-") if p]
+    parts = [p for p in parts if p not in SERVICE_TOKENS]
     return [TOKEN_CANON.get(p, p) for p in parts]
 
 
 def slugs_match(api_slug: str, odds_slug: str) -> bool:
-    """
-    Check if two slugs match using canonicalized token comparison.
-
-    Args:
-        api_slug: Slug from API-Football
-        odds_slug: Slug from odds-api
-
-    Returns:
-        True if slugs match, False otherwise
-    """
     if api_slug == odds_slug:
         return True
 
     api_parts = canon_parts(api_slug)
     odds_parts = canon_parts(odds_slug)
 
-    # Compare first n tokens (1-2)
     n = min(len(api_parts), len(odds_parts), 2)
     if n > 0 and api_parts[:n] == odds_parts[:n]:
         return True
-
     return False
 
 

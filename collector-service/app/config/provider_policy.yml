@@ -62,7 +62,7 @@ odds_api:
 
   events:
     teams_normalization:
-      enabled: true  # E5: Resolve team_id for duel/solo modes via TeamRepository
+      enabled: true  # E5: TODO: depricated Resolve team_id for duel/solo modes via TeamRepository
 
   admin:
     events_view_limit: 200  # E10: Limit for GET /catalog/events/upcoming

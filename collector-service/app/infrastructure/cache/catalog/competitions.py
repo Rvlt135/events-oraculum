@@ -21,10 +21,10 @@ def _key_catalog(category: str) -> str:
     normalized = _normalize_category(category)
     return f"{KEY_PREFIX}:{normalized}"
 
-def _key_catalog_teams(slug_key: str) -> str:
+def _key_catalog_teams(slug_key: str, season: int) -> str:
     """Generate Redis key for competitions catalog teams by slug_key."""
-    teams_key = "{slug_key}:teams"
-    return f"{KEY_PREFIX}:{teams_key.format(slug_key=slug_key)}"
+    teams_key = "{slug_key}:{season}:teams"
+    return f"{KEY_PREFIX}:{teams_key.format(slug_key=slug_key, season=season)}"
 
 class CompetitionsCache:
     """Redis cache layer for competitions catalog."""
@@ -52,12 +52,12 @@ class CompetitionsCache:
             await self.invalidate_catalog(category)
             return None
 
-    async def set_competition_team_slugs(self, competition_slug_key: str, team_slugs: list[str], ttl: int = CATALOG_TTL_SEC) -> None:
+    async def set_competition_team_slugs(self, competition_slug_key: str, season: int, team_slugs: list[str], ttl: int = CATALOG_TTL_SEC) -> None:
         json_str = json.dumps(team_slugs, ensure_ascii=False)
-        await self._r.setex(_key_catalog_teams(competition_slug_key), ttl, json_str)
+        await self._r.setex(_key_catalog_teams(competition_slug_key, season), ttl, json_str)
 
-    async def get_competition_team_slugs(self, competition_slug_key: str) -> list[str] | None:
-        raw = await self._r.get(_key_catalog_teams(competition_slug_key))
+    async def get_competition_team_slugs(self, competition_slug_key: str, season: int) -> list[str] | None:
+        raw = await self._r.get(_key_catalog_teams(competition_slug_key, season))
         if not raw:
             return None
         try:

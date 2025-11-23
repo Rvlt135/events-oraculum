@@ -9,7 +9,7 @@ import time
 import structlog
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from httpx import HTTPStatusError
-from app.utils.text_utils import create_team_slug
+from app.utils.text_utils import create_team_slug, slugs_match
 
 from app.domain.entities.events.events_targets import EventsTargetsDTO, FilteredReasonDTO
 from app.domain.entities.events.events_window import (
@@ -787,6 +787,8 @@ class EventsService:
                 participant_mode: Literal["duel", "solo", "field", "unknown"] = valid_modes
 
                 # Convert and save each event within transaction
+                cached_slugs = await self._competitions_cache.get_competition_team_slugs(competition.slug_key)
+
                 for event_data in events_data:
                     try:
                         external_id = event_data.get("id")
@@ -802,8 +804,14 @@ class EventsService:
                         away_team_name = event_data.get("away_team")
 
                         # E5: Resolve team_id if normalization enabled
-                        home_team_id = None
-                        away_team_id = None
+                        # home_team_id = None
+                        # away_team_id = None
+                        #
+
+                        # for s in cached_slugs:
+                        #     resolved_home_slug = slugs_match(home_team_name, s)
+                        #     resolved_away_slug = slugs_match(away_team_name, s)
+
                         if teams_normalization_enabled:
                             home_team_id, away_team_id = await self._resolve_team_ids(
                                 team_repo=team_repo,

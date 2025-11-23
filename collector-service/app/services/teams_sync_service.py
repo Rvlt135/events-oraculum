@@ -244,7 +244,8 @@ class TeamsSyncService:
                     try:
                         await self.competitions_cache.set_competition_team_slugs(
                             competition_slug_key=competition_slug,
-                            team_slugs=result.team_slugs
+                            team_slugs=result.team_slugs,
+                            season=season
                         )
                     except Exception as e:
                         logger.error(
