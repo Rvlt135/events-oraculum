@@ -877,7 +877,7 @@ class EventsService:
             for slug_key in slug_keys:
                 try:
                     # Get competition from DB
-                    competition = await get_by_slug_key(
+                    competition = await comp_repo.get_by_slug_key(
                         provider=provider, slug_key=slug_key
                     )
 
