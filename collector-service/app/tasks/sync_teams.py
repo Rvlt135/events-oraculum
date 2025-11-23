@@ -32,7 +32,15 @@ async def sync_teams_from_api_football(provider: str = "odds_api") -> Dict[str, 
     try:
         teams_sync_service = await get_teams_sync_service()
 
-        result = await teams_sync_service.sync_all_teams(provider=provider)
+        api_football_config = teams_sync_service.policy_loader.get_api_football(provider)
+
+        competitions = await teams_sync_service.get_competitions_for_sync(provider, api_football_config.competitions)
+
+        if not competitions:
+            logger.warning("no_competitions_for_sync", provider=provider)
+            return {"status": "not_found_competitions", "created": 0, "updated": 0, "errors": 0}
+
+        result = await teams_sync_service.sync_all_teams(provider=provider, competitions=competitions)
 
         logger.info(
             "sync_teams_task_completed",

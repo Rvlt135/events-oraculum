@@ -192,10 +192,16 @@ class Container:
         Returns:
             TeamsSyncService instance with dependencies from container
         """
+
+        competitions_cache = CompetitionsCache(self.redis_cache)
+        # events_cache = EventsCache(self.redis_cache)
+
         return TeamsSyncService(
             api_football_client=self.api_football_client,
             session_factory=self.session_factory,
             policy_loader=self.policy_loader,
+            competitions_cache=competitions_cache,
+            # events_cache=events_cache
         )
 
 
