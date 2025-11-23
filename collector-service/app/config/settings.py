@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     admin_enabled: bool = Field(default=True)
     admin_prefix: str = Field(default="/_admin")
+    admin_prefix_tasks: str = Field(default="/_admin/tasks")
     admin_token: str = Field(default="")
     admin_docs_enabled: bool = Field(default=False)
 
