@@ -12,6 +12,7 @@ from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.cache.catalog.odds import OddsCache
+from app.infrastructure.cache.catalog.standings import StandingsFootballCache
 from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
@@ -215,14 +216,14 @@ class Container:
         """
 
         competitions_cache = CompetitionsCache(self.redis_cache)
-        # events_cache = EventsCache(self.redis_cache)
+        standings_cache = StandingsFootballCache(self.redis_cache)
 
         return StatisticsCollectService(
             api_football_client=self.api_football_client,
             session_factory=self.session_factory,
             policy_loader=self.policy_loader,
             competitions_cache=competitions_cache,
-            # events_cache=events_cache
+            standings_football_cache=standings_cache
         )
 
 

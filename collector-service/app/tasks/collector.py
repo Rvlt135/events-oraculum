@@ -5,6 +5,7 @@ from prometheus_client import Counter, Histogram
 from app.config import settings
 from app.utils.time_utils import now_utc, build_events_window
 from app.infrastructure.di.services import get_sports_service, get_events_service, get_odds_service, get_collect_statistic_sync_service
+from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.tasks.broker import broker
 from app.domain.entities.events.events_window import EventsWindowDTO
 from app.tasks.prioritizer import enqueue_prioritization_after_collect
@@ -212,13 +213,17 @@ async def collect_events() -> Dict[str, str]:
 @broker.task(schedule=_task_schedule)
 async def collect_standings_football_task() -> Dict[str, str]:
     start_time = now_utc()
-    logger.info("collect_odds_task_started", timestamp=start_time.isoformat())
+    logger.info("collect_standings_task_started", timestamp=start_time.isoformat())
 
     if not hasattr(broker.state, 'container'):
         raise RuntimeError("Container not found in broker.state")
 
+    provider = "odds_api"
+    processed = 0
+    errors = 0
+
     try:
-        collect_statistic_service = await get_collect_statistic_sync_service()
+        collect_service = await get_collect_statistic_sync_service()
         container = broker.state.container
         policy_loader = container.policy_loader
 
