@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 
-from app.api.di.deps import get_auth_service, get_token_service
+from app.api.di.deps import get_token_service
 from app.config.settings import settings
 from app.infrastructure.db.orm.user import User
 from app.infrastructure.security.jwt import jwt_service

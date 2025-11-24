@@ -55,7 +55,6 @@ class Settings(BaseSettings):
     auth_access_ttl_sec: int = Field(default=3600)
     auth_refresh_ttl_sec: int = Field(default=2592000)
 
-
     # Google OAuth - опциональные, можно оставить пустые строки
     google_client_id: str = Field(default="")
     google_client_secret: str = Field(default="")
@@ -67,6 +66,12 @@ class Settings(BaseSettings):
 
     # Password hashing - алгоритм редко меняется
     password_hash_scheme: str = Field(default="argon2")
+    password_min_length: int = Field(default=8)
+
+    # Referral and Invite code settings
+    ref_code_length: int = Field(default=8)
+    invite_code_alphabet: str = Field(default="ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+    invite_code_length: int = Field(default=10)
 
     @property
     def postgres_url(self) -> str:
