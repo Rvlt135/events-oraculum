@@ -170,6 +170,19 @@ class TeamRepository(BaseRepository[Team]):
         )
         return result.scalar_one_or_none()
 
+    async def get_many_by_api_ids(self, sport_id: UUID, api_team_ids: list[int]) -> dict[int, Team]:
+        if not api_team_ids:
+            return {}
+        
+        result = await self.session.execute(
+            select(Team).where(
+                Team.sport_id == sport_id,
+                Team.external_apif_id.in_(api_team_ids)
+            )
+        )
+        teams = result.scalars().all()
+        return {team.external_apif_id: team for team in teams if team.external_apif_id is not None}
+
     async def upsert_from_api_football(
         self, sport_id: UUID, team_name: str, team_id: int, team_slug: str,
         external_apif_id: Optional[int] = None

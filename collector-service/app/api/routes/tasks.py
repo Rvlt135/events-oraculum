@@ -16,7 +16,7 @@ from app.api.schemas.schemas import (
 
 from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_odds_service, get_redis_cache
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_events, collect_odds_task
+from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task
 from app.tasks.prioritizer import prioritize_all
 from app.tasks.sync_teams import sync_teams_from_api_football
 from app.infrastructure.repositories import NormalizedOddsRepository
@@ -190,7 +190,9 @@ async def trigger_teams_sync_from_api_football(
     3. Upsert teams to database using team_slug as unique identifier
 
     Args:
+        request: FastAPI request object
         provider: Provider name (default: "odds_api")
+        _auth: Authorization object
     """
     logger.info("teams_sync_from_api_football_triggered_manually", provider=provider)
 
@@ -209,6 +211,42 @@ async def trigger_teams_sync_from_api_football(
         )
 
         task = await sync_teams_from_api_football.kiq(provider=provider)
+
+        return TaskTriggerResponse(
+            status="queued",
+            message=f"Teams sync task enqueued for {len(competitions_list)} competitions",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_teams_sync", provider=provider, error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )
+
+@router.post("/sync/standings", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_standings_sync(
+        request: Request,
+        provider: str = Query(default="odds_api", description="Provider name"),
+        _auth: None = Depends(verify_admin_token),
+) -> TaskTriggerResponse:
+    logger.info("standings_sync_from_api_football_triggered_manually", provider=provider)
+
+    try:
+        container = request.app.state.container
+        policy_loader = container.policy_loader
+
+        api_fb = policy_loader.get_api_football(provider)
+        competitions_list = list(api_fb.competitions.keys()) if api_fb else []
+
+        logger.info(
+            "teams_sync_enqueuing",
+            provider=provider,
+            competitions_count=len(competitions_list),
+            competitions=competitions_list
+        )
+
+        task = await collect_standings_football_task.kiq()
 
         return TaskTriggerResponse(
             status="queued",

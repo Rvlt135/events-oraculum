@@ -25,6 +25,7 @@ from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
 from app.services.prioritizer_service import PrioritizerService
+from app.services.statistics_collect import StatisticsCollectService
 from app.services.teams_sync_service import TeamsSyncService
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.config.settings import settings
@@ -52,6 +53,7 @@ class Container:
         self.ai_client: PrioritizerLLMClient | None = None
         self.llm_service: LLMService | None = None
         self.policy_loader: PolicyLoader | None = None
+        self.statistics_collect_service: StatisticsCollectService | None = None
     
     def create_sports_service(self) -> "SportsService":
         """
@@ -197,6 +199,25 @@ class Container:
         # events_cache = EventsCache(self.redis_cache)
 
         return TeamsSyncService(
+            api_football_client=self.api_football_client,
+            session_factory=self.session_factory,
+            policy_loader=self.policy_loader,
+            competitions_cache=competitions_cache,
+            # events_cache=events_cache
+        )
+
+    def create_statistics_collect_service(self) -> "StatisticsCollectService":
+        """
+        Factory method for TeamsSyncService.
+
+        Returns:
+            TeamsSyncService instance with dependencies from container
+        """
+
+        competitions_cache = CompetitionsCache(self.redis_cache)
+        # events_cache = EventsCache(self.redis_cache)
+
+        return StatisticsCollectService(
             api_football_client=self.api_football_client,
             session_factory=self.session_factory,
             policy_loader=self.policy_loader,
