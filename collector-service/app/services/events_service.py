@@ -161,14 +161,19 @@ class EventsService:
         )
 
     async def process_events_and_competitions(
-        self, provider: str, policy: EventsPolicyDTO, keys: List[str], window: EventsWindowDTO
+        self,
+        provider: str, policy: EventsPolicyDTO,
+        keys: List[str], window: EventsWindowDTO
     ) -> EventsRunSummaryDTO:
         """
         Process competitions with rate limiting and retry logic.
 
         Args:
+            provider: Provider name
+            policy: EventsPolicy object
             keys: List of slug_keys in exact order to process (no sorting)
             window: Time window for events collection
+
 
         Returns:
             EventsRunSummaryDTO with processing results
@@ -721,6 +726,7 @@ class EventsService:
         self, provider: str, slug_key: str, policy: EventsPolicyDTO, events_data: List[Dict]
     ) -> int:
         """
+        # TODO: Refactoring method
         Convert API events to EventUpsertDTO and save to database (E5).
 
         If teams_normalization is enabled in policy:
