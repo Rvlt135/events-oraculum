@@ -2,7 +2,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 
-from app.api.di.deps import get_auth_service, get_google_auth_service
+from app.api.di.deps import get_email_auth_service, get_google_auth_service
 from app.api.schemas.auth import (
     EmailLoginRequest,
     EmailRegisterRequest,
@@ -83,10 +83,10 @@ async def register_with_email(
     reg_data: EmailRegisterRequest,
     request: Request,
     return_to: str | None = Query(None, description="Конечный маршрут после логина"),
-    auth_service: EmailAuthService = Depends(get_auth_service),
+    auth_service: EmailAuthService = Depends(get_email_auth_service),
 ) -> RedirectResponse:
     try:
-        return await auth_service.register_with_email(
+        return  await auth_service.register_with_email(
             reg_data, request, return_to)
 
     except Exception as e:
@@ -100,7 +100,7 @@ async def register_with_email(
 async def login_with_email(
     req: EmailLoginRequest,
     request: Request,
-    auth_service: EmailAuthService = Depends(get_auth_service),
+    auth_service: EmailAuthService = Depends(get_email_auth_service),
 ):
     try:
         user_agent = request.headers.get("user-agent")
@@ -124,7 +124,7 @@ async def login_with_email(
 @router.post("/token/refresh")
 async def refresh_token(
     req: TokenRefreshRequest,
-    auth_service: TokenService = Depends(get_auth_service),
+    auth_service: TokenService = Depends(get_email_auth_service),
 ):
     try:
         access_token = await auth_service.refresh_access_token(req.refresh_token)
@@ -140,7 +140,7 @@ async def refresh_token(
 async def login_with_telegram(
     req: TelegramAuthRequest,
     request: Request,
-    auth_service: TelegramAuthService = Depends(get_auth_service),
+    auth_service: TelegramAuthService = Depends(get_email_auth_service),
 ):
     try:
         user_agent = request.headers.get("user-agent")
@@ -202,7 +202,7 @@ async def login_with_telegram(
 @router.post("/logout")
 async def logout(
     req: TokenRefreshRequest,
-    auth_service: EmailAuthService = Depends(get_auth_service),
+    auth_service: EmailAuthService = Depends(get_email_auth_service),
 ):
     try:
         await auth_service.logout(req.refresh_token)
