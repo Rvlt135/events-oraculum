@@ -3,6 +3,7 @@ from uuid import UUID
 from typing import List
 import structlog
 
+from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.standings import StandingsFootballCache
 from app.infrastructure.config.policy_loader import PolicyLoader
@@ -23,12 +24,14 @@ class StatisticsCollectService:
         policy_loader: PolicyLoader,
         competitions_cache: CompetitionsCache,
         standings_football_cache: StandingsFootballCache,
+        catalog_cache_helper: CatalogCacheHelper
     ):
         self.api_football_client = api_football_client
         self.session_factory = session_factory
         self.policy_loader = policy_loader
         self.competitions_cache = competitions_cache
         self.standings_football_cache = standings_football_cache
+        self.catalog_cache_helper = catalog_cache_helper
 
     async def fetch_and_prepare_standings(self, league_id: int, season: int) -> StandingPreparedData:
         """

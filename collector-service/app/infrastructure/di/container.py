@@ -215,8 +215,10 @@ class Container:
             TeamsSyncService instance with dependencies from container
         """
 
+        sports_cache = SportsCache(self.redis_cache)
         competitions_cache = CompetitionsCache(self.redis_cache)
         standings_cache = StandingsFootballCache(self.redis_cache)
+        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
 
         return StatisticsCollectService(
             api_football_client=self.api_football_client,

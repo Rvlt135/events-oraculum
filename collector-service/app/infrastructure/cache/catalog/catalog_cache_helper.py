@@ -152,3 +152,30 @@ class CatalogCacheHelper:
             return [c for c in competitions if c.plan_visibility == "pro"]
 
         return []
+
+    async def get_competitions_by_slugs(self, category: str, slugs: list[str]) -> list[CompetitionDTO]:
+        """
+        Get competitions from cache filtered by slug_key.
+        
+        Args:
+            category: Sport category (e.g., 'soccer')
+            slugs: List of slug_key values to filter
+            
+        Returns:
+            List of CompetitionDTO matching provided slugs
+        """
+        try:
+            cached = await self.competitions_cache.get_catalog(category)
+            
+            if not cached or "competitions" not in cached:
+                return []
+            
+            slugs_set = set(slugs)
+            competitions_dtos = [CompetitionDTO(**comp) for comp in cached["competitions"]]
+            
+            filtered = [c for c in competitions_dtos if c.slug_key in slugs_set]
+            
+            return filtered
+        except Exception as e:
+            logger.warning("get_competitions_by_slugs_failed", category=category, error=str(e))
+            return []

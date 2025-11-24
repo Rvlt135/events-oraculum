@@ -22,7 +22,7 @@ class StandingsFootballCache:
         self._r = redis
 
 
-    async def save_standings_teams(self, league_id: str, season: int, items: Dict, ttl: int = CATALOG_TTL_SEC) -> None:
+    async def save_standings_teams(self, league_id: str, season: int, items: list[dict], ttl: int = CATALOG_TTL_SEC) -> None:
         """Store competitions catalog for a specific category."""
         json_str = json.dumps(items, ensure_ascii=False)
         await self._r.setex(_key_standings_teams(league_id, season), ttl, json_str)

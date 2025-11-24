@@ -3,9 +3,12 @@ from typing import Any, Dict, Optional
 import json
 from redis.asyncio import Redis
 from app.config.settings import settings
+import structlog
 
 CATALOG_TTL_SEC = settings.cache_ttl_sports_sec
 KEY_PREFIX = "catalog:sports"  # можно версионировать: v1:catalog:sports
+logger = structlog.get_logger()
+
 
 def _key_catalog() -> str:
     return KEY_PREFIX  # если появится мультитенанси/планы — добавляй сегменты тут
@@ -33,8 +36,6 @@ class SportsCache:
             return json.loads(raw)
         except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as e:
             # Log error and invalidate corrupted cache
-            import structlog
-            logger = structlog.get_logger()
             logger.warning("cache_decode_error", error=str(e), raw_type=type(raw).__name__)
             await self.invalidate_catalog()
             return None

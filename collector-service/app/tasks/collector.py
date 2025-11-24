@@ -219,24 +219,106 @@ async def collect_standings_football_task() -> Dict[str, str]:
         raise RuntimeError("Container not found in broker.state")
 
     provider = "odds_api"
-    processed = 0
-    errors = 0
+    total_processed = 0
+    total_errors = 0
 
     try:
-        collect_service = await get_collect_statistic_sync_service()
+        service = await get_collect_statistic_sync_service()
         container = broker.state.container
         policy_loader = container.policy_loader
+        catalog_helper = service.catalog_cache_helper
 
+        api_football_policy = policy_loader.get_api_football(provider)
+        if not api_football_policy or not api_football_policy.competitions:
+            logger.warning("no_api_football_policy_found", provider=provider)
+            return {
+                "status": "ok",
+                "processed": str(total_processed),
+                "errors": str(total_errors)
+            }
 
-        result = {
-            "status": "non_implementation",
-            "message": "Not implemented"
+        for slug_key, comp_config in api_football_policy.competitions.items():
+            try:
+                league_id = comp_config.league_id
+                seasons_list = [comp_config.seasons.current]
+                if comp_config.seasons.previous:
+                    seasons_list.append(comp_config.seasons.previous)
+
+                competitions = await catalog_helper.get_competitions_by_slugs("soccer", [slug_key])
+                if not competitions:
+                    logger.warning("competition_not_found", slug_key=slug_key)
+                    total_errors += 1
+                    continue
+
+                competition = competitions[0]
+                sport_id = competition.sport_id
+                competition_id = competition.id
+
+                for season in seasons_list:
+                    try:
+                        prepared = await service.fetch_and_prepare_standings(league_id, season)
+                        if not prepared.api_team_ids:
+                            logger.info("no_teams_in_standings", slug_key=slug_key, league_id=league_id, season=season)
+                            continue
+
+                        team_map = await service.resolve_teams_for_standings(prepared, sport_id)
+                        records = service.build_standing_records(prepared, team_map, competition_id, season)
+                        
+                        if not records:
+                            logger.info("no_records_built", slug_key=slug_key, league_id=league_id, season=season)
+                            continue
+
+                        count = await service.save_standings(records, league_id, season)
+                        total_processed += 1
+
+                        records_dict = service._to_cache_items(records)
+                        await service.standings_football_cache.save_standings_teams(str(league_id), season, records_dict)
+
+                        logger.info(
+                            "standings_saved",
+                            slug_key=slug_key,
+                            league_id=league_id,
+                            season=season,
+                            count=count
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "standings_season_error",
+                            slug_key=slug_key,
+                            league_id=league_id,
+                            season=season,
+                            error=str(e),
+                            exc_info=True
+                        )
+                        total_errors += 1
+
+            except Exception as e:
+                logger.error(
+                    "standings_slug_error",
+                    slug_key=slug_key,
+                    error=str(e),
+                    exc_info=True
+                )
+                total_errors += 1
+
+        duration = (now_utc() - start_time).total_seconds()
+        collection_duration.observe(duration)
+
+        logger.info(
+            "collect_standings_task_completed",
+            duration_seconds=duration,
+            processed=total_processed,
+            errors=total_errors
+        )
+
+        return {
+            "status": "ok",
+            "processed": str(total_processed),
+            "errors": str(total_errors)
         }
 
-        return result
-
     except Exception as e:
-        logger.error("collect_odds_task_failed", error=str(e), exc_info=True)
+        logger.error("collect_standings_task_failed", error=str(e), exc_info=True)
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
 
