@@ -3,11 +3,14 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, Query
 
 from app.api.di.auth_deps import get_current_user
+from app.infrastructure.db.session import get_session
 from app.api.schemas.user import (
     MeResponse,
     UserProfile,
 )
 from app.infrastructure.db.orm.user import User
+from app.infrastructure.db.orm.invite_code import InviteCode
+from app.infrastructure.db.repositories.invite_code_repo import InviteCodeRepository
 
 router = APIRouter()
 
@@ -46,3 +49,15 @@ def login(error: str | None = Query(...)) -> dict:
         "endpoint": "/login",
         "query": error,
     }
+
+# Endpoint to generate invite codes in DB for testing
+@router.post("/create-invite-codes")
+async def create_invite_code(
+    session = Depends(get_session)
+) -> dict:
+    code_repo = InviteCodeRepository(session)
+    new_code = await code_repo.add_code()
+    await session.commit()
+    return {
+        "invite_code": f"{new_code.code}",
+    }   
