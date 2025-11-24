@@ -164,7 +164,8 @@ class TeamsSyncService:
                     sport_id=sport_id,
                     team_name=raw_name,
                     team_id=api_football_team_id,
-                    team_slug=team_slug
+                    team_slug=team_slug,
+                    external_apif_id=api_football_team_id
                 )
 
             await session.commit()

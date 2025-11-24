@@ -199,7 +199,7 @@ async def collect_events() -> Dict[str, str]:
             "timestamp": now_utc().isoformat(),
         }
         # TODO:DEBUG: disable prioritization
-        # await enqueue_prioritization_after_collect(result)
+        await enqueue_prioritization_after_collect(result)
 
         return result
 

@@ -19,7 +19,8 @@ class TeamRepository(BaseRepository[Team]):
         super().__init__(Team, session)
 
     async def get_or_create(
-        self, name: str, normalized_name: str, sport_id: UUID, external_ids: Dict[str, Any]
+        self, name: str, normalized_name: str, sport_id: UUID, external_ids: Dict[str, Any],
+        external_apif_id: Optional[int] = None
     ) -> UUID:
         result = await self.session.execute(
             select(Team).where(Team.normalized_name == normalized_name)
@@ -33,13 +34,16 @@ class TeamRepository(BaseRepository[Team]):
                 normalized_name=normalized_name,
                 team_slug=team_slug,
                 sport_id=sport_id,
-                external_ids=external_ids
+                external_ids=external_ids,
+                external_apif_id=external_apif_id
             )
             team = await self.create(team)
             logger.info("team_created", name=name, id=str(team.id))
         else:
             team.name = name
             team.external_ids = external_ids
+            if external_apif_id is not None:
+                team.external_apif_id = external_apif_id
             team.updated_at = now_utc()
             await self.session.flush()
             logger.debug("team_updated", name=name, id=str(team.id))
@@ -67,7 +71,8 @@ class TeamRepository(BaseRepository[Team]):
         return list(result.scalars().all())
 
     async def resolve_or_create_by_alias(
-        self, sport_id: UUID, provider: str, normalized: str, raw: str
+        self, sport_id: UUID, provider: str, normalized: str, raw: str,
+        external_apif_id: Optional[int] = None
     ) -> UUID:
         """
         Resolve team by team_slug or create if not exists.
@@ -131,6 +136,7 @@ class TeamRepository(BaseRepository[Team]):
                 team_slug=team_slug,
                 sport_id=sport_id,
                 external_ids=external_ids,
+                external_apif_id=external_apif_id
             )
             self.session.add(team)
             await self.session.flush()
@@ -165,7 +171,8 @@ class TeamRepository(BaseRepository[Team]):
         return result.scalar_one_or_none()
 
     async def upsert_from_api_football(
-        self, sport_id: UUID, team_name: str, team_id: int, team_slug: str
+        self, sport_id: UUID, team_name: str, team_id: int, team_slug: str,
+        external_apif_id: Optional[int] = None
     ) -> UUID:
         """
         Upsert team from API Football data.
@@ -194,6 +201,8 @@ class TeamRepository(BaseRepository[Team]):
             current_external_ids["api_football"]["team_id"] = team_id
 
             team.external_ids = current_external_ids
+            if external_apif_id is not None:
+                team.external_apif_id = external_apif_id
             team.updated_at = now_utc()
             await self.session.flush()
 
@@ -217,6 +226,7 @@ class TeamRepository(BaseRepository[Team]):
                 team_slug=team_slug,
                 sport_id=sport_id,
                 external_ids=external_ids,
+                external_apif_id=external_apif_id
             )
             self.session.add(team)
             await self.session.flush()
