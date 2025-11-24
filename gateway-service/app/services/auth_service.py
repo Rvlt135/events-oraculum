@@ -81,6 +81,11 @@ class GoogleAuthService:
             user_info = self.get_user_data_from_token(token_data=token_data, nonce=cached_nonce)
             self.verify_user_info(user_info)
         except AuthorizationError as e:
+            logger.info(
+                "Google OAuth authorization failed.",
+                state=state,
+                error=str(e),
+            )
             redirect_url = f"/login?{urlencode({"error":e})}"
             return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
 
@@ -110,6 +115,15 @@ class GoogleAuthService:
                 last_name=user_info.get("family_name"),
                 photo_url=user_info.get("picture"),
             )
+
+        logger.info(
+            "User registered in with Google OAuth.",
+            state=state,
+            user_id=str(user.id),
+            email=user.email,
+            google_user_id=google_user_id,
+            retuturn_to=cached_oauth_params.get("return_to"),
+        )
 
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
         refresh_token, jti = self.jwt.create_refresh_token(user.id)
@@ -250,6 +264,13 @@ class EmailAuthService:
             email = reg_data.email.lower()
             await self.validate_email_not_taken(email)
         except AuthorizationError as e:
+            logger.info(
+                "User registration with email failed.",
+                email=reg_data.email,
+                invite_code=reg_data.invite_code,
+                referral_code=reg_data.referral_code,
+                error=str(e),
+            )            
             redirect_url = f"/login?{urlencode({"error":e})}"
             return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
 
@@ -271,6 +292,13 @@ class EmailAuthService:
             user_id=user.id,
             provider=IdentityProvider.PASSWORD,
             provider_user_id=email,
+        )
+        logger.info(
+            "User registered with email.",
+            user_id=str(user.id),
+            email=user.email,
+            invite_code=reg_data.invite_code[:4] + "...",
+            referral_code=reg_data.referral_code[:4] + "..." if reg_data.referral_code else None,
         )
 
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
