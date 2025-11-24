@@ -48,7 +48,7 @@ TEAM_ALIAS = {
     # TODO: Move to the alias table
     "wolverhampton-wanderers": "wolves",
     "athletic-bilbao": "athletic-club",
-    "sporting-cp": "sporting-lisbon",
+    "sporting-lisbon": "sporting-cp",
     "bayern-munich": "bayern-munchen"
 }
 

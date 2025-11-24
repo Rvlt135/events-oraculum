@@ -106,6 +106,7 @@ async def collect_events() -> Dict[str, str]:
 
         # Load policy for selected provider
         policy = policy_loader.get_events_policy(provider)
+        api_football_policy = policy_loader.get_api_football(provider)
         if not policy:
             logger.warning("policy_not_found_for_provider", provider=provider)
             return {

@@ -9,7 +9,7 @@ import time
 import structlog
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from httpx import HTTPStatusError
-from app.utils.text_utils import create_team_slug, slugs_match
+from app.utils.text_utils import create_team_slug, slugs_match, match_slug
 
 from app.domain.entities.events.events_targets import EventsTargetsDTO, FilteredReasonDTO
 from app.domain.entities.events.events_window import (
@@ -787,7 +787,7 @@ class EventsService:
                 participant_mode: Literal["duel", "solo", "field", "unknown"] = valid_modes
 
                 # Convert and save each event within transaction
-                cached_slugs = await self._competitions_cache.get_competition_team_slugs(competition.slug_key)
+                cached_slugs = await self._competitions_cache.get_competition_team_slugs(competition_slug_key=competition.slug_key, season=2025) # TODO: Refactor to use season from policy team or event
 
                 for event_data in events_data:
                     try:
@@ -803,14 +803,16 @@ class EventsService:
                         home_team_name = event_data.get("home_team")
                         away_team_name = event_data.get("away_team")
 
-                        # E5: Resolve team_id if normalization enabled
-                        # home_team_id = None
-                        # away_team_id = None
-                        #
+                        home_slug = None
+                        away_slug = None
 
-                        # for s in cached_slugs:
-                        #     resolved_home_slug = slugs_match(home_team_name, s)
-                        #     resolved_away_slug = slugs_match(away_team_name, s)
+                        if home_team_name:
+                            odds_slug = create_team_slug(home_team_name)
+                            home_slug = match_slug(odds_slug, cached_slugs)
+
+                        if away_team_name:
+                            odds_slug = create_team_slug(away_team_name)
+                            away_slug = match_slug(odds_slug, cached_slugs)
 
                         if teams_normalization_enabled:
                             home_team_id, away_team_id = await self._resolve_team_ids(
@@ -819,8 +821,8 @@ class EventsService:
                                 provider=provider,
                                 participant_mode=participant_mode,
                                 participants=participants,
-                                home_team_name=home_team_name,
-                                away_team_name=away_team_name,
+                                home_team_name=home_slug,
+                                away_team_name=away_slug,
                                 has_api_football=has_api_football,
                                 competition_id=competition_id,
                                 slug_key=slug_key,
@@ -834,8 +836,8 @@ class EventsService:
                             competition_id=competition_id,
                             home_team_id=home_team_id,
                             away_team_id=away_team_id,
-                            home_team_name=home_team_name,
-                            away_team_name=away_team_name,
+                            home_team_name=home_slug,
+                            away_team_name=away_slug,
                             commence_time=event_data.get("commence_time", ""),
                             status="upcoming",
                             participant_mode=participant_mode,
