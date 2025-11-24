@@ -1,6 +1,7 @@
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
+from fastapi_limiter.depends import RateLimiter
 
 from app.api.di.deps import get_email_auth_service, get_google_auth_service
 from app.api.schemas.auth import (
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = structlog.get_logger()
 
 
-@router.get("/google/start")
+@router.get("/google/start", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def google_oauth_start(
     request: Request,
     return_to: str | None = Query(None, description="Конечный маршрут после логина"),
@@ -78,7 +79,7 @@ async def google_oauth_callback(
         )
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(RateLimiter(times=5, minutes=15))])
 async def register_with_email(
     reg_data: EmailRegisterRequest,
     request: Request,
