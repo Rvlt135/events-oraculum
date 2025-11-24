@@ -1,10 +1,14 @@
 from datetime import datetime
 from uuid import UUID
+
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.db.orm.user import User, PlanType
+from app.infrastructure.db.orm.user import PlanType, User
+
+logger = structlog.get_logger()
 
 
 class UserRepository:
@@ -34,6 +38,14 @@ class UserRepository:
             .options(selectinload(User.identities))
         )
         return result.scalar_one_or_none()
+    
+    async def get_by_ref_code(self, ref_code: str) -> User | None:
+        result = await self.session.execute(
+            select(User)
+            .where(User.ref_code == ref_code)
+            .options(selectinload(User.identities))
+        )
+        return result.scalar_one_or_none()
 
     async def create(
         self,
@@ -46,7 +58,7 @@ class UserRepository:
         telegram_is_premium: bool | None = None,
         referrer_code: str | None = None,
     ) -> User:
-        for _ in range(10):
+        for i in range(10):
             try:
                 user = User(
                     email=email,
@@ -62,8 +74,10 @@ class UserRepository:
                 await self.session.flush()
                 await self.session.refresh(user)
                 return user
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Error on attempt {i+1} to create user: {e}")
                 await self.session.rollback()
+        logger.error("Failed to create user after multiple attempts due to ref_code collisions.")
         raise Exception("Failed to create user after multiple attempts due to ref_code collisions.")
 
     async def update(self, user: User) -> User:
