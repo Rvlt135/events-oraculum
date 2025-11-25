@@ -12,8 +12,9 @@ from app.infrastructure.db.orm.teams import Team
 from app.infrastructure.http.api_football import APIFootballClient
 from app.infrastructure.repositories.team import TeamRepository
 from app.infrastructure.repositories.standings import StandingsFootballRepository
+from app.infrastructure.repositories.fixtures_football import FixturesFootballRepository
 from app.domain.entities.statistics.dto.standings_dto import StandingPreparedData, StandingRowDTO, EnrichedStandingRowDTO
-from app.domain.entities.statistics.dto.fixtures_dto import PreparedFixturesDTO, PreparedFixtureRowDTO
+from app.domain.entities.statistics.dto.fixtures_dto import PreparedFixturesDTO, PreparedFixtureRowDTO, EloFixtureRecordDTO
 
 logger = structlog.get_logger()
 
@@ -39,7 +40,7 @@ class StatisticsCollectService:
         r = {api_id: team.id for api_id, team in teams_map.items()}
         return r
 
-    def _to_cache_items(self, records: List[EnrichedStandingRowDTO]) -> List[dict]:
+    def _to_cache_items_standings(self, records: List[EnrichedStandingRowDTO]) -> List[dict]:
         """
         Convert EnrichedStandingRowDTO records to lightweight cache structure.
 
@@ -56,6 +57,28 @@ class StatisticsCollectService:
                 "points": record.points,
                 "goal_diff": record.goal_diff,
                 "form": record.form_raw,
+            }
+            for record in records
+        ]
+
+    def _to_cache_items_fixtures(self, records: List[EloFixtureRecordDTO]) -> List[dict]:
+        """
+        Convert EloFixtureRecordDTO records to lightweight cache structure.
+
+        Args:
+            records: List of EloFixtureRecordDTO records
+
+        Returns:
+            List of lightweight dict items
+        """
+        return [
+            {
+                "team_id": str(record.team_id),
+                "opponent_id": str(record.opponent_id),
+                "match_date": record.match_date.isoformat(),
+                "goals_for": record.goals_for,
+                "goals_against": record.goals_against,
+                "is_home": record.is_home,
             }
             for record in records
         ]
@@ -234,7 +257,7 @@ class StatisticsCollectService:
                 count = await standings_repo.bulk_upsert(records)
                 await session.commit()
                 
-                items = self._to_cache_items(records)
+                items = self._to_cache_items_standings(records)
                 try:
                     await self.standings_football_cache.save_standings_teams(str(league_id), season, items)
                 except Exception as e:
@@ -333,3 +356,79 @@ class StatisticsCollectService:
                 return self._prepare_teams_map_with_team_id(teams_map)
         except Exception:
             return {}
+
+    def build_fixture_records(
+        self,
+        prepared: PreparedFixturesDTO,
+        team_map: dict[int, UUID],
+        competition_id: UUID,
+        season: int
+    ) -> List[EloFixtureRecordDTO]:
+        """Build EloFixtureRecordDTO list from prepared fixtures and resolved team IDs."""
+        records = []
+        
+        for row in prepared.raw_fixtures_rows:
+            home_team_id = team_map.get(row.api_home_id)
+            away_team_id = team_map.get(row.api_away_id)
+            
+            if not home_team_id or not away_team_id:
+                continue
+            
+            home_record = EloFixtureRecordDTO(
+                team_id=home_team_id,
+                opponent_id=away_team_id,
+                competition_id=competition_id,
+                season=season,
+                match_date=row.match_date,
+                goals_for=row.goals_home,
+                goals_against=row.goals_away,
+                is_home=True,
+                raw_payload=row.compact_raw_payload
+            )
+            records.append(home_record)
+            
+            away_record = EloFixtureRecordDTO(
+                team_id=away_team_id,
+                opponent_id=home_team_id,
+                competition_id=competition_id,
+                season=season,
+                match_date=row.match_date,
+                goals_for=row.goals_away,
+                goals_against=row.goals_home,
+                is_home=False,
+                raw_payload=row.compact_raw_payload
+            )
+            records.append(away_record)
+        
+        return records
+
+    async def save_fixtures(self, records: list[EloFixtureRecordDTO], league_id: int, season: int) -> dict:
+        """
+        Save fixtures records to database and cache.
+        
+        Args:
+            records: List of EloFixtureRecordDTO records
+            league_id: API Football league ID
+            season: Season year
+            
+        Returns:
+            Dict with count of saved records: {"saved": count}
+        """
+        try:
+            async with self.session_factory() as session:
+                # Initialize repository and perform bulk upsert
+                repo = FixturesFootballRepository(session)
+                count = await repo.bulk_upsert_fixtures(records)
+                await session.commit()
+                
+                # Write compact Elo-ready structure to Redis
+                items = self._to_cache_items_fixtures(records)
+                try:
+                    await self.standings_football_cache.save_fixtures_items(str(league_id), season, items)
+                except Exception as e:
+                    logger.error("fixtures_cache_save_failed", error=str(e), league_id=league_id, season=season)
+                
+                return {"saved": count}
+        except Exception as e:
+            logger.error("fixtures_save_failed", error=str(e), count=len(records))
+            return {"saved": 0}

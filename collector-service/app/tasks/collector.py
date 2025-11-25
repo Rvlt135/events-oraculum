@@ -586,17 +586,14 @@ async def collect_fixtures_football_task() -> Dict[str, str]:
                     continue
 
                 team_map = await service.resolve_teams_for_fixtures(prepared, sport_id)
-                records = service.build_standing_records(prepared, team_map, competition_id, seasons_current)
+                records = service.build_fixture_records(prepared, team_map, competition_id, seasons_current)
 
                 if not records:
                     logger.info("no_records_built", slug_key=slug_key, league_id=league_id, season=seasons_current)
                     continue
 
-                count = await service.save_standings(records, league_id, seasons_current)
+                count = await service.save_fixtures(records, league_id, seasons_current)
                 total_processed += 1
-
-                # records_dict = service._to_cache_items(records)
-                # await service.standings_football_cache.save_standings_teams(str(league_id), season, records_dict)
 
                 logger.info(
                     "collect_fixtures_saved",
