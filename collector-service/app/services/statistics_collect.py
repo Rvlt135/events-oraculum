@@ -14,7 +14,7 @@ from app.infrastructure.repositories.team import TeamRepository
 from app.infrastructure.repositories.standings import StandingsFootballRepository
 from app.infrastructure.repositories.fixtures_football import FixturesFootballRepository
 from app.domain.entities.statistics.dto.standings_dto import StandingPreparedData, StandingRowDTO, EnrichedStandingRowDTO
-from app.domain.entities.statistics.dto.fixtures_dto import PreparedFixturesDTO, PreparedFixtureRowDTO, EloFixtureRecordDTO
+from app.domain.entities.statistics.dto.fixtures_dto import PreparedFixturesDTO, PreparedFixtureRowDTO, EloFixtureRecordDTO, FixtureHistoryRecordDTO
 
 logger = structlog.get_logger()
 
@@ -324,6 +324,7 @@ class StatisticsCollectService:
             }
 
             fixture_row = PreparedFixtureRowDTO(
+                api_fixture_id=row.fixture.id,
                 api_home_id=api_home_id,
                 api_away_id=api_away_id,
                 goals_home=row.goals.home if row.goals.home is not None else 0,
@@ -363,8 +364,8 @@ class StatisticsCollectService:
         team_map: dict[int, UUID],
         competition_id: UUID,
         season: int
-    ) -> List[EloFixtureRecordDTO]:
-        """Build EloFixtureRecordDTO list from prepared fixtures and resolved team IDs."""
+    ) -> List[FixtureHistoryRecordDTO]:
+        """Build FixtureHistoryRecordDTO list from prepared fixtures and resolved team IDs."""
         records = []
         
         for row in prepared.raw_fixtures_rows:
@@ -374,31 +375,29 @@ class StatisticsCollectService:
             if not home_team_id or not away_team_id:
                 continue
             
-            home_record = EloFixtureRecordDTO(
-                team_id=home_team_id,
-                opponent_id=away_team_id,
-                competition_id=competition_id,
-                season=season,
-                match_date=row.match_date,
-                goals_for=row.goals_home,
-                goals_against=row.goals_away,
-                is_home=True,
-                raw_payload=row.compact_raw_payload
-            )
-            records.append(home_record)
+            home_goals = row.goals_home
+            away_goals = row.goals_away
             
-            away_record = EloFixtureRecordDTO(
-                team_id=away_team_id,
-                opponent_id=home_team_id,
+            if home_goals > away_goals:
+                result = 1
+            elif home_goals < away_goals:
+                result = -1
+            else:
+                result = 0
+            
+            record = FixtureHistoryRecordDTO(
+                api_fixture_id=row.api_fixture_id,
                 competition_id=competition_id,
                 season=season,
                 match_date=row.match_date,
-                goals_for=row.goals_away,
-                goals_against=row.goals_home,
-                is_home=False,
+                home_team_id=home_team_id,
+                away_team_id=away_team_id,
+                home_goals=home_goals,
+                away_goals=away_goals,
+                result=result,
                 raw_payload=row.compact_raw_payload
             )
-            records.append(away_record)
+            records.append(record)
         
         return records
 
@@ -418,6 +417,7 @@ class StatisticsCollectService:
             async with self.session_factory() as session:
                 # Initialize repository and perform bulk upsert
                 repo = FixturesFootballRepository(session)
+
                 count = await repo.bulk_upsert_fixtures(records)
                 await session.commit()
                 

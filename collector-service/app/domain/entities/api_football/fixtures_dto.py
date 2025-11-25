@@ -8,9 +8,9 @@ class Periods(BaseModel):
     second: Optional[int] = None
 
 class Venue(BaseModel):
-    id: int
-    name: str
-    city: str
+    id: Optional[int] = None
+    name: Optional[str] = None
+    city: Optional[str] = None
 
 class Status(BaseModel):
     long: str

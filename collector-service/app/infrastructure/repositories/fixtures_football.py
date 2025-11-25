@@ -57,10 +57,6 @@ class FixturesFootballRepository(BaseRepository[FixturesFootballHistory]):
             api_fixture_id = None
             if isinstance(payload, dict):
                 api_fixture_id = payload.get("fixture_id")
-                if not api_fixture_id:
-                    league = payload.get("league", {})
-                    if isinstance(league, dict):
-                        api_fixture_id = league.get("id")
             
             if not api_fixture_id:
                 continue
@@ -80,6 +76,17 @@ class FixturesFootballRepository(BaseRepository[FixturesFootballHistory]):
         
         if not values:
             return 0
+
+        # TODO: Remove after debugging - log api_fixture_id to locate duplicates
+        api_fixture_ids = [v["api_fixture_id"] for v in values]
+        api_fixture_ids_sorted = sorted(api_fixture_ids)
+        logger.warning(
+            "bulk_upsert_fixtures_debug",
+            api_fixture_ids=api_fixture_ids_sorted,
+            total_count=len(api_fixture_ids),
+            unique_count=len(set(api_fixture_ids)),
+            duplicates=[x for x in api_fixture_ids_sorted if api_fixture_ids_sorted.count(x) > 1]
+        )
         
         stmt = insert(FixturesFootballHistory).values(values)
         stmt = stmt.on_conflict_do_update(
