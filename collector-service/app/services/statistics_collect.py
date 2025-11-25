@@ -3,14 +3,17 @@ from uuid import UUID
 from typing import List
 import structlog
 
+from app.domain.entities.api_football.fixtures_dto import FixturesResponse
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.standings import StandingsFootballCache
-from app.infrastructure.config.policy_loader import PolicyLoader
+from app.infrastructure.config.policy_loader import PolicyLoader, ApiFootballDTO
+from app.infrastructure.db.orm.teams import Team
 from app.infrastructure.http.api_football import APIFootballClient
 from app.infrastructure.repositories.team import TeamRepository
 from app.infrastructure.repositories.standings import StandingsFootballRepository
 from app.domain.entities.statistics.dto.standings_dto import StandingPreparedData, StandingRowDTO, EnrichedStandingRowDTO
+from app.domain.entities.statistics.dto.fixtures_dto import PreparedFixturesDTO, PreparedFixtureRowDTO
 
 logger = structlog.get_logger()
 
@@ -32,6 +35,39 @@ class StatisticsCollectService:
         self.standings_football_cache = standings_football_cache
         self.catalog_cache_helper = catalog_cache_helper
 
+    def _prepare_teams_map_with_team_id(self, teams_map: dict[int, Team]) -> dict[int, UUID]:
+        r = {api_id: team.id for api_id, team in teams_map.items()}
+        return r
+
+    def _to_cache_items(self, records: List[EnrichedStandingRowDTO]) -> List[dict]:
+        """
+        Convert EnrichedStandingRowDTO records to lightweight cache structure.
+
+        Args:
+            records: List of EnrichedStandingRowDTO records
+
+        Returns:
+            List of lightweight dict items
+        """
+        return [
+            {
+                "team_id": str(record.team_id),
+                "rank": record.rank,
+                "points": record.points,
+                "goal_diff": record.goal_diff,
+                "form": record.form_raw,
+            }
+            for record in records
+        ]
+
+    def _build_api_ids_home_away(self, prepared: PreparedFixturesDTO) -> list[int]:
+        all_api_team_ids = [row.api_home_id for row in prepared.raw_fixtures_rows]
+        all_api_team_ids.extend([row.api_away_id for row in prepared.raw_fixtures_rows])
+        all_api_team_ids = list(set(all_api_team_ids))
+
+        return all_api_team_ids
+
+    # STANDINGS
     async def fetch_and_prepare_standings(self, league_id: int, season: int) -> StandingPreparedData:
         """
         Fetch standings from API Football and prepare data for processing.
@@ -117,7 +153,7 @@ class StatisticsCollectService:
             async with self.session_factory() as session:
                 team_repo = TeamRepository(session)
                 teams_map = await team_repo.get_many_by_api_ids(sport_id, prepared.api_team_ids)
-                return {api_id: team.id for api_id, team in teams_map.items()}
+                return self._prepare_teams_map_with_team_id(teams_map)
         except Exception:
             return {}
 
@@ -180,27 +216,6 @@ class StatisticsCollectService:
         
         return records
 
-    def _to_cache_items(self, records: List[EnrichedStandingRowDTO]) -> List[dict]:
-        """
-        Convert EnrichedStandingRowDTO records to lightweight cache structure.
-        
-        Args:
-            records: List of EnrichedStandingRowDTO records
-            
-        Returns:
-            List of lightweight dict items
-        """
-        return [
-            {
-                "team_id": str(record.team_id),
-                "rank": record.rank,
-                "points": record.points,
-                "goal_diff": record.goal_diff,
-                "form": record.form_raw,
-            }
-            for record in records
-        ]
-
     async def save_standings(self, records: List[EnrichedStandingRowDTO], league_id: int, season: int) -> int:
         """
         Save standings records to database and cache.
@@ -230,3 +245,91 @@ class StatisticsCollectService:
             logger.error("standings_save_failed", error=str(e), count=len(records))
             return 0
 
+    # FIXTURES
+    async def filter_and_prepare_fixtures(self, fixtures_response: FixturesResponse) -> PreparedFixturesDTO:
+        """
+        Filter fixtures by status and prepare data for processing.
+
+        Args:
+            fixtures_response: FixturesResponse with parsed fixture data
+
+        Returns:
+            PreparedFixturesDTO with api_team_ids and raw_fixtures_rows
+        """
+        if fixtures_response.errors or fixtures_response.results == 0 or not fixtures_response.response:
+            return PreparedFixturesDTO(api_team_ids=[], raw_fixtures_rows=[])
+
+        api_team_ids_set = set()
+        raw_fixtures_rows = []
+        accepted_statuses = {"FT", "AET", "PEN"}
+
+        for row in fixtures_response.response:
+            status_short = row.fixture.status.short
+            if status_short not in accepted_statuses:
+                continue
+
+            api_home_id = row.teams.home.id
+            api_away_id = row.teams.away.id
+
+            api_team_ids_set.add(api_home_id)
+            api_team_ids_set.add(api_away_id)
+
+            compact_raw_payload = {
+                "league": {
+                    "id": row.league.id,
+                    "season": row.league.season,
+                    "round": row.league.round
+                },
+                "teams": {
+                    "home": {
+                        "id": api_home_id,
+                        "winner": row.teams.home.winner
+                    },
+                    "away": {
+                        "id": api_away_id,
+                        "winner": row.teams.away.winner
+                    }
+                },
+                "goals": {
+                    "home": row.goals.home,
+                    "away": row.goals.away
+                },
+                "score": {
+                    "halftime": row.score.halftime.model_dump(mode="json"),
+                    "fulltime": row.score.fulltime.model_dump(mode="json")
+                }
+            }
+
+            fixture_row = PreparedFixtureRowDTO(
+                api_home_id=api_home_id,
+                api_away_id=api_away_id,
+                goals_home=row.goals.home if row.goals.home is not None else 0,
+                goals_away=row.goals.away if row.goals.away is not None else 0,
+                match_date=row.fixture.date,
+                compact_raw_payload=compact_raw_payload
+            )
+            raw_fixtures_rows.append(fixture_row)
+
+        return PreparedFixturesDTO(
+            api_team_ids=list(api_team_ids_set),
+            raw_fixtures_rows=raw_fixtures_rows
+        )
+
+
+    async def resolve_teams_for_fixtures(
+        self,
+        prepared: PreparedFixturesDTO,
+        sport_id: UUID
+    ) -> dict[int, UUID]:
+        """Resolve internal team UUIDs for fixtures based on API-Football team IDs."""
+        try:
+            all_api_team_ids = self._build_api_ids_home_away(prepared)
+            if not all_api_team_ids:
+                return {}
+            
+            async with self.session_factory() as session:
+                team_repo = TeamRepository(session)
+                teams_map = await team_repo.get_many_by_api_ids(sport_id, all_api_team_ids)
+                return self._prepare_teams_map_with_team_id(teams_map)
+        except Exception:
+            return {}

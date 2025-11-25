@@ -3,6 +3,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 import structlog
 from httpx import HTTPError
 
+from app.domain.entities.api_football.fixtures_dto import FixturesResponse
 from app.domain.entities.api_football.statistics_dto import TeamStatisticsResponse
 from app.domain.entities.api_football.teams_by_league import TeamsResponse
 from app.infrastructure.http.client import BaseHttpClient
@@ -121,4 +122,32 @@ class APIFootballClient:
             raise ValueError("Unexpected API response structure for teams_by_leagues") from exc
 
         logger.info("teams_by_leagues_parsed_success")
+        return response
+
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=3), retry=retry_if_exception_type(HTTPError))
+    async def get_fixtures(self, league_id: int, season: int) -> FixturesResponse:
+        params = {"season": season, "league": league_id}
+        try:
+            raw_json = await self.base.get_json("fixtures", params=params)
+        except Exception as exc:
+            logger.error("fixtures_http_failed", error=str(exc))
+            raise HTTPError("Failed to fetch fixtures from external API") from exc
+
+        if not isinstance(raw_json, dict):
+            logger.error("fixtures_unexpected_type", type=type(raw_json).__name__)
+            raise ValueError("Unexpected response type from fixtures API")
+
+        errors = raw_json.get("errors")
+        if (isinstance(errors, dict) and errors) or (isinstance(errors, list) and errors):
+            logger.error("fixtures_api_errors", errors=errors)
+            raise ValueError(f"fixtures API returned errors: {errors}")
+
+        try:
+
+            response = FixturesResponse.model_validate(raw_json)
+        except ValidationError as exc:
+            logger.warning("fixtures_validation_failed", error=str(exc))
+            raise ValueError("Unexpected API response structure for fixtures") from exc
+
+        logger.info("fixtures_parsed_success")
         return response
