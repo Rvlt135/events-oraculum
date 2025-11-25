@@ -16,7 +16,7 @@ from app.api.schemas.schemas import (
 
 from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_odds_service, get_redis_cache
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task
+from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task, collect_odds_task
 from app.tasks.prioritizer import prioritize_all
 from app.tasks.sync_teams import sync_teams_from_api_football
 from app.infrastructure.repositories import NormalizedOddsRepository
@@ -224,37 +224,27 @@ async def trigger_teams_sync_from_api_football(
             message=f"Failed to enqueue task: {str(e)}",
         )
 
-@router.post("/sync/standings", response_model=TaskTriggerResponse, status_code=202)
+@router.post("/standings/sync", response_model=TaskTriggerResponse, status_code=202)
 async def trigger_standings_sync(
-        request: Request,
-        provider: str = Query(default="odds_api", description="Provider name"),
-        _auth: None = Depends(verify_admin_token),
+    _auth: None = Depends(verify_admin_token),
 ) -> TaskTriggerResponse:
-    logger.info("standings_sync_from_api_football_triggered_manually", provider=provider)
+    """
+    Manually trigger standings sync from API Football.
+
+    This enqueues a `collect_standings_football_task` task in TaskIQ.
+    """
+    logger.info("standings_sync_triggered_manually")
 
     try:
-        container = request.app.state.container
-        policy_loader = container.policy_loader
-
-        api_fb = policy_loader.get_api_football(provider)
-        competitions_list = list(api_fb.competitions.keys()) if api_fb else []
-
-        logger.info(
-            "teams_sync_enqueuing",
-            provider=provider,
-            competitions_count=len(competitions_list),
-            competitions=competitions_list
-        )
-
         task = await collect_standings_football_task.kiq()
 
         return TaskTriggerResponse(
-            status="queued",
-            message=f"Teams sync task enqueued for {len(competitions_list)} competitions",
+            status="enqueued",
+            message="Standings collection task enqueued",
             task_id=str(task.task_id),
         )
     except Exception as e:
-        logger.error("failed_to_enqueue_teams_sync", provider=provider, error=str(e))
+        logger.error("failed_to_enqueue_standings_sync", error=str(e))
         return TaskTriggerResponse(
             status="error",
             message=f"Failed to enqueue task: {str(e)}",

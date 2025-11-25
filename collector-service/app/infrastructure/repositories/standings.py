@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.infrastructure.db.orm.standings_football import StandingsFootball
+from app.domain.entities.statistics.dto.standings_dto import EnrichedStandingRowDTO
 from app.utils.time_utils import now_utc
 from app.infrastructure.repositories.base import BaseRepository
 from sqlalchemy.dialects.postgresql import insert
@@ -14,12 +15,12 @@ class StandingsFootballRepository(BaseRepository[StandingsFootball]):
     def __init__(self, session: AsyncSession):
         super().__init__(StandingsFootball, session)
 
-    async def bulk_upsert(self, records: List[StandingsFootball]) -> int:
+    async def bulk_upsert(self, records: List[EnrichedStandingRowDTO]) -> int:
         """
         Bulk upsert standings records.
         
         Args:
-            records: List of StandingsFootball ORM records
+            records: List of EnrichedStandingRowDTO records
             
         Returns:
             Number of processed records

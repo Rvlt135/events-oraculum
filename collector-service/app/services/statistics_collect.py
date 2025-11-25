@@ -10,8 +10,7 @@ from app.infrastructure.config.policy_loader import PolicyLoader
 from app.infrastructure.http.api_football import APIFootballClient
 from app.infrastructure.repositories.team import TeamRepository
 from app.infrastructure.repositories.standings import StandingsFootballRepository
-from app.infrastructure.db.orm.standings_football import StandingsFootball
-from app.domain.entities.statistics.dto.standings_dto import StandingPreparedData, StandingRowDTO
+from app.domain.entities.statistics.dto.standings_dto import StandingPreparedData, StandingRowDTO, EnrichedStandingRowDTO
 
 logger = structlog.get_logger()
 
@@ -128,7 +127,7 @@ class StatisticsCollectService:
         team_map: dict[int, UUID],
         competition_id: UUID,
         season: int
-    ) -> List[StandingsFootball]:
+    ) -> List[EnrichedStandingRowDTO]:
         """
         Build StandingsFootball records from prepared data.
         
@@ -139,7 +138,7 @@ class StatisticsCollectService:
             season: Season year
             
         Returns:
-            List of StandingsFootball ORM records
+            List of EnrichedStandingRowDTO records
         """
         records = []
         
@@ -148,7 +147,7 @@ class StatisticsCollectService:
             if not team_id:
                 continue
             
-            record = StandingsFootball(
+            record = EnrichedStandingRowDTO(
                 team_id=team_id,
                 competition_id=competition_id,
                 season=season,
@@ -175,18 +174,18 @@ class StatisticsCollectService:
                 away_goals_against=row.away_goals_against,
                 form_raw=row.form_raw,
                 status=row.status,
-                raw_payload=row.model_dump()
+                raw_payload=row.model_dump(mode="json")
             )
             records.append(record)
         
         return records
 
-    def _to_cache_items(self, records: List[StandingsFootball]) -> List[dict]:
+    def _to_cache_items(self, records: List[EnrichedStandingRowDTO]) -> List[dict]:
         """
-        Convert StandingsFootball records to lightweight cache structure.
+        Convert EnrichedStandingRowDTO records to lightweight cache structure.
         
         Args:
-            records: List of StandingsFootball ORM records
+            records: List of EnrichedStandingRowDTO records
             
         Returns:
             List of lightweight dict items
@@ -202,12 +201,12 @@ class StatisticsCollectService:
             for record in records
         ]
 
-    async def save_standings(self, records: List[StandingsFootball], league_id: int, season: int) -> int:
+    async def save_standings(self, records: List[EnrichedStandingRowDTO], league_id: int, season: int) -> int:
         """
         Save standings records to database and cache.
         
         Args:
-            records: List of StandingsFootball ORM records
+            records: List of EnrichedStandingRowDTO records
             league_id: API Football league ID
             season: Season year
             

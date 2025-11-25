@@ -225,7 +225,8 @@ class Container:
             session_factory=self.session_factory,
             policy_loader=self.policy_loader,
             competitions_cache=competitions_cache,
-            standings_football_cache=standings_cache
+            standings_football_cache=standings_cache,
+            catalog_cache_helper=catalog_cache_helper
         )
 
 
