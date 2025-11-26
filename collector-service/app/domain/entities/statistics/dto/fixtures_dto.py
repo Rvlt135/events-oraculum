@@ -52,3 +52,13 @@ class FixtureHistoryRowDTO(BaseModel):
     away_goals: int
     result: int
 
+class LastFixtureDTO(BaseModel):
+    fixture_id: UUID
+    team_id: UUID
+    opponent_id: UUID
+    goals_for: int
+    goals_against: int
+    result: int
+    match_date: datetime
+
+

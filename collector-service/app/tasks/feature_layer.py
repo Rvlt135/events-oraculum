@@ -1,15 +1,11 @@
 from typing import Dict, TYPE_CHECKING
+
 import structlog
 from prometheus_client import Counter, Histogram
 
-from app.config import settings
-from app.utils.time_utils import now_utc, build_events_window
-from app.infrastructure.di.services import get_sports_service, get_events_service, get_odds_service, \
-    get_collect_statistic_sync_service, get_collect_team_features_builder
-from app.infrastructure.repositories.competitions import CompetitionsRepository
+from app.infrastructure.di.services import get_collect_team_features_builder
 from app.tasks.broker import broker
-from app.domain.entities.events.events_window import EventsWindowDTO
-from app.tasks.prioritizer import enqueue_prioritization_after_collect
+from app.utils.time_utils import now_utc
 
 if TYPE_CHECKING:
     pass
@@ -118,7 +114,7 @@ async def collect_team_features_task() -> Dict[str, str]:
 
 @broker.task()
 async def collect_match_features_task() -> Dict[str, str]:
-    """Collect team features from fixtures """
+    """Collect match features from fixtures """
     start_time = now_utc()
     logger.info("collect_match_features_task_started", timestamp=start_time.isoformat())
 
@@ -157,21 +153,21 @@ async def collect_match_features_task() -> Dict[str, str]:
                 competition = competitions[0]
                 competition_id = competition.id
 
-                rows = await service.load_standings_rows(competition_id, seasons_current)
-                if not rows:
-                    logger.info("no_standings_rows", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
+                map_list_fixtures = await service.load_match_features(competition_id, seasons_current)
+                if not map_list_fixtures:
+                    logger.info("no_fixtures_rows", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
                     continue
 
-                features = await service.tmf_builder.build_features_from_standings(rows, competition_id, seasons_current)
+                features = service.mf_builder.features_from_fixtures(map_list_fixtures, competition_id, seasons_current)
                 if not features:
                     logger.info("no_features_built", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
                     continue
 
-                count = await service.save_team_features(features)
+                count = await service.save_match_features(features)
                 total_saved += count
 
                 logger.info(
-                    "collect_match_saved",
+                    "match_features_saved",
                     competition_id=str(competition_id),
                     season=seasons_current,
                     count=count
@@ -179,7 +175,7 @@ async def collect_match_features_task() -> Dict[str, str]:
 
             except Exception as exc:
                 logger.error(
-                    "collect_matchcollect_failed",
+                    "match_features_collect_failed",
                     slug_key=slug_key,
                     error=str(exc),
                     exc_info=True
@@ -190,7 +186,7 @@ async def collect_match_features_task() -> Dict[str, str]:
         collection_duration.observe(duration)
 
         logger.info(
-            "collect_collect_match_task_completed",
+            "collect_match_features_task_completed",
             duration_seconds=duration,
             saved=total_saved,
             errors=total_errors

@@ -7,7 +7,7 @@ from app.api.schemas.schemas import (
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task, collect_odds_task, \
     collect_fixtures_football_task
-from app.tasks.feature_layer import collect_team_features_task
+from app.tasks.feature_layer import collect_team_features_task, collect_match_features_task
 from app.tasks.prioritizer import prioritize_all
 from app.tasks.sync_teams import sync_teams_from_api_football
 
@@ -287,6 +287,30 @@ async def trigger_feature_team_sync(
         )
     except Exception as e:
         logger.error("failed_to_enqueue_feature_team_sync", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )
+
+@router.post("/match_features/sync", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_match_features_sync(
+    _auth: None = Depends(verify_admin_token),
+) -> TaskTriggerResponse:
+    """
+
+    """
+    logger.info("match_features_sync_triggered_manually")
+
+    try:
+        task = await collect_match_features_task.kiq()
+
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="match_features collection task enqueued",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_match_features_sync", error=str(e))
         return TaskTriggerResponse(
             status="error",
             message=f"Failed to enqueue task: {str(e)}",

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
+from app.builders.feature_layer.match_features import MatchFeaturesBuilder
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
@@ -239,6 +240,7 @@ class Container:
         team_features_cache = TeamFeaturesCache(self.redis_cache)
         catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
         team_feature_builder = TeamFeaturesBuilder()
+        match_features_builder = MatchFeaturesBuilder()
 
         return TeamFeaturesService(
             session_factory=self.session_factory,
@@ -246,6 +248,7 @@ class Container:
             team_features_cache=team_features_cache,
             catalog_cache_helper=catalog_cache_helper,
             team_feature_builder=team_feature_builder,
+            match_features_builder=match_features_builder
         )
 
 
