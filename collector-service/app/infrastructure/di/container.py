@@ -13,6 +13,7 @@ from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.cache.catalog.odds import OddsCache
 from app.infrastructure.cache.catalog.standings import StandingsFootballCache
+from app.infrastructure.cache.feature_layer.team_features import TeamFeaturesCache
 from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
     from app.services.llm_service import LLMService
     from app.services.prioritizer_service import PrioritizerService
     from app.services.teams_sync_service import TeamsSyncService
+    from app.services.feature_layer.team_features import TeamFeaturesBuilder
 
 logger = structlog.get_logger()
 
@@ -227,6 +229,17 @@ class Container:
             competitions_cache=competitions_cache,
             standings_football_cache=standings_cache,
             catalog_cache_helper=catalog_cache_helper
+        )
+
+    def create_build_team_features(self):
+        standings_cache = StandingsFootballCache(self.redis_cache)
+        team_features_cache = TeamFeaturesCache(self.redis_cache)
+
+        return TeamFeaturesBuilder(
+            session_factory=self.session_factory,
+            policy_loader=self.policy_loader,
+            standings_cache=standings_cache,
+            team_features_cache=team_features_cache,
         )
 
 

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.services.sports_service import SportsService
     from app.services.events_service import EventsService
     from app.services.odds_service import OddsService
+    from app.services.feature_layer.team_features import TeamFeaturesBuilder
 
 
 def get_settings() -> Settings:
@@ -92,6 +93,18 @@ def get_odds_service_from_container(container: "Container") -> "OddsService":
         OddsService instance with dependencies from container
     """
     return container.create_odds_service()
+
+def get_team_features_builder_from_container(container: "Container") -> "TeamFeaturesBuilder":
+    """
+    Get OddsService from container.
+
+    Args:
+        container: Container instance with initialized dependencies
+
+    Returns:
+        OddsService instance with dependencies from container
+    """
+    return container.create_build_team_features()
 
 
 # Re-export from sub-modules for convenience

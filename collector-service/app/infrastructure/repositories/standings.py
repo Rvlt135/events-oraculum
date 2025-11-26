@@ -102,3 +102,5 @@ class StandingsFootballRepository(BaseRepository[StandingsFootball]):
         
         return len(records)
 
+    async def get_by_competition(self, league_id, season):
+        NotImplemented()
