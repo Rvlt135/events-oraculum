@@ -29,6 +29,7 @@ from app.services.llm_service import LLMService
 from app.services.prioritizer_service import PrioritizerService
 from app.services.statistics_collect import StatisticsCollectService
 from app.services.teams_sync_service import TeamsSyncService
+from app.services.feature_layer.team_features import TeamFeaturesBuilder
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.config.settings import settings
 

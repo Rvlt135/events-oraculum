@@ -7,6 +7,8 @@ from app.tasks.broker import broker
 # Import tasks module to ensure tasks are registered with broker
 from app.tasks import collector  # noqa: F401
 from app.tasks import prioritizer  # noqa: F401
+from app.tasks import sync_teams  # noqa: F401
+from app.tasks import feature_layer  # noqa: F401
 
 structlog.configure(
     processors=[

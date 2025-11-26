@@ -35,6 +35,7 @@ class TeamFeaturesRepository(BaseRepository[TeamFeatures]):
                 "goals_for_avg": f.goals_for_avg,
                 "goals_against_avg": f.goals_against_avg,
                 "goal_diff": f.goal_diff,
+                "games_played": f.games_played,
             }
             for f in features
         ]
@@ -48,6 +49,7 @@ class TeamFeaturesRepository(BaseRepository[TeamFeatures]):
                 "goals_for_avg": stmt.excluded.goals_for_avg,
                 "goals_against_avg": stmt.excluded.goals_against_avg,
                 "goal_diff": stmt.excluded.goal_diff,
+                "games_played": stmt.excluded.games_played,
             }
         )
         

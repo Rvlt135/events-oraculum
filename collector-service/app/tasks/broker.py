@@ -17,6 +17,8 @@ broker = ListQueueBroker(url=settings.redis_broker_url).with_result_backend(redi
 # Note: prioritizer is imported in boot/worker.py and boot/scheduler.py to avoid circular import
 # from app.tasks import collector  # noqa: F401
 # from app.tasks import prioritizer  # noqa: F402
+# from app.tasks import sync_teams  # noqa: F403
+# from app.tasks import feature_layer  # noqa: F404
 
 # Create LabelScheduleSource and scheduler
 label_source = LabelScheduleSource(broker)

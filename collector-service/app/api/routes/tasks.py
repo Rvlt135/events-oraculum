@@ -1,25 +1,17 @@
-from typing import Optional, List, Literal, Dict, Any
-from uuid import UUID
-from fastapi import APIRouter, Query, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
-from redis.asyncio import Redis
+from fastapi import APIRouter, Query, Depends, Request
 
 from app.api.schemas.schemas import (
     TaskTriggerResponse,
-    SnapshotsResponse,
-    SnapshotSummary,
-    SportDTO,
-    CompetitionDTO,
 )
-# from app.infrastructure.di.services import get_events_service
-
-from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_odds_service, get_redis_cache
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task, collect_odds_task, collect_fixtures_football_task
+from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task, collect_odds_task, \
+    collect_fixtures_football_task
+from app.tasks.feature_layer import collect_team_features_task
 from app.tasks.prioritizer import prioritize_all
 from app.tasks.sync_teams import sync_teams_from_api_football
-from app.infrastructure.repositories import NormalizedOddsRepository
+
+# from app.infrastructure.di.services import get_events_service
 
 logger = structlog.get_logger()
 
@@ -255,11 +247,11 @@ async def trigger_fixtures_sync(
     _auth: None = Depends(verify_admin_token),
 ) -> TaskTriggerResponse:
     """
-    Manually trigger standings sync from API Football.
+    Manually trigger fixtures sync from API Football.
 
     This enqueues a `collect_standings_football_task` task in TaskIQ.
     """
-    logger.info("standings_sync_triggered_manually")
+    logger.info("fixtures_sync_triggered_manually")
 
     try:
         task = await collect_fixtures_football_task.kiq()
@@ -271,6 +263,30 @@ async def trigger_fixtures_sync(
         )
     except Exception as e:
         logger.error("failed_to_enqueue_standings_sync", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
+        )
+
+@router.post("/features_team/sync", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_feature_team_sync(
+    _auth: None = Depends(verify_admin_token),
+) -> TaskTriggerResponse:
+    """
+
+    """
+    logger.info("feature_team_sync_triggered_manually")
+
+    try:
+        task = await collect_team_features_task.kiq()
+
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="feature_team collection task enqueued",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_feature_team_sync", error=str(e))
         return TaskTriggerResponse(
             status="error",
             message=f"Failed to enqueue task: {str(e)}",

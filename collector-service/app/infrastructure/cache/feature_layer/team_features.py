@@ -26,6 +26,6 @@ class TeamFeaturesCache:
         """Store team features in Redis."""
         for feature in features:
             key = _key_features_team(feature.team_id, feature.competition_id, feature.season)
-            data = feature.model_dump()
+            data = feature.model_dump(mode="json")
             json_str = json.dumps(data, ensure_ascii=False)
             await self._r.set(key, json_str)

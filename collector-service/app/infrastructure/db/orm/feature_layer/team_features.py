@@ -18,8 +18,7 @@ class TeamFeatures(Base):
     goals_for_avg = Column(Float, nullable=False)
     goals_against_avg = Column(Float, nullable=False)
     goal_diff = Column(Integer, nullable=False)
-    home_form = Column(Float, nullable=True)
-    away_form = Column(Float, nullable=True)
+    games_played = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
