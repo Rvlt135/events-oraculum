@@ -27,6 +27,8 @@ class EmailAuthValidator:
             raise AuthorizationError("week_password")
 
     def validate_invite_code(self, code: str) -> str:
+        if code is None:
+            raise AuthorizationError("invite_required")
         if len(code) != settings.invite_code_length:
             raise AuthorizationError("invite_invalid")
         allowed_characters = settings.invite_code_alphabet

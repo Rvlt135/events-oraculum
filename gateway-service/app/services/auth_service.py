@@ -9,8 +9,9 @@ from httpx import HTTPStatusError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas.auth import EmailRegisterRequest
-from app.infrastructure.cache.session_cache import SessionCache
 from app.infrastructure.cache.oauth_cache import OauthCache
+from app.infrastructure.cache.session_cache import SessionCache
+from app.infrastructure.cache.settings_cache import SettingCache
 from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.clients.google_oauth import google_oauth_client
 from app.infrastructure.clients.telegram_validator import telegram_validator
@@ -25,8 +26,8 @@ from app.infrastructure.security.jwt import jwt_service
 from app.infrastructure.security.password import password_service
 from app.infrastructure.security.utils import generate_oauth_params
 from app.services.cookies import set_auth_cookies
-from app.services.exceptions import AuthorizationError
 from app.services.email_auth_validator import email_auth_validator
+from app.services.exceptions import AuthorizationError
 from app.services.google_oauth_validator import google_oauth_validator
 
 logger = structlog.get_logger()
@@ -244,6 +245,7 @@ class EmailAuthService:
         db_session: AsyncSession,
         user_cache: UserCache,
         session_cache: SessionCache,
+        settings_cache: SettingCache,
     ) -> None:
         self.db = db_session
         self.user_cache = user_cache
@@ -252,6 +254,7 @@ class EmailAuthService:
         self.session_repo = SessionRepository(db_session)
         self.invite_code_repo = InviteCodeRepository(db_session)
         self.session_cache = session_cache
+        self.settings_cache = settings_cache
 
     async def register_with_email(
         self, reg_data: EmailRegisterRequest, request: Request, return_to: str,
@@ -259,7 +262,11 @@ class EmailAuthService:
         try:
             return_path = self.validator.validate_and_parse_return_path(return_to)
             self.validator.validate_password(reg_data.password)
-            code = await self.validate_invite_code(reg_data.invite_code)
+
+            require_invite = await self.settings_cache.get_setting_cache(
+                key="invite_code_required") == "true"
+            code = await self.validate_invite_code(reg_data.invite_code) if require_invite else None
+
             referrer = await self.validate_referral_code(reg_data.referral_code) if reg_data.referral_code else None
             email = reg_data.email.lower()
             await self.validate_email_not_taken(email)
@@ -287,7 +294,8 @@ class EmailAuthService:
             trial_end_at=trial_end,
             referrer_code=reg_data.referral_code if referrer else None,
         )
-        await self.invite_code_repo.mark_used(code, user.id)
+        if code:
+            await self.invite_code_repo.mark_used(code, user.id)
         await self.identity_repo.create(
             user_id=user.id,
             provider=IdentityProvider.PASSWORD,
@@ -297,7 +305,7 @@ class EmailAuthService:
             "User registered with email.",
             user_id=str(user.id),
             email=user.email,
-            invite_code=reg_data.invite_code[:4] + "...",
+            invite_code=reg_data.invite_code,
             referral_code=reg_data.referral_code[:4] + "..." if reg_data.referral_code else None,
         )
 
