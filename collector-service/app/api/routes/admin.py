@@ -11,26 +11,24 @@ Security: Should be protected at network level (ingress/proxy) or via admin toke
 
 from typing import Optional, List, Literal, Dict, Any
 from uuid import UUID
-from fastapi import APIRouter, Query, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
-from redis.asyncio import Redis
 
+import structlog
+from fastapi import APIRouter, Query, Depends, HTTPException
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_odds_service, \
+    get_redis_cache
 from app.api.schemas.schemas import (
-    TaskTriggerResponse,
     SnapshotsResponse,
     SnapshotSummary,
     SportDTO,
     CompetitionDTO,
 )
-# from app.infrastructure.di.services import get_events_service
-
-from app.api.dependencies import get_db_session, get_sports_service, get_events_service, get_odds_service, get_redis_cache
 from app.config.security import verify_admin_token
-from app.tasks.collector import collect_sports_task, collect_events, collect_odds_task
-from app.tasks.prioritizer import prioritize_all
-from app.tasks.sync_teams import sync_teams_from_api_football
 from app.infrastructure.repositories import NormalizedOddsRepository
+
+# from app.infrastructure.di.services import get_events_service
 
 logger = structlog.get_logger()
 

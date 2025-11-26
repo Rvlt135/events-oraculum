@@ -7,10 +7,7 @@ from uuid import UUID
 import structlog
 
 from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
-from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO
 from app.domain.entities.statistics.dto.fixtures_dto import FixtureHistoryRowDTO, LastFixtureDTO
-from app.domain.entities.statistics.dto.standings_dto import StandingMinimalDTO
-from app.infrastructure.db.orm.standings_football import StandingsFootball
 
 logger = structlog.get_logger()
 

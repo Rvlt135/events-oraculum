@@ -1,10 +1,16 @@
 from typing import List
+from uuid import UUID
+
+import structlog
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 
 from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
 from app.infrastructure.db.orm.feature_layer.match_features import MatchFeatures
 from app.infrastructure.repositories.base import BaseRepository
+
+logger = structlog.get_logger()
 
 
 class MatchFeaturesRepository(BaseRepository[MatchFeatures]):
@@ -60,4 +66,48 @@ class MatchFeaturesRepository(BaseRepository[MatchFeatures]):
         
         await self.session.execute(stmt)
         return len(values)
-    
+
+    async def get_by_team_ids(self, team_ids: set[UUID], competition_id: UUID, season: int) -> dict[UUID, MatchFeaturesDTO]:
+        """Get match features by team IDs, competition and season.
+        
+        Args:
+            team_ids: Set of team identifiers.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Dictionary mapping team_id to MatchFeaturesDTO.
+        """
+        logger.debug("match_features_get_by_team_ids_called", competition_id=str(competition_id), season=season, team_ids_count=len(team_ids))
+        if not team_ids:
+            return {}
+        
+        result = await self.session.execute(
+            select(MatchFeatures)
+            .where(and_(
+                MatchFeatures.team_id.in_(team_ids),
+                MatchFeatures.competition_id == competition_id,
+                MatchFeatures.season == season
+            ))
+        )
+        rows = result.scalars().all()
+        features_dict = {
+            row.team_id: MatchFeaturesDTO(
+                team_id=row.team_id,
+                competition_id=row.competition_id,
+                season=row.season,
+                last_matches_count=row.last_matches_count,
+                goals_for_last_n=row.goals_for_last_n,
+                goals_against_last_n=row.goals_against_last_n,
+                goals_diff_last_n=row.goals_diff_last_n,
+                wins_last_n=row.wins_last_n,
+                draws_last_n=row.draws_last_n,
+                losses_last_n=row.losses_last_n,
+                avg_goals_for_last_n=row.avg_goals_for_last_n,
+                avg_goals_against_last_n=row.avg_goals_against_last_n,
+                form_last_n=row.form_last_n,
+            )
+            for row in rows
+        }
+        logger.debug("match_features_get_by_team_ids_result", fetched_count=len(features_dict))
+        return features_dict

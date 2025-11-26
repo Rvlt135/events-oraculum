@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
+from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
 from app.builders.feature_layer.match_features import MatchFeaturesBuilder
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
@@ -241,6 +242,7 @@ class Container:
         catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
         team_feature_builder = TeamFeaturesBuilder()
         match_features_builder = MatchFeaturesBuilder()
+        poisson_feature_builder = PoissonFeaturesBuilder()
 
         return TeamFeaturesService(
             session_factory=self.session_factory,
@@ -248,7 +250,8 @@ class Container:
             team_features_cache=team_features_cache,
             catalog_cache_helper=catalog_cache_helper,
             team_feature_builder=team_feature_builder,
-            match_features_builder=match_features_builder
+            match_features_builder=match_features_builder,
+            poisson_feature_builder=poisson_feature_builder
         )
 
 

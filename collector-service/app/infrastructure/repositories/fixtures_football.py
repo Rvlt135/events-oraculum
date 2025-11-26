@@ -6,8 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 
 from app.infrastructure.db.orm.fixtures_football_history import FixturesFootballHistory
-from app.domain.entities.statistics.dto.fixtures_dto import FixtureHistoryRecordDTO, FixtureHistoryRowDTO
+from app.domain.entities.statistics.dto.fixtures_dto import FixtureHistoryRecordDTO, FixtureHistoryRowDTO, \
+    UpcomingFixtureDTO
 from app.infrastructure.repositories.base import BaseRepository
+from app.utils.time_utils import now_utc
+import structlog
+
+logger = structlog.get_logger()
 
 
 class FixturesFootballRepository(BaseRepository[FixturesFootballHistory]):
@@ -78,3 +83,39 @@ class FixturesFootballRepository(BaseRepository[FixturesFootballHistory]):
             )
             for row in rows
         ]
+
+    async def get_upcoming_fixtures(self, competition_id: UUID, season: int) -> List[UpcomingFixtureDTO]:
+        """Get upcoming fixtures for competition and season, ordered by match date.
+        
+        Args:
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            List of upcoming fixture DTOs.
+        """
+        logger.debug("get_upcoming_fixtures_called", competition_id=str(competition_id), season=season)
+        current_time = now_utc()
+        result = await self.session.execute(
+            select(FixturesFootballHistory)
+            .where(and_(
+                FixturesFootballHistory.competition_id == competition_id,
+                FixturesFootballHistory.season == season,
+                FixturesFootballHistory.match_date > current_time
+            ))
+            .order_by(FixturesFootballHistory.match_date.asc())
+        )
+        rows = result.scalars().all()
+        fixtures = [
+            UpcomingFixtureDTO(
+                fixture_id=row.id,
+                match_date=row.match_date,
+                home_team_id=row.home_team_id,
+                away_team_id=row.away_team_id,
+                competition_id=row.competition_id,
+                season=row.season
+            )
+            for row in rows
+        ]
+        logger.debug("get_upcoming_fixtures_result", competition_id=str(competition_id), season=season, rows_count=len(fixtures))
+        return fixtures

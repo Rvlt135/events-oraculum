@@ -203,3 +203,103 @@ async def collect_match_features_task() -> Dict[str, str]:
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
 
+
+@broker.task()
+async def collect_poisson_features_task() -> Dict[str, str]:
+    """Collect Poisson features from fixtures """
+    start_time = now_utc()
+    logger.info("collect_poisson_features_task_started", timestamp=start_time.isoformat())
+
+    if not hasattr(broker.state, 'container'):
+        raise RuntimeError("Container not found in broker.state")
+
+    provider = "odds_api"
+    total_saved = 0
+    total_errors = 0
+
+    try:
+        service = await get_collect_team_features_builder()
+        container = broker.state.container
+        policy_loader = container.policy_loader
+        catalog_helper = service.catalog_cache_helper
+
+        api_football_policy = policy_loader.get_api_football(provider)
+        if not api_football_policy or not api_football_policy.competitions:
+            logger.warning("no_api_football_policy_found", provider=provider)
+            return {
+                "status": "ok",
+                "saved": str(total_saved),
+                "errors": str(total_errors)
+            }
+
+        for slug_key, comp_config in api_football_policy.competitions.items():
+            try:
+                seasons_current = comp_config.seasons.current
+
+                competitions = await catalog_helper.get_competitions_by_slugs("soccer", [slug_key])
+                if not competitions:
+                    logger.warning("competition_not_found", slug_key=slug_key)
+                    total_errors += 1
+                    continue
+
+                competition = competitions[0]
+                competition_id = competition.id
+
+                logger.info(
+                    "collect_poisson_features_task_started",
+                    competition_id=str(competition_id),
+                    season=seasons_current,
+                    slug_key=slug_key
+                )
+
+                poisson_features = await service.collect_poisson_features_items(competition_id, seasons_current)
+                if not poisson_features:
+                    logger.info("no_fixtures_rows", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
+                    continue
+
+                logger.info(
+                    "fixtures_fetched",
+                    competition_id=str(competition_id),
+                    season=seasons_current,
+                    slug_key=slug_key,
+                    fixtures_count=len(poisson_features)
+                )
+
+                logger.info("saving_poisson_features", count=len(poisson_features))
+                count = await service.save_poisson_features(poisson_features)
+                total_saved += count
+
+                logger.info(
+                    "poisson_features_saved",
+                    competition_id=str(competition_id),
+                    season=seasons_current,
+                    count=count
+                )
+
+            except Exception as exc:
+                logger.error(
+                    "poisson_features_collect_failed",
+                    slug_key=slug_key,
+                    error=str(exc),
+                    exc_info=True
+                )
+                total_errors += 1
+        duration = (now_utc() - start_time).total_seconds()
+        collection_duration.observe(duration)
+
+        logger.info(
+            "poisson_features_task_completed",
+            duration_seconds=duration,
+            errors=total_errors,
+            saved_count=total_saved
+        )
+
+        return {
+            "status": "ok",
+            "saved": str(total_saved),
+            "errors": str(total_errors)
+        }
+    except Exception as e:
+        logger.error("poisson_features_task_failed", error=str(e), exc_info=True)
+        collection_errors_total.inc()
+        return {"status": "error", "message": str(e)}

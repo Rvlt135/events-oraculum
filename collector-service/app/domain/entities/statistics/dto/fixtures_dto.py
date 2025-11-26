@@ -62,3 +62,10 @@ class LastFixtureDTO(BaseModel):
     match_date: datetime
 
 
+class UpcomingFixtureDTO(BaseModel):
+    fixture_id: UUID         # PK из fixtures_football_history
+    home_team_id: UUID
+    away_team_id: UUID
+    match_date: datetime
+    competition_id: UUID
+    season: int
