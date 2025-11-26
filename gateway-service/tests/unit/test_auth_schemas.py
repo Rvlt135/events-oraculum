@@ -3,8 +3,18 @@
 import pytest
 from datetime import datetime
 from uuid import uuid4
-from app.api.schemas.user import  UserProfile, TelegramInfo, AuthResponse, MeResponse
-from app.api.schemas.auth import AuthTokens, EmailRegisterRequest, EmailLoginRequest, TokenRefreshRequest
+
+from app.auth.schemas import (
+    TelegramInfo,
+    UserProfile,
+    AuthTokens,
+    AuthResponse,
+    EmailRegisterRequest,
+    EmailLoginRequest,
+    TokenRefreshRequest,
+    MeResponse,
+)
+
 
 class TestTelegramInfo:
     """Tests for TelegramInfo schema."""

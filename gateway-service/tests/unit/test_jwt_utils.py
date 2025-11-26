@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from uuid import uuid4, UUID
 
-from app.infrastructure.security.jwt import JWTService
+from app.auth.jwt_utils import JWTService
 
 
 class TestJWTService:

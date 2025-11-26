@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
-from app.infrastructure.clients.telegram_validator import TelegramValidator, ParsedTelegramUser
+from app.auth.telegram_validator import TelegramValidator, ParsedTelegramUser
 
 
 class TestParsedTelegramUser:

@@ -86,7 +86,4 @@ volumes:
 
 networks:
   layerbit-net:
-    external: true
-#networks:
-#  layerbit-net:
-#    driver: bridge
+    driver: bridge

@@ -8,17 +8,14 @@ from fastapi.responses import RedirectResponse
 from httpx import HTTPStatusError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas.auth import EmailRegisterRequest
 from app.infrastructure.cache.session_cache import SessionCache
 from app.infrastructure.cache.oauth_cache import OauthCache
 from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.clients.google_oauth import google_oauth_client
 from app.infrastructure.clients.telegram_validator import telegram_validator
-from app.infrastructure.db.orm.invite_code import InviteCode
 from app.infrastructure.db.orm.user import PlanType, User
 from app.infrastructure.db.orm.user_identity import IdentityProvider
 from app.infrastructure.db.repositories.identity_repo import IdentityRepository
-from app.infrastructure.db.repositories.invite_code_repo import InviteCodeRepository
 from app.infrastructure.db.repositories.session_repo import SessionRepository
 from app.infrastructure.db.repositories.user_repo import UserRepository
 from app.infrastructure.security.jwt import jwt_service
@@ -35,26 +32,23 @@ logger = structlog.get_logger()
 class BaseAuthService:
     jwt = jwt_service
 
-    def __init__(self, db_session: AsyncSession, session_cache: SessionCache, user_cache: UserCache) -> None:
+    def __init__(self, db_session: AsyncSession) -> None:
         self.db = db_session
         self.user_repo = UserRepository(db_session)
         self.identity_repo = IdentityRepository(db_session)
         self.session_repo = SessionRepository(db_session)
-        self.session_cache = session_cache
-        self.user_cache = user_cache
 
     async def logout(self, refresh_token: str) -> None:
         token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
         jti = UUID(token_payload.jti)
 
         await self.session_repo.delete_by_jti(jti)
-        await self.session_cache.invalidate_session(jti)
+        await self._invalidate_session(jti)
         await self.db.commit()
 
 
 class GoogleAuthService:
     jwt = jwt_service
-    validator = google_oauth_validator
 
     def __init__(
             self,
@@ -81,17 +75,13 @@ class GoogleAuthService:
             user_info = self.get_user_data_from_token(token_data=token_data, nonce=cached_nonce)
             self.verify_user_info(user_info)
         except AuthorizationError as e:
-            logger.info(
-                "Google OAuth authorization failed.",
-                state=state,
-                error=str(e),
-            )
             redirect_url = f"/login?{urlencode({"error":e})}"
             return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
 
         email = user_info.get("email").lower()
         google_user_id = user_info.get("sub")
         email_verified = user_info.get("email_verified", False)
+
         identity = await self.identity_repo.get_by_provider(
             IdentityProvider.GOOGLE, google_user_id,
         )
@@ -115,15 +105,6 @@ class GoogleAuthService:
                 last_name=user_info.get("family_name"),
                 photo_url=user_info.get("picture"),
             )
-
-        logger.info(
-            "User registered in with Google OAuth.",
-            state=state,
-            user_id=str(user.id),
-            email=user.email,
-            google_user_id=google_user_id,
-            retuturn_to=cached_oauth_params.get("return_to"),
-        )
 
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
         refresh_token, jti = self.jwt.create_refresh_token(user.id)
@@ -166,9 +147,9 @@ class GoogleAuthService:
         if not email:
             raise AuthorizationError("email_required")
     
-    async def get_authorization_url(self, request: Request, return_path: str | None = None) -> str:
+    async def get_authorization_url(self, request: Request, return_to: str | None = None) -> str:
 
-        return_path = self.validator.validate_and_parse_return_path(return_path)
+        return_to = google_oauth_validator.validate_and_parse_return_path(return_to)
 
         oauth_params = generate_oauth_params()
 
@@ -181,7 +162,7 @@ class GoogleAuthService:
         )
 
         request_params = {
-            "return_to": return_path,
+            "return_to": return_to,
             "ip": request.client.host,
             "ua": request.headers.get("user-agent"),
         }
@@ -209,7 +190,7 @@ class TokenService(BaseAuthService):
         jti = UUID(token_payload.jti)
         user_id = UUID(token_payload.sub)
 
-        cached = await self.session_cache.get_cached_session(jti)
+        cached = await self._get_cached_session(jti)
         if not cached:
             db_session = await self.session_repo.get_by_jti(jti)
             if not db_session or db_session.expires_at < datetime.now(UTC):
@@ -224,118 +205,64 @@ class TokenService(BaseAuthService):
 
     async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
         if use_cache:
-            cached = await self.user_cache.get_cached_user(user_id)
+            cached = await self._get_cached_user(user_id)
             if cached:
                 return cached
 
         user = await self.user_repo.get_by_id(user_id)
         if user and use_cache:
-            await self.user_cache.cache_user(user)
+            await self._cache_user(user)
         return user
 
 
-class EmailAuthService:
-    jwt = jwt_service
+# TODO refactor this service - split to separate services for each auth type
+class AuthService:
     password = password_service
-    validator = email_auth_validator
+    telegram = telegram_validator
 
-    def __init__(
-        self,
-        db_session: AsyncSession,
-        user_cache: UserCache,
-        session_cache: SessionCache,
-    ) -> None:
-        self.db = db_session
+    def __init__(self, db_session: AsyncSession, user_cache: UserCache):
         self.user_cache = user_cache
         self.user_repo = UserRepository(db_session)
-        self.identity_repo = IdentityRepository(db_session)
-        self.session_repo = SessionRepository(db_session)
-        self.invite_code_repo = InviteCodeRepository(db_session)
-        self.session_cache = session_cache
+
 
     async def register_with_email(
-        self, reg_data: EmailRegisterRequest, request: Request, return_to: str,
-    ) -> RedirectResponse:
-        try:
-            return_path = self.validator.validate_and_parse_return_path(return_to)
-            self.validator.validate_password(reg_data.password)
-            code = await self.validate_invite_code(reg_data.invite_code)
-            referrer = await self.validate_referral_code(reg_data.referral_code) if reg_data.referral_code else None
-            email = reg_data.email.lower()
-            await self.validate_email_not_taken(email)
-        except AuthorizationError as e:
-            logger.info(
-                "User registration with email failed.",
-                email=reg_data.email,
-                invite_code=reg_data.invite_code,
-                referral_code=reg_data.referral_code,
-                error=str(e),
-            )            
-            redirect_url = f"/login?{urlencode({"error":e})}"
-            return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
+        self, email: str, password: str, user_agent: str | None = None
+    ) -> tuple[User, str, str]:
+        existing = await self.user_repo.get_by_email(email)
+        if existing:
+            raise ValueError("Email already registered")
 
-        email = reg_data.email.lower()
-        user_agent = request.headers.get("ua")
-
-        password_hash = self.password.hash_password(reg_data.password)
+        password_hash = self.password.hash_password(password)
         trial_end = datetime.now(UTC) + timedelta(days=7)
+
         user = await self.user_repo.create(
             email=email,
             password_hash=password_hash,
             email_verified=False,
             plan_type=PlanType.FREE,
             trial_end_at=trial_end,
-            referrer_code=reg_data.referral_code if referrer else None,
         )
-        await self.invite_code_repo.mark_used(code, user.id)
+
         await self.identity_repo.create(
             user_id=user.id,
             provider=IdentityProvider.PASSWORD,
             provider_user_id=email,
-        )
-        logger.info(
-            "User registered with email.",
-            user_id=str(user.id),
-            email=user.email,
-            invite_code=reg_data.invite_code[:4] + "...",
-            referral_code=reg_data.referral_code[:4] + "..." if reg_data.referral_code else None,
         )
 
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
         refresh_token, jti = self.jwt.create_refresh_token(user.id)
 
         refresh_expires = datetime.now(UTC) + timedelta(
-            seconds=self.jwt.refresh_ttl,
+            seconds=self.jwt.refresh_ttl
         )
         await self.session_repo.create(
-            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent)
-        await self.session_cache.cache_session(jti, user.id, refresh_expires)
+            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
+        )
+
+        await self._cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
-        response = RedirectResponse(url=return_path)
-        set_auth_cookies(response, access_token, refresh_token)
-
-        return response
-    
-    async def validate_invite_code(self, code_str: str) -> InviteCode:
-        self.validator.validate_invite_code(code_str)
-        code = await self.invite_code_repo.get_by_code(code_str)
-        if not code:
-            raise AuthorizationError("invite_invalid")
-        if code.user_id is not None or code.registration_date is not None:
-            raise AuthorizationError("invite_used")
-        return code
-    
-    async def validate_referral_code(self, ref_code: str) -> User | None:
-        referrer = await self.user_repo.get_by_ref_code(ref_code)
-        if not referrer:
-            raise AuthorizationError("referrer_invalid")
-        return referrer
-    
-    async def validate_email_not_taken(self, email: str) -> None:
-        existing = await self.user_repo.get_by_email(email)
-        if existing:
-            raise AuthorizationError("email_taken")
+        return user, access_token, refresh_token
 
     async def login_with_email(
         self, email: str, password: str, user_agent: str | None = None
@@ -354,52 +281,13 @@ class EmailAuthService:
             seconds=self.jwt.refresh_ttl
         )
         await self.session_repo.create(
-            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent,
+            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent
         )
 
         await self._cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
         return user, access_token, refresh_token
-
-    async def refresh_access_token(self, refresh_token: str) -> str:
-        token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
-        jti = UUID(token_payload.jti)
-        user_id = UUID(token_payload.sub)
-
-        cached = await self._get_cached_session(jti)
-        if not cached:
-            db_session = await self.session_repo.get_by_jti(jti)
-            if not db_session or db_session.expires_at < datetime.now(UTC):
-                raise ValueError("Invalid or expired session")
-
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise ValueError("User not found")
-
-        account_id = user.telegram_account_id if user.telegram_account_id else None
-        return self.jwt.create_access_token(user.id, user.plan_type.value, account_id=account_id)
-
-    async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
-        if use_cache:
-            cached = await self.user_cache.get_cached_user(user_id)
-            if cached:
-                return cached
-
-        user = await self.user_repo.get_by_id(user_id)
-        if user and use_cache:
-            await self.user_cache.cache_user(user)
-        return user
-
-
-# TODO refactor this service
-class TelegramAuthService:
-    password = password_service
-    telegram = telegram_validator
-
-    def __init__(self, db_session: AsyncSession, user_cache: UserCache):
-        self.user_cache = user_cache
-        self.user_repo = UserRepository(db_session)
 
     async def login_with_telegram(
         self, init_data_str: str, user_agent: str | None = None

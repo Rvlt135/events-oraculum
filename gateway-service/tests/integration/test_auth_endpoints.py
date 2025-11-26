@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 
-from app.api.schemas.auth import AuthTokens
-from app.api.schemas.user import  UserProfile, TelegramInfo
+from app.auth.schemas import UserProfile, AuthTokens, TelegramInfo
+
 
 class TestAuthEndpoints:
     """Tests for authentication endpoints."""

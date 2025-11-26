@@ -1,16 +1,15 @@
-from typing import Dict, TYPE_CHECKING
+from typing import Dict
 import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
-from app.utils.time_utils import now_utc
-from app.infrastructure.repositories import SportRepository, CompetitionsRepository
-from app.infrastructure.di.services import get_sports_service
+from app.infra.http.odds_api import OddsAPIClient
+from app.infra.di.dependencies import get_task_session
+from app.domain.utils.time_utils import now_utc
+from app.infra.di.dependencies import get_sports_service
+from app.infra.repositories import SportRepository, CompetitionsRepository
 from app.tasks.normalizer import OddsNormalizer
 from app.tasks.broker import broker
-
-if TYPE_CHECKING:
-    from app.infrastructure.di.container import Container
 
 logger = structlog.get_logger()
 
@@ -19,59 +18,59 @@ events_processed_total = Counter("odds_events_processed_total", "Total number of
 collection_errors_total = Counter("odds_collection_errors_total", "Total number of collection errors")
 
 
-_task_schedule = [{"cron": cron} for cron in settings.schedule_crons]
-_sports_task_schedule = [{"cron": cron} for cron in settings.schedule_sports_crons]
-
-
-@broker.task(schedule=_task_schedule)
+@broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
 async def collect_odds_task() -> Dict[str, str]:
     start_time = now_utc()
-    logger.info("collection_task_started", timestamp=start_time.isoformat(), schedule=_task_schedule)
+    logger.info("collection_task_started", timestamp=start_time.isoformat())
 
-    # Get container from broker state
-    if not hasattr(broker.state, 'container'):
-        raise RuntimeError("Container not found in broker.state. Make sure worker/scheduler initialized container.")
-
-    container: "Container" = broker.state.container
-    api_adapter = container.odds_client
+    api_adapter = OddsAPIClient(
+        api_key=settings.odds_api_key,
+        base_url=settings.odds_api_base_url,
+        regions=settings.odds_api_regions,
+        markets=settings.odds_api_markets,
+    )
 
     try:
-        # Use session factory from container
-        async with container.session_factory() as session:
-            async with session.begin():
-                sport_repo = SportRepository(session)
-                competition_repo = CompetitionsRepository(session)
-                normalizer = OddsNormalizer(session)
+        # Use dependency injection for database session
+        session = await get_task_session()
+        try:
+            sport_repo = SportRepository(session)
+            competition_repo = CompetitionsRepository(session)
+            normalizer = OddsNormalizer(session)
 
-                sport_id = await sport_repo.get_or_create("soccer")
+            sport_id = await sport_repo.get_or_create("soccer")
 
-                total_processed = 0
+            total_processed = 0
 
-                for competition_key in settings.odds_api_competitions:
-                    logger.info("collecting_competition", competition=competition_key)
+            for competition_key in settings.odds_api_competitions:
+                logger.info("collecting_competition", competition=competition_key)
 
-                    competition_id = await competition_repo.get_or_create(
-                        sport_id=sport_id,
-                        provider_key=competition_key,
-                        title=competition_key.replace("_", " ").title(),
-                        description=f"Competition for {competition_key}",
-                    )
+                competition_id = await competition_repo.get_or_create(
+                    sport_id=sport_id,
+                    provider_key=competition_key,
+                    title=competition_key.replace("_", " ").title(),
+                    description=f"Competition for {competition_key}",
+                )
 
-                    odds_data = await api_adapter.get_odds(
-                        sport=competition_key,
-                        regions=settings.odds_api_regions,
-                        markets=settings.odds_api_markets,
-                    )
+                odds_data = await api_adapter.get_odds(
+                    sport=competition_key,
+                    regions=settings.odds_api_regions,
+                    markets=settings.odds_api_markets,
+                )
 
-                    events_processed = 0
-                    for event_data in odds_data:
-                        event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
-                        if event_id:
-                            events_processed += 1
+                events_processed = 0
+                for event_data in odds_data:
+                    event_id = await normalizer.process_event_data(event_data, sport_id, competition_id)
+                    if event_id:
+                        events_processed += 1
 
-                    logger.info("competition_processed", competition=competition_key, events_count=events_processed)
-                    events_processed_total.inc(events_processed)
-                    total_processed += events_processed
+                logger.info("competition_processed", competition=competition_key, events_count=events_processed)
+                events_processed_total.inc(events_processed)
+                total_processed += events_processed
+
+            await session.commit()
+        finally:
+            await session.close()
 
         duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)
@@ -93,10 +92,10 @@ async def collect_odds_task() -> Dict[str, str]:
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
 
-    # Note: api_adapter (odds_client) lifecycle is managed by container
-    # No need to close it here - it will be closed in dispose_container()
+    finally:
+        await api_adapter.close()
 
-@broker.task(schedule=_sports_task_schedule)
+@broker.task(schedule=[{"cron": "0 9 * * *"}, {"cron": "0 19 * * *"}])
 async def collect_sports_task() -> Dict[str, str]:
     """
     Collect and sync sports data from external provider.
@@ -104,6 +103,7 @@ async def collect_sports_task() -> Dict[str, str]:
     This task is now thin and delegates to SportsService.
     """
     start_time = now_utc()
+    logger.info("sports_collection_task_started", timestamp=start_time.isoformat())
 
     try:
         # Get sports service - it manages its own session lifecycle

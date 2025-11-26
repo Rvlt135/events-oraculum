@@ -1,6 +1,7 @@
 import asyncio
 import structlog
 
+from app.infra.di.lifecycle import initialize as initialize_infrastructure, dispose as dispose_infrastructure
 from app.tasks.broker import broker
 # from app.tasks.collector import collect_odds_task, collect_sports_task
 from app.tasks import collector
@@ -18,9 +19,10 @@ logger = structlog.get_logger()
 async def main() -> None:
     logger.info("starting_taskiq_worker")
 
-    # Container will be created automatically in broker.on_event(TaskiqEvents.WORKER_STARTUP)
+    # Initialize shared infrastructure
+    await initialize_infrastructure()
+
     await broker.startup()
-    logger.info("worker_started")
 
     try:
         while True:
@@ -28,7 +30,7 @@ async def main() -> None:
     except KeyboardInterrupt:
         logger.info("shutting_down_worker")
         await broker.shutdown()
-        # Container disposal is handled automatically in broker.on_event(TaskiqEvents.WORKER_SHUTDOWN)
+        await dispose_infrastructure()
 
 
 if __name__ == "__main__":

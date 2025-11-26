@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  edge-agents-api:
+    build:
+      context: ../edge-agents-service
+      dockerfile: Dockerfile
+    container_name: layerbit-edge-agents-api
+    command: python -m app.main
+    ports:
+      - "8082:8082"
+    env_file:
+      - ../edge-agents-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+  agents-worker:
+    build:
+      context: ../edge-agents-service
+      dockerfile: Dockerfile
+    container_name: layerbit-agents-worker
+    command: python -m boot.worker
+    env_file:
+      - ../edge-agents-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+  agents-scheduler:
+    build:
+      context: ../edge-agents-service
+      dockerfile: Dockerfile
+    container_name: layerbit-agents-scheduler
+    command: python -m boot.scheduler
+    env_file:
+      - ../edge-agents-service/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+networks:
+  layerbit-net:
+    external: true

@@ -29,8 +29,7 @@ class Settings(BaseSettings):
     odds_api_markets: List[str] = Field(default=["h2h"])
     odds_api_competitions: List[str] = Field(default=["soccer_uefa_champs_league"])
 
-    schedule_crons: List[str]
-    schedule_sports_crons: List[str]
+    schedule_crons: List[str] = Field(default=["0 9 * * *", "0 19 * * *"])
 
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8083)
