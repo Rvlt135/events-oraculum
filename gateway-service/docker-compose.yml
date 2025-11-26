@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: ../gateway-service
+      dockerfile: Dockerfile
+    container_name: layerbit-gateway
+    command: python -m app.main
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../gateway-service/.env
+    environment:
+      - REDIS_URL=redis://layerbit-redis:6379/0
+      - POSTGRES_HOST=layerbit-postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - layerbit-net
+    restart: unless-stopped
+
+networks:
+  layerbit-net:
+    external: true

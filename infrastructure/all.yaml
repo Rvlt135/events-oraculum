@@ -1,0 +1,9 @@
+- name: Settings servers
+  hosts: aida
+  vars_files:
+    - ./group_vars/aida/vars.yaml
+  roles:
+    - { role: docker, tags: docker }
+    - { role: postgres, tags: postgres }
+    - { role: migrations, tags: migrations }
+

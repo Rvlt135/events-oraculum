@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.utils.time_utils import now_utc, parse_utc
-from app.infra.repositories import (
+from app.utils.time_utils import now_utc, parse_utc
+from app.infrastructure.repositories import (
     TeamRepository,
     EventRepository,
     BookmakerRepository,

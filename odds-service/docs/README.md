@@ -154,6 +154,15 @@ docker exec -it odds-postgres psql -U postgres -d layerbit -c "DROP TABLE IF EXI
 alembic upgrade head
 ```
 
+
+4. Запуск sheduler и worker TaskIQ 
+# Scheduler
+taskiq scheduler app.tasks.broker:scheduler
+
+# Worker
+taskiq worker app.tasks.broker:broker app.tasks.collector
+
+
 ### Синхронизация миграций между разработчиками
 
 1. Всегда делайте `git pull` перед созданием новой миграции

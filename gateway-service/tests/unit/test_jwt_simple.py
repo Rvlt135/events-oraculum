@@ -3,7 +3,7 @@
 import pytest
 from uuid import uuid4, UUID
 
-from app.auth.jwt_utils import JWTService
+from app.infrastructure.security.jwt import JWTService
 
 
 class TestJWTServiceSimple:

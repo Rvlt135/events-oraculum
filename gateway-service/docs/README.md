@@ -22,6 +22,13 @@
 - **Pydantic** - валидация данных
 - **Structlog** - структурированное логирование
 
+### 📚 Документация по архитектуре
+
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Обзор архитектуры и принципов
+- **[CLEAN_CODE_ANALYSIS.md](./CLEAN_CODE_ANALYSIS.md)** - Детальный анализ структуры и рекомендации по Clean Code
+- **[AUTH_IMPLEMENTATION.md](./AUTH_IMPLEMENTATION.md)** - Документация по реализации аутентификации
+- **[API_EXAMPLES.md](./API_EXAMPLES.md)** - Примеры использования API
+
 ## 📋 Требования
 
 - Python 3.12+
@@ -374,21 +381,64 @@ docker run -d \
 
 ```
 gateway-service/
-├── app/
-│   ├── auth/           # Аутентификация
-│   ├── cache/          # Кэширование
-│   ├── config/         # Конфигурация
-│   ├── db/             # База данных
-│   ├── domain/         # Модели домена
-│   ├── models/         # Pydantic схемы
-│   ├── observability/  # Логирование
-│   ├── routes/         # API маршруты
-│   ├── security/       # Безопасность
-│   └── services/       # Бизнес-логика
-├── alembic/            # Миграции
-├── requirements.txt    # Зависимости
-├── Dockerfile         # Docker образ
-└── README.md          # Документация
+└── app/
+    ├── api/                                # Presentation: FastAPI
+    │   ├── routes/
+    │   │   ├── auth.py                     # /auth/*
+    │   │   ├── insights.py                 # /v1/insights/*
+    │   │   └── stats.py                    # /v1/stats/*
+    │   ├── schemas/                        # Pydantic DTO для HTTP (request/response)
+    │   │   ├── auth.py
+    │   │   ├── user.py
+    │   │   └── common.py
+    │   └── di/                        # Pydantic DTO для HTTP (request/response)
+    │       ├── deps.py                         # FastAPI Depends-фабрики (создание сервисов/репо)
+    │       ├── auth_deps.py
+    │
+    ├── domain/                             # Core: чистые типы и правила (без SQLAlchemy/HTTP)
+    │   ├── entities/
+    │   │   ├── user.py                     # чистая сущность User (id, plan, email, ...)
+    │   │   ├── user_identity.py            # тип/данные учётки (EMAIL/GOOGLE/TELEGRAM)
+    │   │   └── user_session.py             # минимальная модель сессии (если нужна в логике)
+    │   └── rules/
+    │       ├── subscription_rules.py       # can_access_category(plan, category) и пр.
+    │       └── auth_rules.py               # базовые бизнес-валидации (без I/O)
+    │
+    ├── services/                           # Application: оркестрация use-cases
+    │   ├── auth_service.py                 # signup/login, Google OAuth, Telegram init_data
+    │   ├── insights_service.py
+    │   └── stats_service.py
+    │
+    ├── infrastructure/                     # Интеграции/Хранилище/Безопасность
+    │   ├── db/
+    │   │   ├── engine.py                   # create_async_engine(...)
+    │   │   ├── session.py                  # async_sessionmaker, get_session()
+    │   │   ├── orm/                        # ✨ СЮДА ПЕРЕНОСИМ все SQLAlchemy-модели
+    │   │   │   ├── user.py                 # UserORM
+    │   │   │   ├── user_identity.py        # UserIdentityORM
+    │   │   │   └── user_session.py         # UserSessionORM
+    │   │   └── repositories/               # тонкие репозитории поверх AsyncSession
+    │   │       ├── user_repo.py
+    │   │       └── session_repo.py
+    │   ├── cache/
+    │   │   └── redis.py                    # Redis-клиент/ключи
+    │   ├── clients/                        # внешние клиенты/адаптеры
+    │   │   ├── google_oauth.py             # Google OAuth (HTTP)
+    │   │   └── telegram_validator.py       # Telegram init_data verify (HTTP/crypto)
+    │   └── security/
+    │       ├── password.py                 # argon2/крипта паролей
+    │       └── jwt.py                      # выдача/парсинг JWT
+    │
+    ├── config/
+    │   ├── settings.py                     # Pydantic Settings (.env)
+    │   └── policy.py                       # (опц.) централизованные политики/константы
+    │
+    ├── utils/
+    │   └── logging.py                      # structlog конфиг
+    │
+    ├── app.py                              # FastAPI app + lifespan (инициализация DI)
+    └── main.py                             # uvicorn entrypoint
+
 ```
 
 ### Добавление новых эндпоинтов

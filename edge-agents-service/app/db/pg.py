@@ -23,9 +23,12 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def init_db() -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("database_initialized")
+    try:
+        async with engine.connect() as conn:
+            await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.warning("database_init_skipped", error=str(e))
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
