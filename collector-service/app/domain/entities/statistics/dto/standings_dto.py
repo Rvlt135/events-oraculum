@@ -70,3 +70,15 @@ class EnrichedStandingRowDTO(BaseModel):
     form_raw: Optional[str] = None
     status: Optional[str] = None
     raw_payload: dict
+
+
+class StandingMinimalDTO(BaseModel):
+    team_id: UUID
+    rank: Optional[int] = None
+    points: Optional[int] = None
+    goal_diff: Optional[int] = None
+    all_played: Optional[int] = None
+    all_goals_for: Optional[int] = None
+    all_goals_against: Optional[int] = None
+    form_raw: Optional[str] = None
+

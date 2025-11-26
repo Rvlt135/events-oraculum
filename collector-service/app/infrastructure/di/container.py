@@ -232,14 +232,18 @@ class Container:
         )
 
     def create_build_team_features(self):
+        sports_cache = SportsCache(self.redis_cache)
+        competitions_cache = CompetitionsCache(self.redis_cache)
         standings_cache = StandingsFootballCache(self.redis_cache)
         team_features_cache = TeamFeaturesCache(self.redis_cache)
+        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
 
         return TeamFeaturesBuilder(
             session_factory=self.session_factory,
             policy_loader=self.policy_loader,
             standings_cache=standings_cache,
             team_features_cache=team_features_cache,
+            catalog_cache_helper=catalog_cache_helper
         )
 
 

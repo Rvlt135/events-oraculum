@@ -1,5 +1,7 @@
 from typing import List
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import structlog
 
 from app.infrastructure.db.orm.standings_football import StandingsFootball
@@ -102,5 +104,21 @@ class StandingsFootballRepository(BaseRepository[StandingsFootball]):
         
         return len(records)
 
-    async def get_by_competition(self, league_id, season):
-        NotImplemented()
+    async def get_by_competition(self, competition_id: UUID, season: int) -> List[StandingsFootball]:
+        """
+        Get standings rows by competition and season.
+        
+        Args:
+            competition_id: Competition UUID
+            season: Season year
+            
+        Returns:
+            List of StandingsFootball ORM rows
+        """
+        result = await self.session.execute(
+            select(StandingsFootball).where(
+                StandingsFootball.competition_id == competition_id,
+                StandingsFootball.season == season
+            )
+        )
+        return list(result.scalars().all())

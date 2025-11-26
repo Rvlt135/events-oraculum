@@ -58,7 +58,7 @@ async def collect_team_features_task() -> Dict[str, str]:
                 league_id = comp_config.league_id
                 seasons_current = comp_config.seasons.current
 
-                competitions = await catalog_helper.get_competitions_by_slugs("soccer",
+                competitions = await service.catalog_cache_helper.get_competitions_by_slugs("soccer",
                                                                               [slug_key])  # TODO: update dynamic category sport??
                 if not competitions:
                     logger.warning("competition_not_found", slug_key=slug_key)
