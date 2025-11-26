@@ -39,10 +39,10 @@ async def collect_team_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        builder = await get_collect_team_features_builder()
+        service = await get_collect_team_features_builder()
         container = broker.state.container
         policy_loader = container.policy_loader
-        catalog_helper = builder.catalog_cache_helper
+        catalog_helper = service.catalog_cache_helper
 
         api_football_policy = policy_loader.get_api_football(provider)
         if not api_football_policy or not api_football_policy.competitions:
@@ -66,17 +66,17 @@ async def collect_team_features_task() -> Dict[str, str]:
                 competition = competitions[0]
                 competition_id = competition.id
 
-                rows = await builder.load_standings_rows(competition_id, seasons_current)
+                rows = await service.load_standings_rows(competition_id, seasons_current)
                 if not rows:
                     logger.info("no_standings_rows", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
                     continue
 
-                features = await builder.features_from_standings(rows, competition_id, seasons_current)
+                features = await service.tmf_builder.build_features_from_standings(rows, competition_id, seasons_current)
                 if not features:
                     logger.info("no_features_built", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
                     continue
 
-                count = await builder.save_team_features(features, competition_id, seasons_current)
+                count = await service.save_team_features(features)
                 total_saved += count
 
                 logger.info(

@@ -24,8 +24,10 @@ class TeamFeaturesCache:
 
     async def save_team_features(self, features: List[TeamFeaturesDTO]) -> None:
         """Store team features in Redis."""
-        for feature in features:
-            key = _key_features_team(feature.team_id, feature.competition_id, feature.season)
-            data = feature.model_dump(mode="json")
-            json_str = json.dumps(data, ensure_ascii=False)
-            await self._r.set(key, json_str)
+        async with self._r.pipeline() as pipe:
+            for feature in features:
+                key = _key_features_team(feature.team_id, feature.competition_id, feature.season)
+                data = feature.model_dump(mode="json")
+                json_str = json.dumps(data, ensure_ascii=False)
+                await self._r.set(key, json_str)
+            await pipe.execute()

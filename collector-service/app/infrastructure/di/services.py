@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from app.services.teams_sync_service import TeamsSyncService
     from app.services.statistics_collect import StatisticsCollectService
     from app.infrastructure.di.container import Container
-    from app.services.feature_layer.team_features import TeamFeaturesBuilder
+    from app.services.feature_layer.team_features import TeamFeaturesService
 
 
 async def get_sports_service() -> "SportsService":
@@ -160,9 +160,9 @@ async def get_collect_statistic_sync_service() -> "StatisticsCollectService":
     container: "Container" = broker.state.container
     return container.create_statistics_collect_service()
 
-async def get_collect_team_features_builder() -> "TeamFeaturesBuilder":
+async def get_collect_team_features_builder() -> "TeamFeaturesService":
     """
-    Get TeamFeaturesBuilder with injected dependencies from container.
+    Get TeamFeaturesService with injected dependencies from container.
 
     This function is used in tasks and other non-request contexts (worker/scheduler).
 
@@ -175,5 +175,5 @@ async def get_collect_team_features_builder() -> "TeamFeaturesBuilder":
         )
 
     container: "Container" = broker.state.container
-    return container.create_build_team_features()
+    return container.create_team_features_service()
 

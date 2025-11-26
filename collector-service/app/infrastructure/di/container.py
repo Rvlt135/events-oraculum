@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
+from app.builders.feature_layer.team_features import TeamFeaturesBuilder
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
@@ -29,7 +30,7 @@ from app.services.llm_service import LLMService
 from app.services.prioritizer_service import PrioritizerService
 from app.services.statistics_collect import StatisticsCollectService
 from app.services.teams_sync_service import TeamsSyncService
-from app.services.feature_layer.team_features import TeamFeaturesBuilder
+from app.services.feature_layer.team_features import TeamFeaturesService
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.config.settings import settings
 
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
     from app.services.llm_service import LLMService
     from app.services.prioritizer_service import PrioritizerService
     from app.services.teams_sync_service import TeamsSyncService
-    from app.services.feature_layer.team_features import TeamFeaturesBuilder
+    from app.services.feature_layer.team_features import TeamFeaturesService
 
 logger = structlog.get_logger()
 
@@ -232,19 +233,21 @@ class Container:
             catalog_cache_helper=catalog_cache_helper
         )
 
-    def create_build_team_features(self):
+    def create_team_features_service(self):
         sports_cache = SportsCache(self.redis_cache)
         competitions_cache = CompetitionsCache(self.redis_cache)
         standings_cache = StandingsFootballCache(self.redis_cache)
         team_features_cache = TeamFeaturesCache(self.redis_cache)
         catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+        team_feature_builder = TeamFeaturesBuilder()
 
-        return TeamFeaturesBuilder(
+        return TeamFeaturesService(
             session_factory=self.session_factory,
             policy_loader=self.policy_loader,
             standings_cache=standings_cache,
             team_features_cache=team_features_cache,
-            catalog_cache_helper=catalog_cache_helper
+            catalog_cache_helper=catalog_cache_helper,
+            team_feature_builder=team_feature_builder,
         )
 
 
