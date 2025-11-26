@@ -42,3 +42,13 @@ class FixtureHistoryRecordDTO(BaseModel):
     result: int          # -1/0/1 для home
     raw_payload: dict
 
+class FixtureHistoryRowDTO(BaseModel):
+    id: UUID
+    api_fixture_id: int
+    match_date: datetime
+    home_team_id: UUID
+    away_team_id: UUID
+    home_goals: int
+    away_goals: int
+    result: int
+

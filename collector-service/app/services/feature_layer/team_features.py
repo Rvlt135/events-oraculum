@@ -26,14 +26,12 @@ class TeamFeaturesService:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         policy_loader: PolicyLoader,
-        standings_cache: StandingsFootballCache,
         team_features_cache: TeamFeaturesCache,
         catalog_cache_helper: CatalogCacheHelper,
         team_feature_builder: TeamFeaturesBuilder,
     ):
         self.session_factory = session_factory
         self.policy_loader = policy_loader
-        self.standings_cache = standings_cache
         self.team_features_cache = team_features_cache
         self.catalog_cache_helper = catalog_cache_helper
         self.tmf_builder = team_feature_builder
