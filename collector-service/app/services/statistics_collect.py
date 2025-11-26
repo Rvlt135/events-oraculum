@@ -239,13 +239,13 @@ class StatisticsCollectService:
         
         return records
 
-    async def save_standings(self, records: List[EnrichedStandingRowDTO], league_id: int, season: int) -> int:
+    async def save_standings(self, records: List[EnrichedStandingRowDTO], slug_key: str, season: int) -> int:
         """
         Save standings records to database and cache.
         
         Args:
             records: List of EnrichedStandingRowDTO records
-            league_id: API Football league ID
+            slug_key: Competition slug key
             season: Season year
             
         Returns:
@@ -259,9 +259,9 @@ class StatisticsCollectService:
                 
                 items = self._to_cache_items_standings(records)
                 try:
-                    await self.standings_football_cache.save_standings_teams(str(league_id), season, items)
+                    await self.standings_football_cache.save_standings_teams(slug_key, season, items)
                 except Exception as e:
-                    logger.error("standings_cache_save_failed", error=str(e), league_id=league_id, season=season)
+                    logger.error("standings_cache_save_failed", error=str(e), slug_key=slug_key, season=season)
                 
                 return count
         except Exception as e:
@@ -401,34 +401,32 @@ class StatisticsCollectService:
         
         return records
 
-    async def save_fixtures(self, records: list[EloFixtureRecordDTO], league_id: int, season: int) -> dict:
-        """
-        Save fixtures records to database and cache.
-        
-        Args:
-            records: List of EloFixtureRecordDTO records
-            league_id: API Football league ID
-            season: Season year
-            
-        Returns:
-            Dict with count of saved records: {"saved": count}
-        """
+    async def save_fixtures(self, records: List[FixtureHistoryRecordDTO], slug_key: str, season: int) -> dict:
+        """Save fixtures records to database and cache."""
         try:
             async with self.session_factory() as session:
-                # Initialize repository and perform bulk upsert
                 repo = FixturesFootballRepository(session)
-
                 count = await repo.bulk_upsert_fixtures(records)
                 await session.commit()
                 
-                # Write compact Elo-ready structure to Redis
-                items = self._to_cache_items_fixtures(records)
+                items = [
+                    {
+                        "api_fixture_id": r.api_fixture_id,
+                        "match_date": r.match_date.isoformat(),
+                        "home_team_id": str(r.home_team_id),
+                        "away_team_id": str(r.away_team_id),
+                        "home_goals": r.home_goals,
+                        "away_goals": r.away_goals,
+                        "result": r.result,
+                    }
+                    for r in records
+                ]
                 try:
-                    await self.standings_football_cache.save_fixtures_items(str(league_id), season, items)
+                    await self.standings_football_cache.save_fixtures_items(slug_key, season, items)
                 except Exception as e:
-                    logger.error("fixtures_cache_save_failed", error=str(e), league_id=league_id, season=season)
+                    logger.error("fixtures_cache_save_failed", error=str(e), league_id=slug_key, season=season)
                 
-                return {"saved": count}
+                return {"count": count}
         except Exception as e:
             logger.error("fixtures_save_failed", error=str(e), count=len(records))
-            return {"saved": 0}
+            return {"count": 0}

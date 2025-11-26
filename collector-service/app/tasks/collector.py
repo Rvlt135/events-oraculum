@@ -479,7 +479,7 @@ async def collect_standings_football_task() -> Dict[str, str]:
                             logger.info("no_records_built", slug_key=slug_key, league_id=league_id, season=season)
                             continue
 
-                        count = await service.save_standings(records, league_id, season)
+                        count = await service.save_standings(records, slug_key, season)
                         total_processed += 1
 
                         # records_dict = service._to_cache_items(records)
@@ -592,7 +592,7 @@ async def collect_fixtures_football_task() -> Dict[str, str]:
                     logger.info("no_records_built", slug_key=slug_key, league_id=league_id, season=seasons_current)
                     continue
 
-                count = await service.save_fixtures(records, league_id, seasons_current)
+                count = await service.save_fixtures(records, slug_key, seasons_current)
                 total_processed += 1
 
                 logger.info(
