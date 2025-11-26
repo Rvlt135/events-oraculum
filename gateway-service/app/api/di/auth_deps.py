@@ -4,17 +4,17 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 
-from app.api.di.deps import get_auth_service
+from app.api.di.deps import get_token_service
 from app.config.settings import settings
 from app.infrastructure.db.orm.user import User
 from app.infrastructure.security.jwt import jwt_service
-from app.services.auth_service import AuthService
+from app.services.auth_service import TokenService
 
 security = HTTPBearer(scheme_name="Bearer")
 
 async def get_current_user(
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: TokenService = Depends(get_token_service),
 ) -> User:
     access_token = request.cookies.get(settings.access_token_cookie_name)
     try:
