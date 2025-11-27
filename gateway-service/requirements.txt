@@ -12,6 +12,7 @@ coverage==7.11.0
 dnspython==2.8.0
 email-validator==2.3.0
 fastapi==0.121.0
+fastapi-limiter==0.1.6
 greenlet==3.2.4
 h11==0.16.0
 httpcore==1.0.9

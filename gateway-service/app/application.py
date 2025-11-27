@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_limiter import FastAPILimiter
 import structlog
 from sqlalchemy import text
 
@@ -10,8 +11,8 @@ from app.config.settings import settings
 from app.infrastructure.cache.redis import RedisCache
 from app.infrastructure.db.engine import engine
 from app.infrastructure.db.orm import Base
-from app.utils.logging import configure_logging
-from app.api.routes import auth, insights, stats
+from app.observability.logging import configure_logging
+from app.api.routes import auth, base, insights, stats
 from fastapi.openapi.utils import get_openapi
 from app.api.di.auth_deps import get_current_user
 import inspect
@@ -30,11 +31,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     redis_client = redis.from_url(settings.redis_url, decode_responses=True)
     app.state.redis_client = redis_client
     app.state.redis_cache = RedisCache(redis_client, ttl=settings.cache_ttl_seconds)
+    await FastAPILimiter.init(redis_client)
 
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
 
     yield
+    await FastAPILimiter.close()
     await redis_client.close()
     await engine.dispose()
     logger.info("shutting_down_gateway_service")
@@ -91,6 +94,7 @@ def create_app(env: str = "production") -> FastAPI:
     )
 
     app.include_router(auth.router)
+    app.include_router(base.router)
     app.include_router(insights.router)
     app.include_router(stats.router)
 

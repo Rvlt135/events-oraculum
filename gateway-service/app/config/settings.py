@@ -44,8 +44,14 @@ class Settings(BaseSettings):
     # JWT - обязательные из env (без дефолтов для безопасности)
     jwt_secret: str  # Секретный ключ - обязательно из env
     jwt_algorithm: str = Field(default="HS256")  # Алгоритм редко меняется
-    access_token_ttl_seconds: int = Field(default=86400)  # 1 день (24 часа)
-    refresh_token_ttl_seconds: int = Field(default=1209600)  # 14 дней
+
+    # Cookies settings
+    access_token_cookie_name: str = Field(default="access_token")
+    refresh_token_cookie_name: str = Field(default="refresh_token")
+    auth_cookie_domain: str = Field(default="")
+    auth_cookie_secure: bool = Field(default=True)
+    auth_access_ttl_sec: int = Field(default=3600)
+    auth_refresh_ttl_sec: int = Field(default=2592000)
 
     # Google OAuth - опциональные, можно оставить пустые строки
     google_client_id: str = Field(default="")
@@ -58,6 +64,12 @@ class Settings(BaseSettings):
 
     # Password hashing - алгоритм редко меняется
     password_hash_scheme: str = Field(default="argon2")
+    password_min_length: int = Field(default=8)
+
+    # Referral and Invite code settings
+    ref_code_length: int = Field(default=8)
+    invite_code_alphabet: str = Field(default="ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+    invite_code_length: int = Field(default=10)
 
     @property
     def postgres_url(self) -> str:

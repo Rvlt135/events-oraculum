@@ -1,11 +1,7 @@
-from datetime import datetime, UTC
-from typing import Any, Dict, Optional
-import json
+from datetime import UTC, datetime
 from uuid import UUID
 
 from redis.asyncio import Redis
-
-from app.infrastructure.db.orm import User
 
 CATALOG_TTL_SEC = 300
 KEY_SESSION_JTI = "session:{jti}"
@@ -28,7 +24,7 @@ class SessionCache:
         }
         ttl = int((expires_at - datetime.now(UTC)).total_seconds())
         if ttl > 0:
-            await self._r.set(key, json.dumps(data), ex=ttl)
+            await self._r.set(key, data, ttl=ttl)
 
     async def get_cached_session(self, jti: UUID) -> dict | None:
         key = _key_session().format(jti=jti)

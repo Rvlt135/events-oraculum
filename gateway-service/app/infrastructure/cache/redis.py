@@ -1,5 +1,6 @@
-from typing import Optional
 import json
+from typing import Optional
+
 import redis.asyncio as redis
 import structlog
 
@@ -7,7 +8,7 @@ logger = structlog.get_logger()
 
 
 class RedisCache:
-    def __init__(self, client: redis.Redis, ttl: int):
+    def __init__(self, client: redis.Redis, ttl: int) -> None:
         self.ttl =  ttl # settings.cache_ttl_seconds
         self.client = client
 
@@ -23,20 +24,20 @@ class RedisCache:
             logger.error("cache_get_error", key=key, error=str(e))
             return None
 
-    async def set(self, key: str, value: dict, ttl: Optional[int] = None) -> None:
+    async def set(
+            self,
+            key: str,
+            value: dict,
+            ttl: Optional[int] = None,
+            indefinitely: Optional[bool] = False,
+    ) -> None:
         if not self.client:
             raise RuntimeError("Redis not initialized")
 
         try:
-            ttl_value = ttl if ttl is not None else self.ttl
+            ttl_value = None if indefinitely else (ttl if ttl is not None else self.ttl)
             await self.client.set(key, json.dumps(value), ex=ttl_value)
             logger.debug("cache_set", key=key, ttl=ttl_value)
-        except Exception as e:
-            logger.error("cache_set_error", key=key, error=str(e))
-
-    async def set_json(self, key: str, payload: dict, ex: Optional[int] = None) -> None:
-        try:
-            await self.client.set(key, json.dumps(payload), ex=ex or self.ttl)
         except Exception as e:
             logger.error("cache_set_error", key=key, error=str(e))
 

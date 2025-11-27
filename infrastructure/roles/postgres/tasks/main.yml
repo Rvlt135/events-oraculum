@@ -1,0 +1,52 @@
+---
+# tasks file for postgres
+- name: Убедиться что Docker установлен
+  package:
+    name: docker
+    state: present
+
+- name: Запуск PostgreSQL контейнера
+  community.docker.docker_container:
+    name: "{{container_name}}"
+    image: "postgres:{{ postgres_version }}"
+    restart_policy: unless-stopped
+    env:
+      POSTGRES_USER: "{{ postgres_user }}"
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
+      POSTGRES_DB: "{{ postgres_db }}"
+    ports:
+      - "{{ postgres_port }}:5432"
+    volumes:
+      - /var/lib/postgresql/data:/var/lib/postgresql/data
+
+- name: Ждать доступности PostgreSQL
+  wait_for:
+    host: "127.0.0.1"
+    port: "{{ postgres_port }}"
+    delay: 2
+    timeout: 30
+
+- name: Install psycopg2 dependencies
+  apt:
+    name: python3-psycopg2
+    state: present
+  become: true
+
+- name: Создать базу layerbit_odds
+  community.postgresql.postgresql_db:
+    name: "layerbit_odds"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    login_host: "127.0.0.1"
+    port: "{{ postgres_port }}"
+    state: present
+
+# Создание базы для gateway-service
+- name: Создать базу layerbit_gateway
+  community.postgresql.postgresql_db:
+    name: "layerbit_gateway"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    login_host: "127.0.0.1"
+    port: "{{ postgres_port }}"
+    state: present

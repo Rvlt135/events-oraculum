@@ -1,7 +1,10 @@
-from datetime import datetime, timedelta, UTC
-from pydantic import BaseModel
+from datetime import UTC, datetime, timedelta
+
 from init_data_py import InitData
 from init_data_py.errors.errors import InitDataPyError as InitDataValidationError
+from pydantic import BaseModel
+
+from app.config.settings import settings
 
 
 class ParsedTelegramUser(BaseModel):
@@ -59,3 +62,7 @@ class TelegramValidator:
             is_premium=is_premium,
         )
 
+telegram_validator = TelegramValidator(
+    bot_token=settings.telegram_bot_token,
+    max_auth_age_seconds=settings.telegram_max_auth_age_seconds,
+)

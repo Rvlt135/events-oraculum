@@ -1,91 +1,98 @@
-from datetime import datetime, UTC
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi_limiter.depends import RateLimiter
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import RedirectResponse
-
-from app.infrastructure.clients.google_oauth import GoogleOAuthService
+from app.api.di.deps import get_email_auth_service, get_google_auth_service, get_token_service
 from app.api.schemas.auth import (
-    EmailRegisterRequest,
     EmailLoginRequest,
+    EmailRegisterRequest,
     TelegramAuthRequest,
-    TokenRefreshRequest,
 )
 from app.api.schemas.user import (
     AuthResponse,
     AuthTokens,
-    UserProfile,
     TelegramInfo,
-    MeResponse,
+    UserProfile,
 )
-from app.services.auth_service import AuthService
-from app.infrastructure.db.orm.user import User
-from app.api.di.auth_deps import get_current_user
-from app.api.di.deps import get_auth_service, get_google_oauth_service
+from app.services.auth_service import (
+    EmailAuthService,
+    GoogleAuthService,
+    TelegramAuthService,
+    TokenService,
+)
+from app.services.exceptions import ValidationError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+logger = structlog.get_logger()
 
-@router.get("/google/start")
+
+@router.get("/google/start", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def google_oauth_start(
-    google_oauth: GoogleOAuthService = Depends(get_google_oauth_service),
-):
-    auth_url = google_oauth.get_authorization_url()
-    return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
-
+    request: Request,
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
+    auth_service: GoogleAuthService = Depends(get_google_auth_service)
+) -> RedirectResponse:
+    
+    try:
+        auth_url = await auth_service.get_authorization_url(
+            request=request, return_path=return_to)
+        
+        return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+    
+    except ValidationError as e:
+        logger.error("invalid_return_to", value=return_to)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": e.name,
+                "message": e.message,
+            },
+        )
+    
+    except Exception as e:
+        logger.error("Unable to initialize OAuth flow:", error=e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "OAuth_start_failed",
+                "message": "Unable to initialize OAuth flow",
+            },
+        )
+    
 
 @router.get("/google/callback")
 async def google_oauth_callback(
-    code: str,
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
-):
+    code: str = Query(),
+    state: str = Query(),
+    auth_service: GoogleAuthService = Depends(get_google_auth_service),
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.login_with_google(
-            code, user_agent
-        )
+        return await auth_service.login_with_google(code, state)
 
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OAuth failed: {str(e)}",
+            detail=f"OAuth failed: {e!s}",
         )
 
-@router.post("/email/register", response_model=AuthResponse)
+
+@router.post("/register", dependencies=[Depends(RateLimiter(times=5, minutes=15))])
 async def register_with_email(
-    req: EmailRegisterRequest,
+    reg_data: EmailRegisterRequest,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
-):
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
+    auth_service: EmailAuthService = Depends(get_email_auth_service),
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.register_with_email(
-            req.email, req.password, user_agent
-        )
+        return  await auth_service.register_with_email(
+            reg_data, request, return_to)
 
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT if "already" in str(e).lower() else status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {e!s}",
         )
 
 
@@ -93,36 +100,26 @@ async def register_with_email(
 async def login_with_email(
     req: EmailLoginRequest,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
-):
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
+    auth_service: EmailAuthService = Depends(get_email_auth_service),
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.login_with_email(
-            req.email, req.password, user_agent
-        )
-
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
+        return await auth_service.login_with_email(
+            req, request, return_to)
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {e!s}",
         )
 
 
 @router.post("/token/refresh")
 async def refresh_token(
-    req: TokenRefreshRequest,
-    auth_service: AuthService = Depends(get_auth_service),
-):
+    request: Request,
+    auth_service: TokenService = Depends(get_token_service),
+) -> JSONResponse:
     try:
-        access_token = await auth_service.refresh_access_token(req.refresh_token)
-        return {"access_token": access_token, "token_type": "bearer"}
+        return await auth_service.refresh_access_token(request)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -134,7 +131,7 @@ async def refresh_token(
 async def login_with_telegram(
     req: TelegramAuthRequest,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: TelegramAuthService = Depends(get_email_auth_service),
 ):
     try:
         user_agent = request.headers.get("user-agent")
@@ -195,34 +192,13 @@ async def login_with_telegram(
 
 @router.post("/logout")
 async def logout(
-    req: TokenRefreshRequest,
-    auth_service: AuthService = Depends(get_auth_service),
-):
+    request: Request,
+    auth_service: TokenService = Depends(get_token_service),
+) -> RedirectResponse:
     try:
-        await auth_service.logout(req.refresh_token)
-        return {"ok": True}
+        return await auth_service.logout(request)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         )
-
-
-@router.get("/me", response_model=MeResponse)
-async def get_me(
-    user: User = Depends(get_current_user),
-):
-    trial_left_days = None
-    is_trial_active = False
-
-    if user.trial_end_at:
-        delta = user.trial_end_at - datetime.now(UTC)
-        trial_left_days = max(0, delta.days)
-        is_trial_active = delta.total_seconds() > 0
-    resp = MeResponse(
-        user=UserProfile.model_validate(user),
-        trial_left_days=trial_left_days,
-        is_trial_active=is_trial_active,
-    )
-    return resp.model_dump(exclude_none=True) # TODO: убрать null в будущем в ответе
-
