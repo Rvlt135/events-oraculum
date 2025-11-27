@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from httpx import HTTPStatusError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas.auth import EmailRegisterRequest
+from app.api.schemas.auth import EmailLoginRequest, EmailRegisterRequest
 from app.infrastructure.cache.oauth_cache import OauthCache
 from app.infrastructure.cache.session_cache import SessionCache
 from app.infrastructure.cache.settings_cache import SettingCache
@@ -346,58 +346,48 @@ class EmailAuthService:
             raise AuthorizationError("email_taken")
 
     async def login_with_email(
-        self, email: str, password: str, user_agent: str | None = None
-    ) -> tuple[User, str, str]:
-        user = await self.user_repo.get_by_email(email)
-        if not user or not user.password_hash:
-            raise ValueError("Invalid credentials")
-
-        if not self.password.verify_password(password, user.password_hash):
-            raise ValueError("Invalid credentials")
+        self, data: EmailLoginRequest, reqest: Request, return_to: str,
+    ) -> RedirectResponse:
+        try:
+            return_path = self.validator.validate_and_parse_return_path(return_to)
+            user = await self.get_user(data.email.lower(), data.password)
+        except AuthorizationError as e:
+            logger.info(
+                "User login with email failed.",
+                email=data.email,
+                error=str(e),
+            )            
+            redirect_url = f"/login?{urlencode({'error':e})}"
+            return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
+        
+        user_agent = reqest.headers.get("ua")
 
         access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
         refresh_token, jti = self.jwt.create_refresh_token(user.id)
 
         refresh_expires = datetime.now(UTC) + timedelta(
-            seconds=self.jwt.refresh_ttl
+            seconds=self.jwt.refresh_ttl,
         )
         await self.session_repo.create(
-            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent,
-        )
-
-        await self._cache_session(jti, user.id, refresh_expires)
+            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent)
+        await self.session_cache.cache_session(jti, user.id, refresh_expires)
         await self.db.commit()
 
-        return user, access_token, refresh_token
+        response = RedirectResponse(url=return_path)
+        set_auth_cookies(response, access_token, refresh_token)
 
-    async def refresh_access_token(self, refresh_token: str) -> str:
-        token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
-        jti = UUID(token_payload.jti)
-        user_id = UUID(token_payload.sub)
+        return response
+    
+    async def get_user(self, email: str, password: str) -> User | None:
+        user = await self.user_repo.get_by_email(email)
+        if not user or not user.password_hash:
+            raise AuthorizationError("Invalid credentials")
 
-        cached = await self._get_cached_session(jti)
-        if not cached:
-            db_session = await self.session_repo.get_by_jti(jti)
-            if not db_session or db_session.expires_at < datetime.now(UTC):
-                raise ValueError("Invalid or expired session")
+        if not self.password.verify_password(password, user.password_hash):
+            raise AuthorizationError("Invalid credentials")
 
-        user = await self.user_repo.get_by_id(user_id)
-        if not user:
-            raise ValueError("User not found")
-
-        account_id = user.telegram_account_id if user.telegram_account_id else None
-        return self.jwt.create_access_token(user.id, user.plan_type.value, account_id=account_id)
-
-    async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
-        if use_cache:
-            cached = await self.user_cache.get_cached_user(user_id)
-            if cached:
-                return cached
-
-        user = await self.user_repo.get_by_id(user_id)
-        if user and use_cache:
-            await self.user_cache.cache_user(user)
         return user
+
 
 
 # TODO refactor this service

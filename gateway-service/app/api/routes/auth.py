@@ -101,24 +101,16 @@ async def register_with_email(
 async def login_with_email(
     req: EmailLoginRequest,
     request: Request,
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
     auth_service: EmailAuthService = Depends(get_email_auth_service),
-):
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.login_with_email(
-            req.email, req.password, user_agent)
-
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
+        return await auth_service.login_with_email(
+            req, request, return_to)
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {e!s}",
         )
 
 
