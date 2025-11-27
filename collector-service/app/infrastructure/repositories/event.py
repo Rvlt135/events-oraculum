@@ -244,6 +244,11 @@ class EventRepository(BaseRepository[Event]):
         )
         return list(result.scalars().all())
 
+    # TODO: implement method to save upcoming events into fixtures_football_upcoming table
+    # async def save_upcoming_to_fixtures(self, events: List[Event]) -> int:
+    #     """Save upcoming events to fixtures_football_upcoming table."""
+    #     pass
+
     async def has_upcoming_events(self, competition_id: UUID, provider: str = "odds_api") -> bool:
         """
         Check if competition has any upcoming events.

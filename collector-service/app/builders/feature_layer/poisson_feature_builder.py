@@ -79,7 +79,7 @@ class PoissonFeaturesBuilder:
             
             # Build DTO
             poisson_feature = PoissonFeaturesDTO(
-                fixture_id=fixture.fixture_id,
+                event_id=fixture.event_id,
                 home_team_id=fixture.home_team_id,
                 away_team_id=fixture.away_team_id,
                 competition_id=fixture.competition_id,

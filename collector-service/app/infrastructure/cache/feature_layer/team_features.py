@@ -23,9 +23,9 @@ def _key_feature_matcher_team(team_id: UUID, competition_id: UUID, season: int) 
     """Generate Redis key for team features."""
     return f"{KEY_PREFIX}:match:{team_id}:{competition_id}:{season}"
 
-def _key_poisson_features(fixture_id: UUID) -> str:
-    """Generate Redis key for team features."""
-    return f"poisson:fixture:{fixture_id}"
+def _key_poisson_features(event_id: UUID) -> str:
+    """Generate Redis key for poisson features."""
+    return f"poisson:event:{event_id}"
 
 class TeamFeaturesCache:
     """Redis cache layer for team features"""
@@ -58,10 +58,10 @@ class TeamFeaturesCache:
         """Store poisson features in Redis."""
         logger.debug("cache_save_poisson_features_called", items_count=len(features))
         if features:
-            logger.debug("cache_save_poisson_features_first_fixture", fixture_id=str(features[0].fixture_id))
+            logger.debug("cache_save_poisson_features_first_event", event_id=str(features[0].event_id))
         async with self._r.pipeline() as pipe:
             for feature in features:
-                key = _key_poisson_features(feature.fixture_id)
+                key = _key_poisson_features(feature.event_id)
                 data = feature.model_dump(mode="json")
                 json_str = json.dumps(data, ensure_ascii=False)
                 await pipe.set(key, json_str)

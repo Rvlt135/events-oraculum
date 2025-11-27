@@ -3,7 +3,7 @@ from uuid import UUID
 
 
 class PoissonFeaturesDTO(BaseModel):
-    fixture_id: UUID
+    event_id: UUID
     home_team_id: UUID
     away_team_id: UUID
     competition_id: UUID

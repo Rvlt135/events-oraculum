@@ -67,7 +67,8 @@ class TeamFeaturesService:
         # TODO: refactor Events → Fixtures model
         return [
             UpcomingFixtureDTO(
-                fixture_id=event.id,
+                event_id=event.id,
+                fixture_id=event.id,  # TODO: deprecated, kept for backward compatibility
                 match_date=event.commence_time,
                 home_team_id=event.home_team_id,
                 away_team_id=event.away_team_id,
@@ -133,6 +134,7 @@ class TeamFeaturesService:
         Returns:
             List of PoissonFeaturesDTO.
         """
+        # TODO: sync Events → fixtures_football_upcoming before Poisson computation
         async with self.session_factory() as session:
             events = await EventRepository(session).get_upcoming_by_competition(
                 competition_id=competition_id,

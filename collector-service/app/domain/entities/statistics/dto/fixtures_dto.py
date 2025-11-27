@@ -63,7 +63,8 @@ class LastFixtureDTO(BaseModel):
 
 
 class UpcomingFixtureDTO(BaseModel):
-    fixture_id: UUID         # PK из fixtures_football_history
+    event_id: UUID           # PK из events table
+    fixture_id: UUID         # TODO: deprecated, use event_id instead
     home_team_id: UUID
     away_team_id: UUID
     match_date: datetime

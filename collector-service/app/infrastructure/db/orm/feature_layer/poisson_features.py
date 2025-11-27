@@ -11,8 +11,8 @@ class PoissonFeatures(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     """Primary key identifier."""
-    fixture_id = Column(UUID(as_uuid=True), ForeignKey("fixtures_football_history.id"), nullable=False)
-    """Reference to the fixture."""
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
+    """Reference to the event."""
     home_team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
     """Reference to the home team."""
     away_team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
@@ -38,5 +38,5 @@ class PoissonFeatures(Base):
 
     __table_args__ = (
         Index("idx_poisson_features_competition_season", "competition_id", "season"),
-        UniqueConstraint("fixture_id", name="uq_poisson_features_fixture_id"),
+        UniqueConstraint("event_id", name="uq_poisson_features_event_id"),
     )

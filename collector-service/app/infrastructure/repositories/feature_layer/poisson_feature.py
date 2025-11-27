@@ -30,7 +30,7 @@ class PoissonFeatureRepository(BaseRepository[PoissonFeatures]):
         
         values = [
             {
-                "fixture_id": f.fixture_id,
+                "event_id": f.event_id,
                 "home_team_id": f.home_team_id,
                 "away_team_id": f.away_team_id,
                 "competition_id": f.competition_id,
@@ -47,7 +47,7 @@ class PoissonFeatureRepository(BaseRepository[PoissonFeatures]):
         
         stmt = insert(PoissonFeatures).values(values)
         stmt = stmt.on_conflict_do_update(
-            constraint="uq_poisson_features_fixture_id",
+            constraint="uq_poisson_features_event_id",
             set_={
                 "lambda_home": stmt.excluded.lambda_home,
                 "lambda_away": stmt.excluded.lambda_away,
