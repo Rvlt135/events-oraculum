@@ -2,6 +2,8 @@ from logging.config import fileConfig
 import os
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+
+from app.config import settings
 from app.infrastructure.db.orm.base import Base
 from alembic import context
 
@@ -21,18 +23,19 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-db_url = os.getenv("DATABASE_URL")
-if not db_url:
-    raise RuntimeError("DATABASE_URL not set!")
-
-config.set_main_option("sqlalchemy.url", db_url)
+# db_url = os.getenv("DATABASE_URL")
+# if not db_url:
+#     raise RuntimeError("DATABASE_URL not set!")
+#
+# config.set_main_option("sqlalchemy.url", db_url)
 #from app.config.settings import settings
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-#config.set_main_option('sqlalchemy.url', str(settings.postgres_url + "?async_fallback=True"))
+# TODO: user for alembic local migrate
+config.set_main_option('sqlalchemy.url', str(settings.postgres_url + "?async_fallback=True"))
 
 
 def run_migrations_offline() -> None:

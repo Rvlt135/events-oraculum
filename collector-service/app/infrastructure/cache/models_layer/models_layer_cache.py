@@ -10,9 +10,11 @@ from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDT
 from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeaturesDTO
 from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO
 from app.domain.entities.models_layer.elo_model import EloModelDTO
+from app.domain.entities.models_layer.poisson_model import PoissonModelDTO
 
-CATALOG_TTL_SEC = settings.cache_ttl_features_sec
-KEY_PREFIX_ELO = "elo"
+MODEL_TTL_SEC = settings.cache_ttl_models_layer_sec
+KEY_PREFIX_ELO = "elo:model"
+KEY_PREFIX_POISSON = "poisson:model"
 
 logger = structlog.get_logger()
 
@@ -26,8 +28,12 @@ class ModelsLayerCache:
         """Generate Redis key for team features."""
         return f"{KEY_PREFIX_ELO}:event:{event_id}:{competition_id}:{season}"
 
+    def _key_poisson_events(self, event_id: UUID, competition_id: UUID, season: int) -> str:
+        """Generate Redis key for Poisson model events."""
+        return f"{KEY_PREFIX_POISSON}:event:{event_id}:{competition_id}:{season}"
 
-    async def save_elo_events(self, elo_outputs: list[EloModelDTO], competition_id: UUID, season: int, ttl: int = CATALOG_TTL_SEC) -> int:
+
+    async def save_elo_events(self, elo_outputs: list[EloModelDTO], competition_id: UUID, season: int, ttl: int = MODEL_TTL_SEC) -> int:
         """Store Elo model outputs in Redis.
         
         Args:
@@ -63,3 +69,49 @@ class ModelsLayerCache:
         
         logger.debug("elo_cache_saved", count=len(elo_outputs))
         return len(elo_outputs)
+
+    async def save_poisson_events(
+        self,
+        outputs: list[PoissonModelDTO],
+        competition_id: UUID,
+        season: int,
+        ttl: int = MODEL_TTL_SEC,
+    ) -> int:
+        """Store Poisson model outputs in Redis.
+        
+        Args:
+            outputs: List of PoissonModelDTO records.
+            competition_id: Competition ID.
+            season: Season year.
+            ttl: TTL in seconds.
+            
+        Returns:
+            Number of items saved.
+        """
+        logger.debug("poisson_cache_save_started", count=len(outputs))
+        
+        if not outputs:
+            return 0
+        
+        saved_count = len(outputs)
+        
+        async with self._r.pipeline() as pipe:
+            for dto in outputs:
+                key = self._key_poisson_events(dto.event_id, competition_id, season)
+                
+                value = {
+                    "p_home": dto.p_home,
+                    "p_draw": dto.p_draw,
+                    "p_away": dto.p_away,
+                    "fair_home": dto.fair_home,
+                    "fair_draw": dto.fair_draw,
+                    "fair_away": dto.fair_away,
+                    "goal_probs_home": dto.goal_probs_home,
+                    "goal_probs_away": dto.goal_probs_away,
+                }
+                json_value = json.dumps(value, ensure_ascii=False)
+                pipe.set(key, json_value, ex=ttl)
+            await pipe.execute()
+        
+        logger.debug("poisson_cache_save_completed", saved=saved_count)
+        return saved_count

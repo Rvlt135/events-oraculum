@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.builders.models_layer.elo_model_builder import EloModelBuilder
 from app.domain.entities.models_layer.elo_model import EloInputFeaturesDTO, EloModelDTO
-from app.domain.entities.models_layer.poisson_model import PoissonInputFeaturesDTO
+from app.domain.entities.models_layer.poisson_model import PoissonInputFeaturesDTO, PoissonModelDTO
 from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.feature_layer.team_features import TeamFeaturesCache
@@ -18,6 +18,7 @@ from app.infrastructure.repositories.feature_layer.match_features import MatchFe
 from app.infrastructure.repositories.feature_layer.poisson_feature import PoissonFeatureRepository
 from app.infrastructure.repositories.feature_layer.team_features import TeamFeaturesRepository
 from app.infrastructure.repositories.models_layer.elo import EloRepository
+from app.infrastructure.repositories.models_layer.poisson_repo import PoissonModelRepository
 from app.infrastructure.cache.models_layer.models_layer_cache import ModelsLayerCache
 
 logger = structlog.get_logger()
@@ -237,3 +238,46 @@ class LayerModelService:
             match_features=match_features,
             poisson_features=poisson_features,
         )
+
+    async def save_poisson_model(
+        self,
+        outputs: list[PoissonModelDTO],
+        competition_id: UUID,
+        season: int,
+    ) -> int:
+        """Save Poisson model predictions to database and cache.
+        
+        Args:
+            outputs: List of PoissonModelDTO records.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Number of records saved to database.
+        """
+        logger.debug("poisson_model_save_started", count=len(outputs))
+        
+        if not outputs:
+            return 0
+        
+        async with self.session_factory() as session:
+            repo = PoissonModelRepository(session)
+            count_db = await repo.bulk_upsert_poisson_model(
+                outputs=outputs,
+                competition_id=competition_id,
+                season=season,
+            )
+        
+        logger.debug("poisson_model_db_saved", count=count_db)
+        
+        try:
+            count_cache = await self.models_layer_cache.save_poisson_events(
+                outputs=outputs,
+                competition_id=competition_id,
+                season=season,
+            )
+            logger.debug("poisson_model_cache_saved", count=count_cache)
+        except Exception as e:
+            logger.debug("poisson_model_cache_error", error=str(e))
+        
+        return count_db
