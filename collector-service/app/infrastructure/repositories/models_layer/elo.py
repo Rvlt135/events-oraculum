@@ -22,7 +22,8 @@ class EloRepository(BaseRepository[EloModel]):
         
         Args:
             elo_outputs: List of EloModelDTO records.
-            
+            competition_id: Competition ID.
+            season: Season.
         Returns:
             Number of processed records.
         """
