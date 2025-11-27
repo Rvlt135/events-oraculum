@@ -22,8 +22,8 @@ class JWTService:
         self,
         secret: str,
         algorithm: str = "HS256",
-        access_ttl: int = 3600,
-        refresh_ttl: int = 1209600,
+        access_ttl: int = settings.auth_access_ttl_sec,
+        refresh_ttl: int = settings.auth_refresh_ttl_sec,
     ):
         # Ensure secret is a string
         self.secret = str(secret)
@@ -85,10 +85,18 @@ class JWTService:
             raise ValueError("Token has expired")
         except jwt.InvalidTokenError as e:
             raise ValueError(f"Invalid token: {str(e)}")
+        
+    def create_tokens_for_user(
+        self, user_id: UUID, plan_type: str, account_id: int | None = None,
+    ) -> tuple[str, str, str]:
+        access_token = self.create_access_token(user_id, plan_type, account_id)
+        refresh_token, jti = self.create_refresh_token(user_id)
+        return access_token, refresh_token, jti
+
 
 jwt_service = JWTService(
         secret=settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
-        access_ttl=settings.access_token_ttl_seconds,
-        refresh_ttl=settings.refresh_token_ttl_seconds,
+        access_ttl=settings.auth_access_ttl_sec,
+        refresh_ttl=settings.auth_refresh_ttl_sec,
     )

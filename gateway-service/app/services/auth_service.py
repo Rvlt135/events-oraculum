@@ -4,7 +4,7 @@ from uuid import UUID
 
 import structlog
 from fastapi import Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from httpx import HTTPStatusError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,7 @@ from app.infrastructure.db.repositories.user_repo import UserRepository
 from app.infrastructure.security.jwt import jwt_service
 from app.infrastructure.security.password import password_service
 from app.infrastructure.security.utils import generate_oauth_params
-from app.services.cookies import set_auth_cookies
+from app.services.cookies import clear_auth_cookies, get_auth_cookies, set_auth_cookies
 from app.services.email_auth_validator import email_auth_validator
 from app.services.exceptions import AuthorizationError
 from app.services.google_oauth_validator import google_oauth_validator
@@ -36,25 +36,29 @@ logger = structlog.get_logger()
 class BaseAuthService:
     jwt = jwt_service
 
-    def __init__(self, db_session: AsyncSession, session_cache: SessionCache, user_cache: UserCache) -> None:
+    def __init__(self, db_session: AsyncSession, session_cache: SessionCache) -> None:
         self.db = db_session
         self.user_repo = UserRepository(db_session)
         self.identity_repo = IdentityRepository(db_session)
         self.session_repo = SessionRepository(db_session)
         self.session_cache = session_cache
-        self.user_cache = user_cache
+    
+    async def _create_and_cache_session(
+        self, jti: UUID, user_id: UUID, user_agent: str) -> None:
 
-    async def logout(self, refresh_token: str) -> None:
-        token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
-        jti = UUID(token_payload.jti)
+        refresh_expires = datetime.now(UTC) + timedelta(
+            seconds=self.jwt.refresh_ttl,
+        )
+        await self.session_repo.create(
+            jti=jti,
+            user_id=user_id, 
+            expires_at=refresh_expires,
+            user_agent=user_agent,
+        )
+        await self.session_cache.cache_session(jti, user_id, refresh_expires)
 
-        await self.session_repo.delete_by_jti(jti)
-        await self.session_cache.invalidate_session(jti)
-        await self.db.commit()
 
-
-class GoogleAuthService:
-    jwt = jwt_service
+class GoogleAuthService(BaseAuthService):
     validator = google_oauth_validator
 
     def __init__(
@@ -63,12 +67,8 @@ class GoogleAuthService:
             session_cache: SessionCache,
             oauth_cache: OauthCache,
     ) -> None:
-        self.db = db_session
+        super().__init__(db_session, session_cache)
         self.google = google_oauth_client
-        self.identity_repo = IdentityRepository(db_session)
-        self.user_repo = UserRepository(db_session)
-        self.session_repo = SessionRepository(db_session)
-        self.session_cache = session_cache
         self.oauth_cache = oauth_cache
 
     async def login_with_google(
@@ -126,19 +126,11 @@ class GoogleAuthService:
             retuturn_to=cached_oauth_params.get("return_to"),
         )
 
-        access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
-        refresh_token, jti = self.jwt.create_refresh_token(user.id)
+        access_token, refresh_token, jti = self.jwt.create_tokens_for_user(
+            user.id, user.plan_type.value)
 
-        refresh_expires = datetime.now(UTC) + timedelta(
-            seconds=self.jwt.refresh_ttl,
-        )
-        await self.session_repo.create(
-            jti=jti,
-            user_id=user.id, 
-            expires_at=refresh_expires,
-            user_agent=cached_oauth_params.get("ua"),
-        )
-        await self.session_cache.cache_session(jti, user.id, refresh_expires)
+        await self._create_and_cache_session(jti, user.id, cached_oauth_params.get("ua"))
+
         await self.db.commit()
 
         response = RedirectResponse(url=cached_oauth_params.get("return_to"))
@@ -205,7 +197,17 @@ class GoogleAuthService:
 
 class TokenService(BaseAuthService):
 
-    async def refresh_access_token(self, refresh_token: str) -> str:
+    def __init__(
+        self,
+        db_session: AsyncSession,
+        session_cache: SessionCache,
+        user_cache: UserCache,
+    ) -> None:
+        super().__init__(db_session, session_cache)
+        self.user_cache = user_cache
+
+    async def refresh_access_token(self, request: Request) -> RedirectResponse:
+        _, refresh_token = get_auth_cookies(request).values()
         token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
         jti = UUID(token_payload.jti)
         user_id = UUID(token_payload.sub)
@@ -220,8 +222,10 @@ class TokenService(BaseAuthService):
         if not user:
             raise ValueError("User not found")
 
-        account_id = user.telegram_account_id if user.telegram_account_id else None
-        return self.jwt.create_access_token(user.id, user.plan_type.value, account_id=account_id)
+        access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
+        response = JSONResponse(content={"access_token": access_token, "token_type": "bearer"})
+        set_auth_cookies(response, access_token, refresh_token)
+        return response
 
     async def get_user_by_id(self, user_id: UUID, use_cache: bool = True) -> User | None:
         if use_cache:
@@ -233,10 +237,22 @@ class TokenService(BaseAuthService):
         if user and use_cache:
             await self.user_cache.cache_user(user)
         return user
+    
+    async def logout(self, request: Request) -> RedirectResponse:
+        _, refresh_token = get_auth_cookies(request).values()
+        token_payload = self.jwt.verify_token(refresh_token, expected_type="refresh")
+        jti = UUID(token_payload.jti)
+
+        await self.session_repo.delete_by_jti(jti)
+        await self.session_cache.invalidate_session(jti)
+        await self.db.commit()
+        # TODO: redirect to return_to if provided or return JSON response
+        response = RedirectResponse(url="/login")
+        clear_auth_cookies(response)
+        return response
 
 
-class EmailAuthService:
-    jwt = jwt_service
+class EmailAuthService(BaseAuthService):
     password = password_service
     validator = email_auth_validator
 
@@ -247,13 +263,9 @@ class EmailAuthService:
         session_cache: SessionCache,
         settings_cache: SettingCache,
     ) -> None:
-        self.db = db_session
+        super().__init__(db_session, session_cache)
         self.user_cache = user_cache
-        self.user_repo = UserRepository(db_session)
-        self.identity_repo = IdentityRepository(db_session)
-        self.session_repo = SessionRepository(db_session)
         self.invite_code_repo = InviteCodeRepository(db_session)
-        self.session_cache = session_cache
         self.settings_cache = settings_cache
 
     async def register_with_email(
@@ -281,7 +293,6 @@ class EmailAuthService:
             redirect_url = f"/login?{urlencode({"error":e})}"
             return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
 
-        email = reg_data.email.lower()
         user_agent = request.headers.get("ua")
 
         password_hash = self.password.hash_password(reg_data.password)
@@ -309,15 +320,11 @@ class EmailAuthService:
             referral_code=reg_data.referral_code[:4] + "..." if reg_data.referral_code else None,
         )
 
-        access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
-        refresh_token, jti = self.jwt.create_refresh_token(user.id)
+        access_token, refresh_token, jti = self.jwt.create_tokens_for_user(
+            user.id, user.plan_type.value)
 
-        refresh_expires = datetime.now(UTC) + timedelta(
-            seconds=self.jwt.refresh_ttl,
-        )
-        await self.session_repo.create(
-            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent)
-        await self.session_cache.cache_session(jti, user.id, refresh_expires)
+        await self._create_and_cache_session(jti, user.id, user_agent)
+
         await self.db.commit()
 
         response = RedirectResponse(url=return_path)
@@ -360,18 +367,21 @@ class EmailAuthService:
             redirect_url = f"/login?{urlencode({'error':e})}"
             return RedirectResponse(redirect_url, status_code=status.HTTP_302_FOUND)
         
-        user_agent = reqest.headers.get("ua")
+        user_agent = reqest.headers.get("user-agent")
 
-        access_token = self.jwt.create_access_token(user.id, user.plan_type.value)
-        refresh_token, jti = self.jwt.create_refresh_token(user.id)
+        access_token, refresh_token, jti = self.jwt.create_tokens_for_user(
+            user.id, user.plan_type.value)
 
-        refresh_expires = datetime.now(UTC) + timedelta(
-            seconds=self.jwt.refresh_ttl,
-        )
-        await self.session_repo.create(
-            jti=jti, user_id=user.id, expires_at=refresh_expires, user_agent=user_agent)
-        await self.session_cache.cache_session(jti, user.id, refresh_expires)
+        await self._create_and_cache_session(jti, user.id, user_agent)
+
         await self.db.commit()
+
+        logger.info(
+            "User logged in with email.",
+            user_id=str(user.id),
+            email=user.email,
+            retuturn_to=return_path,
+        )
 
         response = RedirectResponse(url=return_path)
         set_auth_cookies(response, access_token, refresh_token)
@@ -387,7 +397,6 @@ class EmailAuthService:
             raise AuthorizationError("Invalid credentials")
 
         return user
-
 
 
 # TODO refactor this service
