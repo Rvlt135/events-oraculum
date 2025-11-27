@@ -31,7 +31,7 @@ class UserCache:
         await self._r.set(key, data, ttl=300)
 
     async def get_cached_user(self, user_id: UUID) -> User | None:
-        key = f"user:{user_id}"
+        key = _key_user().format(user_id=user_id)
         data = await self._r.get(key)
         if not data:
             return None

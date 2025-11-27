@@ -1,14 +1,13 @@
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_limiter.depends import RateLimiter
 
-from app.api.di.deps import get_email_auth_service, get_google_auth_service
+from app.api.di.deps import get_email_auth_service, get_google_auth_service, get_token_service
 from app.api.schemas.auth import (
     EmailLoginRequest,
     EmailRegisterRequest,
     TelegramAuthRequest,
-    TokenRefreshRequest,
 )
 from app.api.schemas.user import (
     AuthResponse,
@@ -101,35 +100,26 @@ async def register_with_email(
 async def login_with_email(
     req: EmailLoginRequest,
     request: Request,
+    return_to: str | None = Query(None, description="Конечный маршрут после логина"),
     auth_service: EmailAuthService = Depends(get_email_auth_service),
-):
+) -> RedirectResponse:
     try:
-        user_agent = request.headers.get("user-agent")
-        user, access_token, refresh_token = await auth_service.login_with_email(
-            req.email, req.password, user_agent)
-
-        return AuthResponse(
-            user=UserProfile.model_validate(user),
-            tokens=AuthTokens(
-                access_token=access_token,
-                refresh_token=refresh_token,
-            ),
-        )
-    except ValueError as e:
+        return await auth_service.login_with_email(
+            req, request, return_to)
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {e!s}",
         )
 
 
 @router.post("/token/refresh")
 async def refresh_token(
-    req: TokenRefreshRequest,
-    auth_service: TokenService = Depends(get_email_auth_service),
-):
+    request: Request,
+    auth_service: TokenService = Depends(get_token_service),
+) -> JSONResponse:
     try:
-        access_token = await auth_service.refresh_access_token(req.refresh_token)
-        return {"access_token": access_token, "token_type": "bearer"}
+        return await auth_service.refresh_access_token(request)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -202,12 +192,11 @@ async def login_with_telegram(
 
 @router.post("/logout")
 async def logout(
-    req: TokenRefreshRequest,
-    auth_service: EmailAuthService = Depends(get_email_auth_service),
-):
+    request: Request,
+    auth_service: TokenService = Depends(get_token_service),
+) -> RedirectResponse:
     try:
-        await auth_service.logout(req.refresh_token)
-        return {"ok": True}
+        return await auth_service.logout(request)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

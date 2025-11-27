@@ -44,8 +44,6 @@ class Settings(BaseSettings):
     # JWT - обязательные из env (без дефолтов для безопасности)
     jwt_secret: str  # Секретный ключ - обязательно из env
     jwt_algorithm: str = Field(default="HS256")  # Алгоритм редко меняется
-    access_token_ttl_seconds: int = Field(default=86400)  # 1 день (24 часа)
-    refresh_token_ttl_seconds: int = Field(default=1209600)  # 14 дней
 
     # Cookies settings
     access_token_cookie_name: str = Field(default="access_token")

@@ -6,6 +6,7 @@ from app.config.settings import Settings, settings
 from app.infrastructure.cache.oauth_cache import OauthCache
 from app.infrastructure.cache.redis import RedisCache
 from app.infrastructure.cache.session_cache import SessionCache
+from app.infrastructure.cache.settings_cache import SettingCache
 from app.infrastructure.cache.user_cache import UserCache
 from app.infrastructure.clients.telegram_validator import TelegramValidator
 from app.infrastructure.db.session import get_session
@@ -41,6 +42,10 @@ def get_oauth_cache(redis_client: RedisCache = Depends(get_redis_cache)) -> Oaut
 
 def get_user_cache(redis_client: RedisCache = Depends(get_redis_cache)) -> UserCache:
     return UserCache(redis=redis_client)
+
+
+def get_settings_cache(redis_client: RedisCache = Depends(get_redis_cache)) -> SettingCache:
+    return SettingCache(redis=redis_client)
 
 
 def get_password_service() -> PasswordService:
@@ -80,5 +85,11 @@ async def get_email_auth_service(
     db: AsyncSession = Depends(get_session),
     user_cache: UserCache =  Depends(get_user_cache),
     session_cashe: SessionCache = Depends(get_session_cache),
+    settings_cache: SettingCache = Depends(get_settings_cache),
 ) -> EmailAuthService:
-    return EmailAuthService(db_session=db, user_cache=user_cache, session_cache=session_cashe)
+    return EmailAuthService(
+        db_session=db,
+        user_cache=user_cache,
+        session_cache=session_cashe,
+        settings_cache=settings_cache,
+    )

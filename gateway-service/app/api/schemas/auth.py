@@ -14,7 +14,10 @@ class AuthType(str, Enum):
 class EmailRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
-    invite_code: str 
+    invite_code: Optional[str] = Field(
+        None, 
+        description="Invite Code for registration",
+    ) 
     referral_code: Optional[str] = Field(
         None,
         min_length=1,
@@ -28,15 +31,10 @@ class EmailLoginRequest(BaseModel):
     password: str
 
 
-
 class AuthTokens(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-
-
-class TokenRefreshRequest(BaseModel):
-    refresh_token: str
 
 
 class TelegramAuthData(BaseModel):
