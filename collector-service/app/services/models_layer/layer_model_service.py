@@ -143,7 +143,7 @@ class LayerModelService:
             return 0
         
         async with self.session_factory() as session:
-            repo_count = await EloRepository(session).bulk_upsert_elo_model(elo_model)
+            repo_count = await EloRepository(session).bulk_upsert_elo_model(elo_model, competition_id, season)
         
         cache_count = await self.models_layer_cache.save_elo_events(
             elo_outputs=elo_model,

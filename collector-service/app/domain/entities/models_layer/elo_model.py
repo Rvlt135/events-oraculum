@@ -19,8 +19,8 @@ class EloModelDTO(BaseModel):
     event_id: UUID
     elo_home_new: float
     elo_away_new: float
-    expected_result_home: float
-    expected_result_away: float
+    expected_home: float
+    expected_away: float
     draw_adjustment: float
     p_home: float
     p_draw: float

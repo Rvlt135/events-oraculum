@@ -5,7 +5,6 @@ from prometheus_client import Counter, Histogram
 
 from app.tasks.broker import broker
 from app.utils.time_utils import now_utc
-from app.infrastructure.di.services import get_collect_team_features_service, get_layer_model_service
 
 if TYPE_CHECKING:
     pass
@@ -35,6 +34,8 @@ async def collect_layer_models_elo_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
+        from app.infrastructure.di.services import get_collect_team_features_service, get_layer_model_service
+        
         service_team_features = await get_collect_team_features_service()
         service_layer_models = await get_layer_model_service()
         container = broker.state.container

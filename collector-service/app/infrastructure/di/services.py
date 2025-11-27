@@ -6,8 +6,8 @@ Services are primarily used in worker/scheduler context, not FastAPI.
 """
 from typing import TYPE_CHECKING
 
-from app.services.models_layer.layer_model_service import LayerModelService
 from app.services.odds_service import OddsService
+from app.tasks.broker import broker
 
 if TYPE_CHECKING:
     from app.services.sports_service import SportsService
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.services.statistics_collect import StatisticsCollectService
     from app.infrastructure.di.container import Container
     from app.services.feature_layer.team_features import TeamFeaturesService
+    from app.services.models_layer.layer_model_service import LayerModelService
 
 
 async def get_sports_service() -> "SportsService":
