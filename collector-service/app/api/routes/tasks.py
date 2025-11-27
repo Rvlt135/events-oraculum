@@ -8,6 +8,7 @@ from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task, collect_odds_task, \
     collect_fixtures_football_task
 from app.tasks.feature_layer import collect_poisson_features_task, collect_team_features_task, collect_match_features_task
+from app.tasks.models_layer import collect_layer_models_elo_task
 from app.tasks.prioritizer import prioritize_all
 from app.tasks.sync_teams import sync_teams_from_api_football
 
@@ -338,4 +339,28 @@ async def trigger_poisson_features_sync(
         return TaskTriggerResponse(
             status="error",
             message=f"Failed to enqueue task: {str(e)}",
+        )
+
+@router.post("/layer_models/elo/sync", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_layer_models_elo_sync(
+    _auth: None = Depends(verify_admin_token),
+) -> TaskTriggerResponse:
+    """
+
+    """
+    logger.info("layer_models_elo_sync_triggered_manually")
+
+    try:
+        task = await collect_layer_models_elo_task.kiq()
+
+        return TaskTriggerResponse(
+            status="enqueued",
+            message="layer_models_elo collection task enqueued",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_layer_models_elo_sync", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue layer_models_elo collection task: {str(e)}",
         )

@@ -15,6 +15,8 @@ from app.infrastructure.di.factory import (
     get_sports_service_from_container,
     get_events_service_from_container,
     get_odds_service_from_container,
+    get_layer_model_service_from_container,
+    get_team_features_service_from_container
 )
 
 if TYPE_CHECKING:

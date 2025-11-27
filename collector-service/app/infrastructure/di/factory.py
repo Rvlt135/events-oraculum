@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.services.events_service import EventsService
     from app.services.odds_service import OddsService
     from app.services.feature_layer.team_features import TeamFeaturesService
+    from app.services.models_layer.layer_model_service import LayerModelService
 
 
 def get_settings() -> Settings:
@@ -107,6 +108,18 @@ def get_team_features_service_from_container(container: "Container") -> "TeamFea
     return container.create_team_features_service()
 
 
+def get_layer_model_service_from_container(container: "Container") -> "LayerModelService":
+    """
+    Get LayerModelService from container.
+
+    Args:
+        container: Container instance with initialized dependencies
+
+    Returns:
+        LayerModelService instance with dependencies from container
+    """
+    return container.create_layer_model_service()
+
 # Re-export from sub-modules for convenience
 from app.infrastructure.db.session import make_session_factory
 
@@ -117,4 +130,6 @@ __all__ = [
     "get_sports_service_from_container",
     "get_events_service_from_container",
     "get_odds_service_from_container",
+    "get_team_features_service_from_container",
+    "get_layer_model_service_from_container",
 ]

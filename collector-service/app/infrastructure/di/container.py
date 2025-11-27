@@ -10,6 +10,7 @@ import redis.asyncio as redis
 from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
 from app.builders.feature_layer.match_features import MatchFeaturesBuilder
+from app.builders.models_layer.elo_model_builder import EloModelBuilder
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
@@ -17,6 +18,7 @@ from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.cache.catalog.odds import OddsCache
 from app.infrastructure.cache.catalog.standings import StandingsFootballCache
 from app.infrastructure.cache.feature_layer.team_features import TeamFeaturesCache
+from app.infrastructure.cache.models_layer.models_layer_cache import ModelsLayerCache
 from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
@@ -25,6 +27,7 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.infrastructure.config.policy_loader import PolicyLoader
+from app.services.models_layer.layer_model_service import LayerModelService
 from app.services.odds_service import OddsService
 from app.services.sports_service import SportsService
 from app.services.events_service import EventsService
@@ -252,6 +255,23 @@ class Container:
             team_feature_builder=team_feature_builder,
             match_features_builder=match_features_builder,
             poisson_feature_builder=poisson_feature_builder
+        )
+
+    def create_layer_model_service(self):
+        sports_cache = SportsCache(self.redis_cache)
+        competitions_cache = CompetitionsCache(self.redis_cache)
+        team_features_cache = TeamFeaturesCache(self.redis_cache)
+        models_layer_cache = ModelsLayerCache(self.redis_cache)
+        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+        elo_model_builder = EloModelBuilder()
+
+        return LayerModelService(
+            session_factory=self.session_factory,
+            policy_loader=self.policy_loader,
+            team_features_cache=team_features_cache,
+            catalog_cache_helper=catalog_cache_helper,
+            elo_model_builder=elo_model_builder,
+            models_layer_cache=models_layer_cache
         )
 
 

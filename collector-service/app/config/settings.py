@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     cache_ttl_sports_sec: int = Field(default=604800)
     cache_ttl_competitions_sec: int = Field(default=604800)
     cache_ttl_features_sec: int = Field(default=604800)
+    cache_ttl_models_layer_sec: int = Field(default=604800)
     cache_ttl_events_sec: int = Field(default=604800)
     cache_ttl_events_upcoming_sec: int = Field(default=604800)
     cache_ttl_odds_sec: int = Field(default=604800)

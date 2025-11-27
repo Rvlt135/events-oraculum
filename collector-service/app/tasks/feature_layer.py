@@ -3,7 +3,7 @@ from typing import Dict, TYPE_CHECKING
 import structlog
 from prometheus_client import Counter, Histogram
 
-from app.infrastructure.di.services import get_collect_team_features_builder
+from app.infrastructure.di.services import get_collect_team_features_service
 from app.tasks.broker import broker
 from app.utils.time_utils import now_utc
 
@@ -35,7 +35,7 @@ async def collect_team_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_team_features_builder()
+        service = await get_collect_team_features_service()
         container = broker.state.container
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
@@ -126,7 +126,7 @@ async def collect_match_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_team_features_builder()
+        service = await get_collect_team_features_service()
         container = broker.state.container
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
@@ -218,7 +218,7 @@ async def collect_poisson_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_team_features_builder()
+        service = await get_collect_team_features_service()
         container = broker.state.container
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
@@ -251,8 +251,21 @@ async def collect_poisson_features_task() -> Dict[str, str]:
                     season=seasons_current,
                     slug_key=slug_key
                 )
+                
+                events, team_ids = await service.get_events_by_competition(competition_id, seasons_current)
+                if not events:
+                    logger.info("no_events_found", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
+                    continue
 
-                poisson_features = await service.collect_poisson_features_items(competition_id, seasons_current)
+                logger.info(
+                    "events_fetched",
+                    competition_id=str(competition_id),
+                    season=seasons_current,
+                    slug_key=slug_key,
+                    events_count=len(events)
+                )
+                
+                poisson_features = await service.collect_poisson_features_items(competition_id, seasons_current, events, team_ids)
                 if not poisson_features:
                     logger.info("no_fixtures_rows", slug_key=slug_key, competition_id=str(competition_id), season=seasons_current)
                     continue
