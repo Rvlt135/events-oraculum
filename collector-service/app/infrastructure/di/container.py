@@ -11,6 +11,7 @@ from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBu
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
 from app.builders.feature_layer.match_features import MatchFeaturesBuilder
 from app.builders.models_layer.elo_model_builder import EloModelBuilder
+from app.builders.models_layer.poisson_model_builder import PoissonModelBuilder
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
@@ -264,6 +265,7 @@ class Container:
         models_layer_cache = ModelsLayerCache(self.redis_cache)
         catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
         elo_model_builder = EloModelBuilder()
+        poisson_model_builder = PoissonModelBuilder()
 
         return LayerModelService(
             session_factory=self.session_factory,
@@ -271,6 +273,7 @@ class Container:
             team_features_cache=team_features_cache,
             catalog_cache_helper=catalog_cache_helper,
             elo_model_builder=elo_model_builder,
+            poisson_model_builder=poisson_model_builder,
             models_layer_cache=models_layer_cache
         )
 

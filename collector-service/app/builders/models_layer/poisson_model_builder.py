@@ -67,9 +67,10 @@ class PoissonModelBuilder:
             lambda_home_base = base.lambda_home
             lambda_away_base = base.lambda_away
             
-            # Compute λ values with minimum threshold
-            lambda_home = max(lambda_home_base, 0.01)
-            lambda_away = max(lambda_away_base, 0.01)
+            # Compute lambda values with clamping (0.1 to 2.5)
+            lambda_home = max(min(lambda_home_base, 2.5), 0.1)
+            lambda_away = max(min(lambda_away_base, 2.5), 0.1)
+            
             
             # Generate Poisson distributions for goals 0..6
             goal_probs_home = [self._poisson_pmf(lambda_home, g) for g in range(7)]

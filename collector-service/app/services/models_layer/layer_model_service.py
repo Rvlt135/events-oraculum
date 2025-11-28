@@ -8,6 +8,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.builders.models_layer.elo_model_builder import EloModelBuilder
+from app.builders.models_layer.poisson_model_builder import PoissonModelBuilder
 from app.domain.entities.models_layer.elo_model import EloInputFeaturesDTO, EloModelDTO
 from app.domain.entities.models_layer.poisson_model import PoissonInputFeaturesDTO, PoissonModelDTO
 from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
@@ -32,6 +33,7 @@ class LayerModelService:
         team_features_cache: TeamFeaturesCache,
         catalog_cache_helper: CatalogCacheHelper,
         elo_model_builder: EloModelBuilder,
+        poisson_model_builder: PoissonModelBuilder,
         models_layer_cache: ModelsLayerCache
     ):
         self.session_factory = session_factory
@@ -39,6 +41,7 @@ class LayerModelService:
         self.catalog_cache_helper = catalog_cache_helper
         self.team_features_cache = team_features_cache
         self.elo_model_builder = elo_model_builder
+        self.poisson_model_builder = poisson_model_builder
         self.models_layer_cache = models_layer_cache
 
 
