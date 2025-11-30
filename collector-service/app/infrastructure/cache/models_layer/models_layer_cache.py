@@ -110,8 +110,132 @@ class ModelsLayerCache:
                     "goal_probs_away": dto.goal_probs_away,
                 }
                 json_value = json.dumps(value, ensure_ascii=False)
-                pipe.set(key, json_value, ex=ttl)
+                await pipe.set(key, json_value, ex=ttl)
             await pipe.execute()
         
         logger.debug("poisson_cache_save_completed", saved=saved_count)
         return saved_count
+
+    def _deserialize_elo_model(self, raw_value: Optional[str], event_id: UUID) -> Optional[EloModelDTO]:
+        """Deserialize raw JSON string to EloModelDTO.
+        
+        Args:
+            raw_value: Raw JSON string from cache or None.
+            event_id: Event ID to include in DTO.
+            
+        Returns:
+            EloModelDTO if valid, None otherwise.
+        """
+        if not raw_value:
+            return None
+        
+        try:
+            data = json.loads(raw_value)
+            data["event_id"] = event_id
+            return EloModelDTO(**data)
+        except Exception as e:
+            logger.warning("elo_cache_deserialize_error", event_id=str(event_id), error=str(e))
+            return None
+
+    def _deserialize_poisson_model(
+        self,
+        raw_value: Optional[str],
+        event_id: UUID,
+        competition_id: UUID,
+        season: int,
+    ) -> Optional[PoissonModelDTO]:
+        """Deserialize raw JSON string to PoissonModelDTO.
+        
+        Args:
+            raw_value: Raw JSON string from cache or None.
+            event_id: Event ID to include in DTO.
+            competition_id: Competition ID to include in DTO.
+            season: Season to include in DTO.
+            
+        Returns:
+            PoissonModelDTO if valid, None otherwise.
+        """
+        if not raw_value:
+            return None
+        
+        try:
+            data = json.loads(raw_value)
+            data["event_id"] = event_id
+            data["competition_id"] = competition_id
+            data["season"] = season
+            return PoissonModelDTO(**data)
+        except Exception as e:
+            logger.warning("poisson_cache_deserialize_error", event_id=str(event_id), error=str(e))
+            return None
+
+    async def get_elo_by_event_ids(
+        self,
+        event_ids: list[UUID],
+        competition_id: UUID,
+        season: int,
+    ) -> dict[UUID, EloModelDTO]:
+        """Get Elo model predictions from cache by event IDs.
+        
+        Args:
+            event_ids: List of event identifiers.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Dictionary mapping event_id to EloModelDTO (cache hits only).
+        """
+        logger.debug("get_elo_by_event_ids_called", count=len(event_ids))
+        
+        if not event_ids:
+            return {}
+        
+        async with self._r.pipeline() as pipe:
+            for event_id in event_ids:
+                key = self._key_elo_events(event_id, competition_id, season)
+                await pipe.get(key)
+            raw_values = await pipe.execute()
+        
+        result = {}
+        for event_id, raw_value in zip(event_ids, raw_values):
+            dto = self._deserialize_elo_model(raw_value, event_id)
+            if dto is not None:
+                result[event_id] = dto
+        
+        logger.debug("get_elo_by_event_ids_completed", total=len(result))
+        return result
+
+    async def get_poisson_by_event_ids(
+        self,
+        event_ids: list[UUID],
+        competition_id: UUID,
+        season: int,
+    ) -> dict[UUID, PoissonModelDTO]:
+        """Get Poisson model predictions from cache by event IDs.
+        
+        Args:
+            event_ids: List of event identifiers.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Dictionary mapping event_id to PoissonModelDTO (cache hits only).
+        """
+        logger.debug("get_poisson_by_event_ids_called", count=len(event_ids))
+        
+        if not event_ids:
+            return {}
+        
+        async with self._r.pipeline() as pipe:
+            for event_id in event_ids:
+                key = self._key_poisson_events(event_id, competition_id, season)
+                await pipe.get(key)
+            raw_values = await pipe.execute()
+        
+        result = {}
+        for event_id, raw_value in zip(event_ids, raw_values):
+            dto = self._deserialize_poisson_model(raw_value, event_id, competition_id, season)
+            if dto is not None:
+                result[event_id] = dto
+        
+        logger.debug("get_poisson_by_event_ids_completed", total=len(result))
+        return result

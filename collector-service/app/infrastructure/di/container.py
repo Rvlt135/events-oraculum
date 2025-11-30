@@ -19,6 +19,7 @@ from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.cache.catalog.odds import OddsCache
 from app.infrastructure.cache.catalog.standings import StandingsFootballCache
+from app.infrastructure.cache.events_layer.events_layer_cache import EventsLayerCache
 from app.infrastructure.cache.feature_layer.team_features import TeamFeaturesCache
 from app.infrastructure.cache.models_layer.models_layer_cache import ModelsLayerCache
 from app.infrastructure.cache.tasks_cache import TasksCache
@@ -281,6 +282,7 @@ class Container:
         sports_cache = SportsCache(self.redis_cache)
         competitions_cache = CompetitionsCache(self.redis_cache)
         team_features_cache = TeamFeaturesCache(self.redis_cache)
+        event_layer_cache = EventsLayerCache(self.redis_cache)
         catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
         event_layer_builder = EventLayerBuilder()
 
@@ -288,7 +290,8 @@ class Container:
             session_factory=self.session_factory,
             catalog_cache_helper=catalog_cache_helper,
             team_features_cache=team_features_cache,
-            event_layer_builder = event_layer_builder
+            event_layer_builder=event_layer_builder,
+            event_layer_cache=event_layer_cache,
         )
 
 

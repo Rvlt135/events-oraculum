@@ -7,7 +7,7 @@ from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeatur
 from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO
 from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
 
-
+# TODO: scoped with PoissonInputFeaturesDTO
 class EloInputFeaturesDTO(BaseModel):
     events: list[UpcomingFixtureDTO]
     team_features: dict[UUID, TeamFeaturesDTO]

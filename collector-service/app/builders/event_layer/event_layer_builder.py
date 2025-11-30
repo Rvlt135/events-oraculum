@@ -3,7 +3,10 @@ Builder for building event layer features
 """
 from uuid import UUID
 
-from app.domain.entities.event_layer.dto import MarketOddsDTO, UpcomingEventDTO
+from app.domain.entities.event_layer.dto import EventLayerBuildInputDTO, MarketOddsDTO, UpcomingEventDTO, \
+    EventFeatureBundleDTO
+from app.domain.entities.feature_layer.team_features_dto import ScopesInputFeaturesDTO
+from app.domain.entities.models_layer.dto import ModelScopesDTO
 from app.domain.entities.odds_models.odds import NormalizedOddsDTO
 from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
 
@@ -64,3 +67,93 @@ class EventLayerBuilder:
             results.append(event)
         
         return results
+
+    def build_input(
+        self,
+        fixtures: list[UpcomingFixtureDTO],
+        odds_map: dict[UUID, NormalizedOddsDTO],
+        scopes_features: ScopesInputFeaturesDTO,
+        model_scopes: ModelScopesDTO,
+    ) -> EventLayerBuildInputDTO:
+        """Build event layer input from fixtures, odds, features, and model scopes.
+        
+        Args:
+            fixtures: List of upcoming fixtures.
+            odds_map: Dictionary mapping event_id to normalized odds.
+            scopes_features: Input features for scopes (team, match, poisson).
+            model_scopes: Model outputs (Elo and Poisson).
+            
+        Returns:
+            EventLayerBuildInputDTO ready for bundle building.
+        """
+        # Build upcoming events list
+        upcoming_events = self.build_upcoming_events(
+            fixtures=fixtures,
+            odds_map=odds_map,
+        )
+        
+        # Extract feature maps from scopes_features
+        team_features = scopes_features.team_features
+        match_features = scopes_features.match_features
+        poisson_features = scopes_features.poisson_features
+        
+        # Build final DTO
+        return EventLayerBuildInputDTO(
+            events=upcoming_events,
+            team_features=team_features,
+            match_features=match_features,
+            poisson_features=poisson_features,
+            model_outputs=model_scopes,
+        )
+
+    def build_bundles(
+        self,
+        data: EventLayerBuildInputDTO,
+    ) -> list[EventFeatureBundleDTO]:
+        """Build event feature bundles from input data.
+        
+        Args:
+            data: Event layer build input containing events, features, and model outputs.
+            
+        Returns:
+            List of event feature bundles in the same order as input events.
+        """
+        bundles: list[EventFeatureBundleDTO] = []
+        
+        for e in data.events:
+            # Team features
+            home_team = data.team_features[e.home_team_id]
+            away_team = data.team_features[e.away_team_id]
+            
+            # Match history
+            match_history_home = data.match_features[e.home_team_id]
+            match_history_away = data.match_features[e.away_team_id]
+            
+            # Poisson L2 features
+            poisson_event_features = data.poisson_features[e.event_id]
+            
+            # Model outputs (L3)
+            elo_output = data.model_outputs.elo_outputs[e.event_id]
+            poisson_output = data.model_outputs.poisson_outputs[e.event_id]
+            
+            # Market odds
+            market_odds = e.market_odds
+            
+            # Time
+            match_date = e.match_date
+            
+            bundle = EventFeatureBundleDTO(
+                event_id=e.event_id,
+                home_team=home_team,
+                away_team=away_team,
+                match_history_home=match_history_home,
+                match_history_away=match_history_away,
+                poisson_event_features=poisson_event_features,
+                elo_output=elo_output,
+                poisson_output=poisson_output,
+                market_odds=market_odds,
+                match_date=match_date,
+            )
+            bundles.append(bundle)
+        
+        return bundles

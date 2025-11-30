@@ -12,7 +12,8 @@ from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBu
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
 from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
 from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeaturesDTO
-from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO
+from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO, ScopesInputFeaturesDTO
+# from app.domain.entities.models_layer.poisson_model import ScopesInputFeaturesDTO
 from app.domain.entities.statistics.dto.fixtures_dto import LastFixtureDTO, UpcomingFixtureDTO
 from app.domain.entities.statistics.dto.standings_dto import StandingMinimalDTO
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
@@ -170,4 +171,88 @@ class TeamFeaturesService:
         await self.team_features_cache.save_poisson_features(features)
         logger.info("save_poisson_features_completed", saved_count=count)
         return count
+
+
+    async def extract_features_scopes(
+            self,
+            events: list[UpcomingFixtureDTO],
+            team_ids_set: set[UUID],
+            competition_id: UUID,
+            season: int,
+    ) -> ScopesInputFeaturesDTO:
+        """Extract features for scopes model building.
+
+        Args:
+            events: List of upcoming fixtures.
+            team_ids_set: Set of team identifiers.
+            competition_id: Competition identifier.
+            season: Season year.
+
+        Returns:
+            ScopesInputFeaturesDTO with all required features.
+        """
+        team_ids = list(team_ids_set)
+        event_ids = [e.event_id for e in events]
+
+        async with self.session_factory() as session:
+            # TEAM FEATURES (cache → repo fallback)
+            cached_tf = await self.team_features_cache.get_team_features_by_team_ids(
+                team_ids=team_ids,
+                competition_id=competition_id,
+                season=season,
+            )
+            missing_tf_ids = team_ids_set - cached_tf.keys()
+            repo_tf = {}
+            if missing_tf_ids:
+                repo_tf = await TeamFeaturesRepository(session).get_by_team_ids(
+                    team_ids=missing_tf_ids,
+                    competition_id=competition_id,
+                    season=season,
+                )
+                # save to cache
+                await self.team_features_cache.save_team_features(list(repo_tf.values()))
+            team_features = {**cached_tf, **repo_tf}
+
+            # MATCH FEATURES (cache → repo fallback)
+            cached_mf = await self.team_features_cache.get_match_features_by_team_ids(
+                team_ids=team_ids,
+                competition_id=competition_id,
+                season=season,
+            )
+            missing_mf_ids = team_ids_set - cached_mf.keys()
+            repo_mf = {}
+            if missing_mf_ids:
+                repo_mf = await MatchFeaturesRepository(session).get_by_team_ids(
+                    team_ids=missing_mf_ids,
+                    competition_id=competition_id,
+                    season=season,
+                )
+                await self.team_features_cache.save_match_features(list(repo_mf.values()))
+            match_features = {**cached_mf, **repo_mf}
+
+            # POISSON FEATURES (cache → repo fallback)
+            cached_pf = await self.team_features_cache.get_poisson_features_by_event_id(event_ids)
+            missing_pf_ids = set(event_ids) - cached_pf.keys()
+            repo_pf = {}
+            if missing_pf_ids:
+                repo_pf = await PoissonFeatureRepository(session).get_by_event_ids(
+                    event_ids=missing_pf_ids
+                )
+                await self.team_features_cache.save_poisson_features(list(repo_pf.values()))
+            poisson_features = {**cached_pf, **repo_pf}
+
+        logger.debug(
+            "poisson_features_extracted",
+            events=len(events),
+            team_features=len(team_features),
+            match_features=len(match_features),
+            poisson_features=len(poisson_features),
+        )
+
+        return ScopesInputFeaturesDTO(
+            events=events,
+            team_features=team_features,
+            match_features=match_features,
+            poisson_features=poisson_features,
+        )
 

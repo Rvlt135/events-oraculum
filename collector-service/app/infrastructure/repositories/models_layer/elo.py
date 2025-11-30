@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func
@@ -68,3 +68,58 @@ class EloRepository(BaseRepository[EloModel]):
         
         logger.debug("elo_bulk_upsert_completed", count=len(elo_outputs))
         return len(elo_outputs)
+
+
+    async def get_by_event_ids(
+        self,
+        event_ids: list[UUID],
+        competition_id: UUID,
+        season: int,
+    ) -> dict[UUID, EloModelDTO]:
+        """Get Elo model predictions by event IDs.
+        
+        Args:
+            event_ids: List of event identifiers.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Dictionary mapping event_id to EloModelDTO.
+        """
+        logger.debug("get_elo_by_event_ids_called", count=len(event_ids), competition_id=str(competition_id), season=season)
+        
+        if not event_ids:
+            return {}
+        
+        result = await self.session.execute(
+            select(EloModel)
+            .where(
+                and_(
+                    EloModel.event_id.in_(event_ids),
+                    EloModel.competition_id == competition_id,
+                    EloModel.season == season,
+                )
+            )
+        )
+        rows = result.scalars().all()
+        
+        models_dict = {}
+        for row in rows:
+            try:
+                dto = EloModelDTO(
+                    event_id=row.event_id,
+                    elo_home_new=row.elo_home_new,
+                    elo_away_new=row.elo_away_new,
+                    expected_home=row.expected_home,
+                    expected_away=row.expected_away,
+                    draw_adjustment=row.draw_adjustment,
+                    p_home=row.p_home,
+                    p_draw=row.p_draw,
+                    p_away=row.p_away,
+                )
+                models_dict[row.event_id] = dto
+            except Exception as e:
+                logger.warning("elo_model_dto_creation_failed", event_id=str(row.event_id), error=str(e))
+        
+        logger.debug("get_elo_by_event_ids_completed", count=len(models_dict))
+        return models_dict

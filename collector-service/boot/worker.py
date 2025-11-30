@@ -9,6 +9,7 @@ from app.tasks import prioritizer  # noqa: F401
 from app.tasks import sync_teams # noqa: F401
 from app.tasks import feature_layer  # noqa: F401
 from app.tasks import models_layer  # noqa: F401
+from app.tasks import event_layer  # noqa: F401
 
 structlog.configure(
     processors=[

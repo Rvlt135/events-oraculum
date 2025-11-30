@@ -7,6 +7,7 @@ from app.api.schemas.schemas import (
 from app.config.security import verify_admin_token
 from app.tasks.collector import collect_sports_task, collect_events, collect_standings_football_task, collect_odds_task, \
     collect_fixtures_football_task
+from app.tasks.event_layer import collect_event_feature_bundles_task
 from app.tasks.feature_layer import collect_poisson_features_task, collect_team_features_task, collect_match_features_task
 from app.tasks.models_layer import collect_layer_models_elo_task, collect_layer_models_poisson_task
 from app.tasks.prioritizer import prioritize_all
@@ -387,4 +388,28 @@ async def trigger_layer_models_elo_sync(
         return TaskTriggerResponse(
             status="error",
             message=f"Failed to enqueue layer_models_elo collection task: {str(e)}",
+        )
+
+@router.post("/layer_events/bundles_events/sync", response_model=TaskTriggerResponse, status_code=202)
+async def trigger_event_feature_bundles_sync(
+    _auth: None = Depends(verify_admin_token),
+) -> TaskTriggerResponse:
+    """
+    Manually trigger event feature bundles collection task.
+    """
+    logger.info("event_feature_bundles_sync_triggered_manually")
+
+    try:
+        task = await collect_event_feature_bundles_task.kiq()
+
+        return TaskTriggerResponse(
+            status="scheduled",
+            message="Event feature bundles collection task scheduled",
+            task_id=str(task.task_id),
+        )
+    except Exception as e:
+        logger.error("failed_to_enqueue_event_feature_bundles_sync", error=str(e))
+        return TaskTriggerResponse(
+            status="error",
+            message=f"Failed to enqueue task: {str(e)}",
         )

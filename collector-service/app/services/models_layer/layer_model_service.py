@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.builders.models_layer.elo_model_builder import EloModelBuilder
 from app.builders.models_layer.poisson_model_builder import PoissonModelBuilder
+from app.domain.entities.models_layer.dto import ModelScopesDTO
 from app.domain.entities.models_layer.elo_model import EloInputFeaturesDTO, EloModelDTO
 from app.domain.entities.models_layer.poisson_model import PoissonInputFeaturesDTO, PoissonModelDTO
 from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
@@ -164,7 +165,7 @@ class LayerModelService:
             competition_id: UUID,
             season: int,
     ) -> PoissonInputFeaturesDTO:
-        """Extract features for Elo model building.
+        """Extract features for Poisson model building.
 
         Args:
             events: List of upcoming fixtures.
@@ -173,7 +174,7 @@ class LayerModelService:
             season: Season year.
 
         Returns:
-            EloInputFeaturesDTO with all required features.
+            PoissonInputFeaturesDTO with all required features.
         """
         team_ids = list(team_ids_set)
         event_ids = [e.event_id for e in events]
@@ -282,3 +283,80 @@ class LayerModelService:
             logger.debug("poisson_model_cache_error", error=str(e))
         
         return count_db
+
+    async def extract_model_scopes(
+        self,
+        events: list[UpcomingFixtureDTO],
+        competition_id: UUID,
+        season: int,
+    ) -> ModelScopesDTO:
+        """Extract model scopes (Elo and Poisson outputs) for events.
+        
+        Args:
+            events: List of upcoming fixtures.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            ModelScopesDTO with Elo and Poisson model outputs.
+        """
+        logger.debug("extract_model_scopes_started", events_count=len(events))
+        
+        event_ids = [f.event_id for f in events]
+        
+        if not event_ids:
+            return ModelScopesDTO(
+                elo_outputs={},
+                poisson_outputs={},
+            )
+        
+        event_ids_set = set(event_ids)
+        
+        # Read Elo from cache
+        elo_cached = await self.models_layer_cache.get_elo_by_event_ids(
+            event_ids=event_ids,
+            competition_id=competition_id,
+            season=season,
+        )
+        missing_elo = event_ids_set - elo_cached.keys()
+        
+        # Read Poisson from cache
+        poisson_cached = await self.models_layer_cache.get_poisson_by_event_ids(
+            event_ids=event_ids,
+            competition_id=competition_id,
+            season=season,
+        )
+        missing_poisson = event_ids_set - poisson_cached.keys()
+        
+        # Open ONE session for all repo calls
+        elo_repo = {}
+        poisson_repo = {}
+        if missing_elo or missing_poisson:
+            async with self.session_factory() as session:
+                if missing_elo:
+                    elo_repo = await EloRepository(session).get_by_event_ids(
+                        event_ids=list(missing_elo),
+                        competition_id=competition_id,
+                        season=season,
+                    )
+                if missing_poisson:
+                    poisson_repo = await PoissonModelRepository(session).get_by_event_ids(
+                        event_ids=list(missing_poisson),
+                        competition_id=competition_id,
+                        season=season,
+                    )
+        
+        # Merge cached + repo results
+        elo_outputs = {**elo_cached, **elo_repo}
+        poisson_outputs = {**poisson_cached, **poisson_repo}
+        
+        logger.debug(
+            "extract_model_scopes_completed",
+            elo_count=len(elo_outputs),
+            poisson_count=len(poisson_outputs),
+        )
+        
+        return ModelScopesDTO(
+            elo_outputs=elo_outputs,
+            poisson_outputs=poisson_outputs,
+        )
