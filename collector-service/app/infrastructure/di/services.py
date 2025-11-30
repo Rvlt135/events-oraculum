@@ -6,7 +6,6 @@ Services are primarily used in worker/scheduler context, not FastAPI.
 """
 from typing import TYPE_CHECKING
 
-from app.services.odds_service import OddsService
 from app.tasks.broker import broker
 
 if TYPE_CHECKING:
@@ -19,6 +18,8 @@ if TYPE_CHECKING:
     from app.infrastructure.di.container import Container
     from app.services.feature_layer.team_features import TeamFeaturesService
     from app.services.models_layer.layer_model_service import LayerModelService
+    from app.services.event_layer.event_layer_service import EventLayerService
+    from app.services.odds_service import OddsService
 
 
 async def get_sports_service() -> "SportsService":
@@ -194,5 +195,19 @@ async def get_layer_model_service() -> "LayerModelService":
     container: "Container" = broker.state.container
     return container.create_layer_model_service()
 
+
+async def get_event_layer_service() -> "EventLayerService":
+    """
+    Get EventLayerService with injected dependencies from container.
+
+    This function is used in tasks and other non-request contexts (worker/scheduler).
+    """
+    if not hasattr(broker, 'state') or not hasattr(broker.state, 'container'):
+        raise RuntimeError(
+            "Container not found in broker.state. "
+            "Make sure worker/scheduler initialized container before running tasks."
+        )
+    container: "Container" = broker.state.container
+    return container.create_event_layer_service()
 
 

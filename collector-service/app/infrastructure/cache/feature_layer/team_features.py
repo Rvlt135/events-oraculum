@@ -182,11 +182,6 @@ class TeamFeaturesCache:
         """
         if not team_ids:
             return {}
-        
-        # keys = [
-        #     _key_feature_matcher_team(team_id, competition_id, season)
-        #     for team_id in team_ids
-        # ]
 
         async with self._r.pipeline() as pipe:
             for team_id in team_ids:

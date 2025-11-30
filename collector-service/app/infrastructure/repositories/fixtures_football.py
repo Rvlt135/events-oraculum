@@ -107,7 +107,7 @@ class FixturesFootballRepository(BaseRepository[FixturesFootballHistory]):
         )
         rows = result.scalars().all()
         fixtures = [
-            UpcomingFixtureDTO(
+            UpcomingFixtureDTO( # TODO: исправить реализацию, здесь нет еще event_id
                 fixture_id=row.id,
                 match_date=row.match_date,
                 home_team_id=row.home_team_id,

@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
+from app.builders.event_layer.event_layer_builder import EventLayerBuilder
 from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
 from app.builders.feature_layer.match_features import MatchFeaturesBuilder
@@ -28,6 +29,7 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.infrastructure.config.policy_loader import PolicyLoader
+from app.services.event_layer.event_layer_service import EventLayerService
 from app.services.models_layer.layer_model_service import LayerModelService
 from app.services.odds_service import OddsService
 from app.services.sports_service import SportsService
@@ -250,7 +252,6 @@ class Container:
 
         return TeamFeaturesService(
             session_factory=self.session_factory,
-            policy_loader=self.policy_loader,
             team_features_cache=team_features_cache,
             catalog_cache_helper=catalog_cache_helper,
             team_feature_builder=team_feature_builder,
@@ -269,12 +270,25 @@ class Container:
 
         return LayerModelService(
             session_factory=self.session_factory,
-            policy_loader=self.policy_loader,
             team_features_cache=team_features_cache,
             catalog_cache_helper=catalog_cache_helper,
             elo_model_builder=elo_model_builder,
             poisson_model_builder=poisson_model_builder,
             models_layer_cache=models_layer_cache
+        )
+
+    def create_event_layer_service(self):
+        sports_cache = SportsCache(self.redis_cache)
+        competitions_cache = CompetitionsCache(self.redis_cache)
+        team_features_cache = TeamFeaturesCache(self.redis_cache)
+        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+        event_layer_builder = EventLayerBuilder()
+
+        return EventLayerService(
+            session_factory=self.session_factory,
+            catalog_cache_helper=catalog_cache_helper,
+            team_features_cache=team_features_cache,
+            event_layer_builder = event_layer_builder
         )
 
 

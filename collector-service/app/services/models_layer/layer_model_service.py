@@ -29,7 +29,6 @@ class LayerModelService:
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        policy_loader: PolicyLoader,
         team_features_cache: TeamFeaturesCache,
         catalog_cache_helper: CatalogCacheHelper,
         elo_model_builder: EloModelBuilder,
@@ -37,7 +36,6 @@ class LayerModelService:
         models_layer_cache: ModelsLayerCache
     ):
         self.session_factory = session_factory
-        self.policy_loader = policy_loader
         self.catalog_cache_helper = catalog_cache_helper
         self.team_features_cache = team_features_cache
         self.elo_model_builder = elo_model_builder

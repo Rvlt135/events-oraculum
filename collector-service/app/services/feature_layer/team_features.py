@@ -33,7 +33,6 @@ class TeamFeaturesService:
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
-        policy_loader: PolicyLoader,
         team_features_cache: TeamFeaturesCache,
         catalog_cache_helper: CatalogCacheHelper,
         team_feature_builder: TeamFeaturesBuilder,
@@ -41,7 +40,6 @@ class TeamFeaturesService:
         poisson_feature_builder: PoissonFeaturesBuilder,
     ):
         self.session_factory = session_factory
-        self.policy_loader = policy_loader
         self.team_features_cache = team_features_cache
         self.catalog_cache_helper = catalog_cache_helper
         self.tmf_builder = team_feature_builder
@@ -122,7 +120,6 @@ class TeamFeaturesService:
         await self.team_features_cache.save_match_features(features)
         return count
 
-
     async def get_events_by_competition(self, competition_id: UUID, season: int) -> tuple[list[UpcomingFixtureDTO], set[UUID]]:
         # TODO: in future change for fixtures repo and fixtures models
         async with self.session_factory() as session:
@@ -149,12 +146,6 @@ class TeamFeaturesService:
         """
         # TODO: sync Events → fixtures_football_upcoming before Poisson computation
         async with self.session_factory() as session:
-            # events = await EventRepository(session).get_upcoming_by_competition(
-            #     competition_id=competition_id,
-            #     provider="odds_api",
-            # )
-            # fixtures = self._map_events_to_upcoming_fixtures(events, season)
-            # team_ids = self._extract_team_ids_from_fixtures(fixtures)
             team_features = await TeamFeaturesRepository(session).get_by_team_ids(team_ids, competition_id, season)
             match_features = await MatchFeaturesRepository(session).get_by_team_ids(team_ids, competition_id, season)
             build_result = self.pf_builder.build_for_fixtures(fixtures, team_features, match_features)

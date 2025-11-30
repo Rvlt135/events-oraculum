@@ -8,6 +8,7 @@ import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 import structlog
 
+from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
 from app.utils.odds_math import safe_avg, safe_best
 
 if TYPE_CHECKING:
@@ -1243,4 +1244,89 @@ class OddsService:
 
         return []
 
+    # TODO: Methods with new multi layers signature
+    async def get_normalized_odds_by_events(
+        self,
+        slug_key: str, # TODO: Legacy change to layers flow with competition_id and season
+        fixtures: list[UpcomingFixtureDTO],
+    ) -> dict[UUID, NormalizedOddsDTO]:
 
+        result: dict[UUID, NormalizedOddsDTO] = {}
+
+        for f in fixtures:
+            event_id = f.event_id
+
+            cached = await self.odds_cache.read_event_odds(
+                slug_key=slug_key,
+                event_id=event_id
+            )
+
+            if cached:
+                if len(cached) == 1:
+                    result[event_id] = cached[0]
+                else:
+                    # Legacy in future delete after add multi market_type
+                    logger.warning(
+                        "multiple_markets_in_cache",
+                        slug_key=slug_key,
+                        event_id=str(event_id),
+                        count=len(cached)
+                    )
+                    # legacy user one market_type
+                    h2h = next((o for o in cached if o.market_type == "h2h"), None)
+                    result[event_id] = h2h
+                continue
+
+            async with self.session_factory() as session:
+                repo = NormalizedOddsRepository(session)
+
+                normalized_list = await repo.get_by_event(
+                    event_id=event_id,
+                    market_type=None  # TODO: Legacy. Multi-market support will use explicit market_type.
+                )
+
+            if normalized_list:
+                # Нормализуем список ORM → DTO
+                dtos = [
+                    NormalizedOddsDTO(
+                        id=norm.id,
+                        event_id=norm.event_id,
+                        market_type=norm.market_type,
+                        home_odds_avg=norm.home_odds_avg,
+                        away_odds_avg=norm.away_odds_avg,
+                        draw_odds_avg=norm.draw_odds_avg,
+                        home_odds_best=norm.home_odds_best,
+                        away_odds_best=norm.away_odds_best,
+                        draw_odds_best=norm.draw_odds_best,
+                        bookmakers_count=norm.bookmakers_count,
+                        timestamp_source=norm.timestamp_source,
+                        timestamp_ingested=norm.timestamp_ingested,
+                        timestamp_normalized=norm.timestamp_normalized,
+                        created_at=norm.created_at,
+                    )
+                    for norm in normalized_list
+                ]
+                # TODO: Legacy for one market_type
+                if len(dtos) == 1:
+                    dto = dtos[0]
+                else:
+                    logger.warning(
+                        "multiple_normalized_markets_detected",
+                        slug_key=slug_key,
+                        event_id=str(event_id),
+                        count=len(dtos),
+                        markets=[d.market_type for d in dtos],
+                    )
+                    dto = next((d for d in dtos if d.market_type == "h2h"), dtos[0])
+
+
+                result[event_id] = dto
+                continue
+
+            logger.info(
+                "normalized_odds_not_found",
+                slug_key=slug_key,
+                event_id=str(event_id),
+            )
+
+        return result

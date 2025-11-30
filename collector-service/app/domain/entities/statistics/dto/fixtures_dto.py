@@ -63,7 +63,7 @@ class LastFixtureDTO(BaseModel):
 
 
 class UpcomingFixtureDTO(BaseModel):
-    event_id: UUID           # PK из events table
+    event_id: UUID           # PK из events table # TODO: ошибка в get_upcoming_fixtures
     fixture_id: UUID         # TODO: deprecated, use event_id instead
     home_team_id: UUID
     away_team_id: UUID
