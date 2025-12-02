@@ -1,14 +1,20 @@
 """
 Builder for building event layer features
 """
+import json
 from uuid import UUID
 
+import structlog
+
 from app.domain.entities.event_layer.dto import EventLayerBuildInputDTO, MarketOddsDTO, UpcomingEventDTO, \
-    EventFeatureBundleDTO
+    EventFeatureBundleDTO, EventEdgeDTO, ValueCandidateDTO
 from app.domain.entities.feature_layer.team_features_dto import ScopesInputFeaturesDTO
 from app.domain.entities.models_layer.dto import ModelScopesDTO
 from app.domain.entities.odds_models.odds import NormalizedOddsDTO
 from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
+from app.infrastructure.db.orm.event_leayer.event_feature_bundle import EventFeatureBundleORM
+
+logger = structlog.get_logger()
 
 
 class EventLayerBuilder:
@@ -157,3 +163,135 @@ class EventLayerBuilder:
             bundles.append(bundle)
         
         return bundles
+
+    def parse_bundle(
+        self,
+        raw_json: dict | str | bytes | None,
+    ) -> EventFeatureBundleDTO | None:
+        """Parse raw JSON data into EventFeatureBundleDTO.
+        
+        Args:
+            raw_json: Raw data as dict, JSON string, bytes, or None.
+            
+        Returns:
+            EventFeatureBundleDTO if parsing succeeds, None otherwise.
+        """
+        logger.debug("parse_bundle_called", raw_json_type=type(raw_json).__name__)
+        
+        if raw_json is None:
+            return None
+        
+        try:
+            # Convert to dict based on input type
+            if isinstance(raw_json, bytes):
+                bundle_dict: dict = json.loads(raw_json.decode("utf-8"))
+            elif isinstance(raw_json, str):
+                bundle_dict: dict = json.loads(raw_json)
+            elif isinstance(raw_json, dict):
+                bundle_dict: dict = raw_json
+            else:
+                logger.debug("parse_bundle_failed", error=f"Unsupported type: {type(raw_json).__name__}")
+                return None
+            
+            # Validate and create DTO
+            bundle = EventFeatureBundleDTO.model_validate(bundle_dict)
+            
+            logger.debug("parse_bundle_success", event_id=str(bundle.event_id))
+            return bundle
+            
+        except Exception as e:
+            logger.debug("parse_bundle_failed", error=str(e))
+            return None
+
+    def parse_bundles(
+        self,
+        items: list[EventFeatureBundleORM],
+    ) -> dict[UUID, EventFeatureBundleDTO]:
+        """Parse multiple event feature bundles from ORM objects.
+        
+        Args:
+            items: List of EventFeatureBundleORM instances to parse.
+            
+        Returns:
+            Dictionary mapping event_id to EventFeatureBundleDTO (successfully parsed only).
+        """
+        if not items:
+            return {}
+        
+        logger.debug("parse_bundles_called", items_count=len(items))
+        
+        result: dict[UUID, EventFeatureBundleDTO] = {}
+        for orm in items:
+            dto = self.parse_bundle(orm.bundle_json)
+            if dto is not None:
+                result[orm.event_id] = dto
+        
+        logger.debug("parsed_bundles_completed", total=len(result))
+        return result
+
+    def compute_edges(self, bundles: dict[UUID, EventFeatureBundleDTO]) -> dict[UUID, EventEdgeDTO]:
+        """Compute betting edges from event feature bundles.
+        
+        Args:
+            bundles: Dictionary mapping event_id to EventFeatureBundleDTO.
+            
+        Returns:
+            Dictionary mapping event_id to EventEdgeDTO containing fair odds, edges, and value candidates.
+        """
+        if not bundles:
+            return {}
+        
+        logger.debug("compute_edges_called", bundles_count=len(bundles))
+        
+        result: dict[UUID, EventEdgeDTO] = {}
+        
+        for bundle in bundles.values():
+            # Compute fair odds from probabilities
+            fair_home = 1.0 / bundle.elo_output.p_home
+            fair_draw = 1.0 / bundle.elo_output.p_draw
+            fair_away = 1.0 / bundle.elo_output.p_away
+            
+            # Compute edge percentages
+            edge_home = (bundle.market_odds.home_best - fair_home) / fair_home
+            edge_draw = (bundle.market_odds.draw_best - fair_draw) / fair_draw if bundle.market_odds.draw_best is not None else 0.0
+            edge_away = (bundle.market_odds.away_best - fair_away) / fair_away
+            
+            # Build value candidates for each selection
+            value_candidates: list[ValueCandidateDTO] = [
+                ValueCandidateDTO(
+                    selection="home",
+                    fair_odds=fair_home,
+                    market_odds=bundle.market_odds.home_best,
+                    edge_percent=edge_home,
+                ),
+                ValueCandidateDTO(
+                    selection="draw",
+                    fair_odds=fair_draw,
+                    market_odds=bundle.market_odds.draw_best if bundle.market_odds.draw_best is not None else 0.0,
+                    edge_percent=edge_draw,
+                ),
+                ValueCandidateDTO(
+                    selection="away",
+                    fair_odds=fair_away,
+                    market_odds=bundle.market_odds.away_best,
+                    edge_percent=edge_away,
+                ),
+            ]
+            
+            # Build EventEdgeDTO
+            edge = EventEdgeDTO(
+                event_id=bundle.event_id,
+                fair_home=fair_home,
+                fair_draw=fair_draw,
+                fair_away=fair_away,
+                edge_home=edge_home,
+                edge_draw=edge_draw,
+                edge_away=edge_away,
+                value_candidates=value_candidates,
+            )
+            
+            result[bundle.event_id] = edge
+            logger.debug("edge_computed", event_id=str(bundle.event_id), edge_count=len(value_candidates))
+        
+        logger.debug("compute_edges_completed", total_edges=len(result))
+        return result

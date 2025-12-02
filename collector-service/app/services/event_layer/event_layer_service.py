@@ -1,29 +1,16 @@
 """
 Service for building team features
 """
-from typing import List
 from uuid import UUID
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.builders.event_layer.event_layer_builder import EventLayerBuilder
-from app.builders.feature_layer.match_features import MatchFeaturesBuilder
-from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
-from app.builders.feature_layer.team_features import TeamFeaturesBuilder
-from app.domain.entities.event_layer.dto import EventFeatureBundleDTO
-from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
-from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeaturesDTO
-from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO
-from app.domain.entities.statistics.dto.fixtures_dto import LastFixtureDTO, UpcomingFixtureDTO
-from app.domain.entities.statistics.dto.standings_dto import StandingMinimalDTO
+from app.domain.entities.event_layer.dto import EventFeatureBundleDTO, EventEdgeDTO
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.events_layer.events_layer_cache import EventsLayerCache
 from app.infrastructure.cache.feature_layer.team_features import TeamFeaturesCache
-from app.infrastructure.config.policy_loader import PolicyLoader
-from app.infrastructure.repositories.feature_layer.match_features import MatchFeaturesRepository
-from app.infrastructure.repositories.feature_layer.poisson_feature import PoissonFeatureRepository
-from app.infrastructure.repositories.feature_layer.team_features import TeamFeaturesRepository
 from app.infrastructure.repositories.event_layer.event_layer_repo import EventLayerRepository
 
 logger = structlog.get_logger()
@@ -93,3 +80,103 @@ class EventLayerService:
         logger.debug("persist_enriched_events_completed", count=len(bundles))
         
         return len(bundles)
+
+
+    async def load_enriched_bundles(self, event_ids: list[UUID]) -> dict[UUID, EventFeatureBundleDTO]:
+        """Load enriched event feature bundles from cache and database.
+        
+        Args:
+            event_ids: List of event identifiers to load.
+            
+        Returns:
+            Dictionary mapping event_id to EventFeatureBundleDTO.
+        """
+        if not event_ids:
+            return {}
+        
+        logger.debug("load_enriched_bundles_called", event_ids_count=len(event_ids))
+        
+        # Load cached bundles
+        cached: dict[UUID, EventFeatureBundleDTO] = await self.event_layer_cache.get_bundles(event_ids)
+        
+        # Determine missing ids
+        missing_ids = set(event_ids) - cached.keys()
+        
+        if not missing_ids:
+            logger.debug("load_enriched_bundles_completed", cached_count=len(cached), missing_count=0)
+            return cached
+        
+        logger.debug("load_enriched_bundles_missing", missing_count=len(missing_ids))
+        
+        # Load missing bundles from repository
+        async with self.session_factory() as session:
+            repo = EventLayerRepository(session)
+            orm_items = await repo.get_bundles(event_ids=list(missing_ids))
+        
+        # Parse ORM → DTO using builder
+        parsed: dict[UUID, EventFeatureBundleDTO] = self.el_builder.parse_bundles(orm_items)
+        
+        # Return merged result
+        result = {**cached, **parsed}
+        
+        logger.debug(
+            "load_enriched_bundles_completed",
+            cached_count=len(cached),
+            parsed_count=len(parsed),
+            total_count=len(result),
+        )
+        
+        return result
+
+    async def save_edge_bundles(
+        self,
+        edges: dict[UUID, EventEdgeDTO],
+        competition_id: UUID,
+        season: int,
+    ) -> int:
+        """Persist event edges to database and cache.
+        
+        Args:
+            edges: Dictionary mapping event_id to EventEdgeDTO.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Number of saved edges.
+        """
+        if not edges:
+            return 0
+        
+        logger.debug(
+            "save_edge_bundles_called",
+            count=len(edges),
+            competition_id=str(competition_id),
+            season=season,
+        )
+        
+        # Prepare list for repository
+        items_list: list[EventEdgeDTO] = list(edges.values())
+        
+        # Persist to DB (batch insert)
+        async with self.session_factory() as session:
+            repo = EventLayerRepository(session)
+            db_count = await repo.store_edges(
+                items=items_list,
+                competition_id=competition_id,
+                season=season,
+            )
+        
+        # Persist to Cache
+        cache_count = await self.event_layer_cache.store_edges(
+            items=edges,
+            competition_id=competition_id,
+            season=season,
+        )
+        
+        logger.debug(
+            "save_edge_bundles_completed",
+            db_count=db_count,
+            cache_count=cache_count,
+        )
+        
+        return db_count

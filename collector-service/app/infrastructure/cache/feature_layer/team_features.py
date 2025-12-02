@@ -214,11 +214,6 @@ class TeamFeaturesCache:
         if not event_ids:
             return {}
         
-        # keys = [
-        #     _key_poisson_features(event_id)
-        #     for event_id in event_ids
-        # ]
-        
         async with self._r.pipeline() as pipe:
             for event_id in event_ids:
                 key = _key_poisson_features(event_id)

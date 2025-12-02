@@ -70,3 +70,6 @@ class UpcomingFixtureDTO(BaseModel):
     match_date: datetime
     competition_id: UUID
     season: int
+
+    def get_list_event_id(self, fixtures: UpcomingFixtureDTO):
+        return [f.event_id for f in fixtures]

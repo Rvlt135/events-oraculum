@@ -154,3 +154,148 @@ async def collect_event_feature_bundles_task() -> Dict[str, str]:
         logger.error("event_feature_bundle_task_failed", error=str(e), exc_info=True)
         collection_errors_total.inc()
         return {"status": "error", "message": str(e)}
+
+@broker.task()
+async def collect_event_edges_task() -> Dict[str, str]:
+    """Collect event feature bundles from fixtures and persist enriched bundles."""
+    logger.debug("collect_event_feature_bundles_task_started")
+
+    if not hasattr(broker.state, 'container'):
+        raise RuntimeError("Container not found in broker.state")
+
+    container = broker.state.container
+    provider = "odds_api"
+
+    try:
+        # Resolve services via DI
+        service_team_features = await get_collect_team_features_service()
+        service_layer_models = await get_layer_model_service()
+        service_event_layer = await get_event_layer_service()
+        service_odds = await get_odds_service()
+
+        policy_loader = container.policy_loader
+        catalog_helper = service_team_features.catalog_cache_helper
+
+        api_football_policy = policy_loader.get_api_football(provider)
+        if not api_football_policy or not api_football_policy.competitions:
+            logger.warning("no_api_football_policy_found", provider=provider)
+            return {"status": "ok", "processed": "0"}
+
+        last_result = None
+        for slug_key, comp_config in api_football_policy.competitions.items():
+            competition_id = None
+            try:
+                season = comp_config.seasons.current
+
+                competitions = await catalog_helper.get_competitions_by_slugs("soccer", [slug_key])
+                if not competitions:
+                    logger.warning("competition_not_found", slug_key=slug_key)
+                    continue
+
+                competition = competitions[0]
+                competition_id = competition.id
+
+                logger.debug(
+                    "event_feature_bundle_competition_processing",
+                    competition_id=str(competition_id),
+                    season=season,
+                    slug_key=slug_key,
+                )
+
+                # Load fixtures
+                fixtures, team_ids_set = await service_team_features.get_events_by_competition(
+                    competition_id,
+                    season,
+                )
+                if not fixtures:
+                    logger.debug("no_fixtures_found", competition_id=str(competition_id), season=season)
+                    last_result = {"status": "no-fixtures"}
+                    continue
+                logger.debug("fixtures_loaded", count=len(fixtures), competition_id=str(competition_id), season=season)
+
+                event_ids = service_team_features.extract_event_ids(fixtures)
+
+                events_bundles = await service_event_layer.load_enriched_bundles(event_ids)
+
+                compute_edges_for_bundles = service_event_layer.el_builder.compute_edges(events_bundles)
+
+                saved_count = await service_event_layer.save_edge_bundles(compute_edges_for_bundles, competition_id, season)
+
+
+
+
+
+
+                # Load normalized odds
+                # odds_map = await service_odds.get_normalized_odds_by_events(
+                #     slug_key=slug_key,
+                #     fixtures=fixtures,
+                # )
+                # logger.debug("odds_loaded", count=len(odds_map), competition_id=str(competition_id), season=season)
+                #
+                # # Collect team + match + poisson features (via scopes)
+                # scopes_features = await service_team_features.extract_features_scopes(
+                #     events=fixtures,
+                #     team_ids_set=team_ids_set,
+                #     competition_id=competition_id,
+                #     season=season,
+                # )
+                # logger.debug("scopes_features_extracted", competition_id=str(competition_id), season=season)
+                #
+                # # Collect model outputs (Elo + Poisson models)
+                # model_scopes = await service_layer_models.extract_model_scopes(
+                #     events=fixtures,
+                #     competition_id=competition_id,
+                #     season=season,
+                # )
+                # logger.debug("model_scopes_extracted", competition_id=str(competition_id), season=season)
+                #
+                # # Build unified input DTO
+                # build_input = service_event_layer.el_builder.build_input(
+                #     fixtures=fixtures,
+                #     odds_map=odds_map,
+                #     scopes_features=scopes_features,
+                #     model_scopes=model_scopes,
+                # )
+                # logger.debug("build_input_created", competition_id=str(competition_id), season=season)
+                #
+                # # Build final bundles
+                # bundles = service_event_layer.el_builder.build_bundles(build_input)
+                # logger.debug("bundles_built", count=len(bundles), competition_id=str(competition_id), season=season)
+                #
+                # # Persist (DB + cache)
+                # saved_count = await service_event_layer.persist_enriched_events(
+                #     bundles=bundles,
+                #     competition_id=competition_id,
+                #     season=season,
+                # )
+                # logger.debug(
+                #     "bundles_persisted",
+                #     saved=saved_count,
+                #     competition_id=str(competition_id),
+                #     season=season,
+                # )
+                #
+                # # Return minimal result
+                # last_result = {
+                #     "status": "ok",
+                #     "fixtures": str(len(fixtures)),
+                #     "bundles_saved": str(saved_count),
+                # }
+                # events_processed_total.inc(len(fixtures))
+
+            except Exception as exc:
+                logger.error(
+                    "event_feature_bundle_collect_failed",
+                    slug_key=slug_key,
+                    competition_id=str(competition_id) if competition_id else None,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                collection_errors_total.inc()
+
+        return last_result if last_result else {"status": "ok", "fixtures": "0", "bundles_saved": "0"}
+    except Exception as e:
+        logger.error("event_feature_bundle_task_failed", error=str(e), exc_info=True)
+        collection_errors_total.inc()
+        return {"status": "error", "message": str(e)}

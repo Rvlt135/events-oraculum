@@ -57,3 +57,40 @@ class EventFeatureBundleDTO(BaseModel):
 
     market_odds: MarketOddsDTO
     match_date: datetime
+
+    def to_clean_dict(self) -> dict:
+        """Convert bundle to dict with nested event_id fields removed.
+        
+        This method produces a clean bundle_json for storage (DB/cache)
+        by removing redundant event_id fields from nested objects.
+        The root event_id is preserved.
+        
+        Returns:
+            Dictionary representation with nested event_id fields removed.
+        """
+        data = self.model_dump(mode="json")
+        
+        # Remove nested event_id fields if present
+        for key in ["elo_output", "poisson_output", "poisson_event_features"]:
+            if key in data and isinstance(data[key], dict):
+                data[key].pop("event_id", None)
+        
+        return data
+
+
+class ValueCandidateDTO(BaseModel):
+    selection: str   # "home" | "draw" | "away"
+    fair_odds: float
+    market_odds: float
+    edge_percent: float
+
+
+class EventEdgeDTO(BaseModel):
+    event_id: UUID
+    fair_home: float
+    fair_draw: float
+    fair_away: float
+    edge_home: float
+    edge_draw: float
+    edge_away: float
+    value_candidates: list[ValueCandidateDTO]

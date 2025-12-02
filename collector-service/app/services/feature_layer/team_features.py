@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.builders.feature_layer.match_features import MatchFeaturesBuilder
 from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
 from app.builders.feature_layer.team_features import TeamFeaturesBuilder
+from app.domain.entities.event_layer.dto import EventFeatureBundleDTO
 from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
 from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeaturesDTO
 from app.domain.entities.feature_layer.team_features_dto import TeamFeaturesDTO, ScopesInputFeaturesDTO
@@ -46,6 +47,10 @@ class TeamFeaturesService:
         self.tmf_builder = team_feature_builder
         self.mf_builder = match_features_builder
         self.pf_builder = poisson_feature_builder
+
+    @staticmethod
+    def extract_event_ids(fixtures: list[UpcomingFixtureDTO]) -> list[UUID]:
+        return [f.event_id for f in fixtures]
 
     def _extract_team_ids_from_fixtures(self, fixtures: List[UpcomingFixtureDTO]) -> set[UUID]:
         home_ids = {dto.home_team_id for dto in fixtures}
@@ -171,7 +176,6 @@ class TeamFeaturesService:
         await self.team_features_cache.save_poisson_features(features)
         logger.info("save_poisson_features_completed", saved_count=count)
         return count
-
 
     async def extract_features_scopes(
             self,

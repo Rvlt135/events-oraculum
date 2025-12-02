@@ -6,8 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.entities.event_layer.dto import EventFeatureBundleDTO
+from app.domain.entities.event_layer.dto import EventFeatureBundleDTO, EventEdgeDTO
 from app.infrastructure.db.orm.event_leayer.event_feature_bundle import EventFeatureBundleORM
+from app.infrastructure.db.orm.event_leayer.event_edge import EventEdgeORM
 from app.infrastructure.repositories.base import BaseRepository
 
 logger = structlog.get_logger()
@@ -40,8 +41,8 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
             season=season,
         )
         
-        # Serialize DTO
-        payload = bundle.model_dump(mode="json")
+        # Serialize DTO with nested event_id fields removed
+        payload = bundle.to_clean_dict()
         
         # Upsert using ON CONFLICT DO UPDATE
         stmt = insert(EventFeatureBundleORM).values(
@@ -123,14 +124,14 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
             logger.debug("store_bundles_no_new_bundles")
             return 0
         
-        # Create ORM objects
+        # Create ORM objects with cleaned bundle_json
         now = datetime.now()
         orm_objects = [
             EventFeatureBundleORM(
                 event_id=bundle.event_id,
                 competition_id=competition_id,
                 season=season,
-                bundle_json=bundle.model_dump(mode="json"),
+                bundle_json=bundle.to_clean_dict(),
                 created_at=now,
             )
             for bundle in new_bundles
@@ -144,6 +145,86 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
         logger.debug(
             "store_bundles_completed",
             stored=len(orm_objects),
+            competition_id=str(competition_id),
+            season=season,
+        )
+        
+        return len(orm_objects)
+
+    async def get_bundles(self, event_ids: list[UUID]) -> list[EventFeatureBundleORM]:
+        """Fetch event feature bundles by event IDs.
+        
+        Args:
+            event_ids: List of event UUIDs to fetch bundles for.
+            
+        Returns:
+            List of EventFeatureBundleORM instances, ordered by event_id ASC.
+        """
+        logger.debug("get_bundles_called", event_ids_count=len(event_ids))
+        
+        if not event_ids:
+            return []
+        
+        stmt = (
+            select(EventFeatureBundleORM)
+            .where(EventFeatureBundleORM.event_id.in_(event_ids))
+            .order_by(EventFeatureBundleORM.event_id.asc())
+        )
+        
+        result = await self.session.execute(stmt)
+        bundles = list(result.scalars().all())
+        
+        logger.debug("get_bundles_completed", fetched_count=len(bundles))
+        
+        return bundles
+
+    async def store_edges(
+        self,
+        items: list[EventEdgeDTO],
+        competition_id: UUID,
+        season: int,
+    ) -> int:
+        """Bulk store event edges.
+        
+        Args:
+            items: List of EventEdgeDTO instances to store.
+            competition_id: Competition identifier.
+            season: Season year.
+            
+        Returns:
+            Number of successfully stored edges.
+        """
+        logger.debug(
+            "store_edges_called",
+            count=len(items),
+            competition_id=str(competition_id),
+            season=season,
+        )
+        
+        if not items:
+            return 0
+        
+        # Create ORM objects with serialized edges_json
+        now = datetime.now()
+        orm_objects = [
+            EventEdgeORM(
+                event_id=item.event_id,
+                competition_id=competition_id,
+                season=season,
+                edges_json=item.model_dump(mode="json"),
+                created_at=now,
+            )
+            for item in items
+        ]
+        
+        # Bulk insert
+        self.session.add_all(orm_objects)
+        await self.session.flush()
+        await self.session.commit()
+        
+        logger.debug(
+            "edges_stored",
+            count=len(orm_objects),
             competition_id=str(competition_id),
             season=season,
         )
