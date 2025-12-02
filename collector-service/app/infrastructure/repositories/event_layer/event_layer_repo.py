@@ -1,4 +1,3 @@
-from datetime import datetime
 from uuid import UUID
 
 import structlog
@@ -125,17 +124,17 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
             return 0
         
         # Create ORM objects with cleaned bundle_json
-        now = datetime.now()
         orm_objects = [
             EventFeatureBundleORM(
                 event_id=bundle.event_id,
                 competition_id=competition_id,
                 season=season,
                 bundle_json=bundle.to_clean_dict(),
-                created_at=now,
             )
             for bundle in new_bundles
         ]
+        
+        logger.debug("store_bundles_orm_objects_created", count=len(orm_objects))
         
         # Bulk insert
         self.session.add_all(orm_objects)
@@ -205,17 +204,17 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
             return 0
         
         # Create ORM objects with serialized edges_json
-        now = datetime.now()
         orm_objects = [
             EventEdgeORM(
                 event_id=item.event_id,
                 competition_id=competition_id,
                 season=season,
                 edges_json=item.model_dump(mode="json"),
-                created_at=now,
             )
             for item in items
         ]
+        
+        logger.debug("store_edges_orm_objects_created", count=len(orm_objects))
         
         # Bulk insert
         self.session.add_all(orm_objects)

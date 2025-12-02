@@ -193,6 +193,14 @@ class EventLayerBuilder:
                 logger.debug("parse_bundle_failed", error=f"Unsupported type: {type(raw_json).__name__}")
                 return None
             
+            # Recover nested event_id fields from root event_id
+            root_id = bundle_dict.get("event_id")
+            if root_id:
+                for key in ["elo_output", "poisson_output", "poisson_event_features"]:
+                    if key in bundle_dict and isinstance(bundle_dict[key], dict):
+                        bundle_dict[key].setdefault("event_id", root_id)
+                logger.debug("parse_bundle_recover_event_id", event_id=str(root_id))
+            
             # Validate and create DTO
             bundle = EventFeatureBundleDTO.model_validate(bundle_dict)
             

@@ -58,7 +58,7 @@ class EventFeatureBundleDTO(BaseModel):
     market_odds: MarketOddsDTO
     match_date: datetime
 
-    def to_clean_dict(self) -> dict:
+    def to_clean_dict(self) -> dict: # TODO: remove this method after delete event_id in nested models
         """Convert bundle to dict with nested event_id fields removed.
         
         This method produces a clean bundle_json for storage (DB/cache)
