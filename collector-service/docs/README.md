@@ -160,8 +160,8 @@ alembic upgrade head
 taskiq scheduler app.tasks.broker:scheduler
 
 # Worker
- taskiq worker app.tasks.broker:broker app.tasks.collector app.tasks.prioritizer app.tasks.sync_teams app.tasks.feature_layer
-
+ taskiq worker app.tasks.broker:broker app.tasks.collector app.tasks.prioritizer app.tasks.sync_teams app.tasks.feature_layer app.tasks.event_layer app.tasks.models_layer 
+ taskiq worker app.tasks.broker:broker app.tasks.collector app.tasks.prioritizer app.tasks.sync_teams app.tasks.feature_layer app.tasks.event_layer app.tasks.models_layer
 ### Синхронизация миграций между разработчиками
 
 1. Всегда делайте `git pull` перед созданием новой миграции

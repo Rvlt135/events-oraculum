@@ -3,6 +3,7 @@ from typing import Dict, TYPE_CHECKING
 import structlog
 from prometheus_client import Counter, Histogram
 
+from app.infrastructure.di.factory import create_team_features_service, create_layer_model_service
 from app.tasks.broker import broker
 from app.utils.time_utils import now_utc
 
@@ -14,7 +15,6 @@ logger = structlog.get_logger()
 collection_duration = Histogram("models_layer_collection_duration_seconds", "Time spent building models layer")
 events_processed_total = Counter("models_layer_events_processed_total", "Total number of models layer events processed")
 collection_errors_total = Counter("models_layer_collection_errors_total", "Total number of collection errors")
-
 #
 # _task_schedule = [{"cron": cron} for cron in settings.schedule_crons]
 # _sports_task_schedule = [{"cron": cron} for cron in settings.schedule_sports_crons]
@@ -34,11 +34,9 @@ async def collect_layer_models_elo_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        from app.infrastructure.di.services import get_collect_team_features_service, get_layer_model_service
-        
-        service_team_features = await get_collect_team_features_service()
-        service_layer_models = await get_layer_model_service()
         container = broker.state.container
+        service_team_features = create_team_features_service(container)
+        service_layer_models = create_layer_model_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service_team_features.catalog_cache_helper
 
@@ -152,10 +150,9 @@ async def collect_layer_models_poisson_task() -> Dict[str, str]:
     total_processed = 0
 
     try:
-        from app.infrastructure.di.services import get_collect_team_features_service, get_layer_model_service
 
-        service_team_features = await get_collect_team_features_service()
-        service_layer_models = await get_layer_model_service()
+        service_team_features = create_team_features_service(container)
+        service_layer_models = create_layer_model_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service_team_features.catalog_cache_helper
 

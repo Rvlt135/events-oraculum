@@ -3,8 +3,10 @@ import structlog
 from prometheus_client import Counter, Histogram
 
 from app.config import settings
+from app.infrastructure.di.container import Container
+from app.infrastructure.di.factory import create_sports_service, create_events_service, create_odds_service, \
+    create_statistics_collect_service
 from app.utils.time_utils import now_utc, build_events_window
-from app.infrastructure.di.services import get_sports_service, get_events_service, get_odds_service, get_collect_statistic_sync_service
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.tasks.broker import broker
 from app.domain.entities.events.events_window import EventsWindowDTO
@@ -34,7 +36,9 @@ async def collect_sports_task() -> Dict[str, str]:
 
     try:
         # Get sports service - it manages its own session lifecycle
-        sports_service = await get_sports_service()
+        container: "Container" = broker.state.container
+
+        sports_service = create_sports_service(container)
         
         # Delegate to service for business logic
         result = await sports_service.sync_sports_and_competitions()
@@ -85,7 +89,8 @@ async def collect_events() -> Dict[str, str]:
 
     try:
         # Get EventsService from DI
-        events_service = await get_events_service()
+        container: "Container" = broker.state.container
+        events_service = create_events_service(container)
 
         # Get policy loader from container
         container = broker.state.container
@@ -226,8 +231,8 @@ async def collect_odds_task() -> Dict[str, str]:
         raise RuntimeError("Container not found in broker.state")
 
     try:
-        odds_service = await get_odds_service()
         container = broker.state.container
+        odds_service = create_odds_service(container)
         policy_loader = container.policy_loader
 
         # Get providers from policy
@@ -434,8 +439,8 @@ async def collect_standings_football_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_statistic_sync_service()
         container = broker.state.container
+        service = create_statistics_collect_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
 
@@ -547,8 +552,9 @@ async def collect_fixtures_football_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_statistic_sync_service()
+
         container = broker.state.container
+        service = create_statistics_collect_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
 

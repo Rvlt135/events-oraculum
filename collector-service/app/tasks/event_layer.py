@@ -3,14 +3,10 @@ from typing import Dict, TYPE_CHECKING
 import structlog
 from prometheus_client import Counter, Histogram
 
+from app.infrastructure.di.container import Container
+from app.infrastructure.di.factory import create_team_features_service, create_layer_model_service, \
+    create_event_layer_service, create_odds_service
 from app.tasks.broker import broker
-from app.utils.time_utils import now_utc
-from app.infrastructure.di.services import (
-    get_collect_team_features_service,
-    get_event_layer_service,
-    get_layer_model_service,
-    get_odds_service,
-)
 
 if TYPE_CHECKING:
     pass
@@ -30,15 +26,15 @@ async def collect_event_feature_bundles_task() -> Dict[str, str]:
     if not hasattr(broker.state, 'container'):
         raise RuntimeError("Container not found in broker.state")
 
-    container = broker.state.container
+    container: "Container" = broker.state.container
     provider = "odds_api"
 
     try:
         # Resolve services via DI
-        service_team_features = await get_collect_team_features_service()
-        service_layer_models = await get_layer_model_service()
-        service_event_layer = await get_event_layer_service()
-        service_odds = await get_odds_service()
+        service_team_features = create_team_features_service(container)
+        service_layer_models = create_layer_model_service(container)
+        service_event_layer = create_event_layer_service(container)
+        service_odds = create_odds_service(container)
         
         policy_loader = container.policy_loader
         catalog_helper = service_team_features.catalog_cache_helper
@@ -168,8 +164,8 @@ async def collect_event_edges_task() -> Dict[str, str]:
 
     try:
         # Resolve services via DI
-        service_team_features = await get_collect_team_features_service()
-        service_event_layer = await get_event_layer_service()
+        service_team_features = create_team_features_service(container)
+        service_event_layer = create_event_layer_service(container)
 
         policy_loader = container.policy_loader
         catalog_helper = service_team_features.catalog_cache_helper

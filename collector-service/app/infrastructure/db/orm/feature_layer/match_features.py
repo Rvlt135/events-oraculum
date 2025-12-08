@@ -3,9 +3,10 @@ from sqlalchemy import Column, ForeignKey, Integer, Float, Text, Index, UniqueCo
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.infrastructure.db.orm.base import Base
+from app.infrastructure.db.orm.mixins import TimestampMixin
 
 
-class MatchFeatures(Base):
+class MatchFeatures(Base, TimestampMixin):
     """Match features model for feature layer."""
     __tablename__ = "match_features"
 

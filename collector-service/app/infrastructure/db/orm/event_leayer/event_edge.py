@@ -1,14 +1,14 @@
-from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, Integer, Index, func
+from sqlalchemy import Integer, Index
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.orm.base import Base
+from app.infrastructure.db.orm.mixins import TimestampMixin
 
 
-class EventEdgeORM(Base):
+class EventEdgeORM(Base, TimestampMixin):
     """Event edge model storing computed betting edges."""
     __tablename__ = "event_edges"
 
@@ -27,10 +27,6 @@ class EventEdgeORM(Base):
     edges_json: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
     )
 
     __table_args__ = (

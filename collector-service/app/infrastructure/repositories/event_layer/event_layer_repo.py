@@ -183,7 +183,10 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
         competition_id: UUID,
         season: int,
     ) -> int:
-        """Bulk store event edges.
+        """Bulk store event edges with upsert behavior.
+        
+        Uses PostgreSQL UPSERT to insert new edges or update existing ones
+        based on event_id primary key.
         
         Args:
             items: List of EventEdgeDTO instances to store.
@@ -191,7 +194,7 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
             season: Season year.
             
         Returns:
-            Number of successfully stored edges.
+            Number of successfully processed edges.
         """
         logger.debug(
             "store_edges_called",
@@ -203,29 +206,37 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
         if not items:
             return 0
         
-        # Create ORM objects with serialized edges_json
-        orm_objects = [
-            EventEdgeORM(
-                event_id=item.event_id,
-                competition_id=competition_id,
-                season=season,
-                edges_json=item.model_dump(mode="json"),
-            )
+        # Convert DTOs to dict rows for bulk insert
+        values = [
+            {
+                "event_id": item.event_id,
+                "competition_id": competition_id,
+                "season": season,
+                "edges_json": item.model_dump(mode="json"),
+            }
             for item in items
         ]
         
-        logger.debug("store_edges_orm_objects_created", count=len(orm_objects))
+        # Build UPSERT statement with ON CONFLICT DO UPDATE
+        stmt = insert(EventEdgeORM).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[EventEdgeORM.event_id],
+            set_={
+                "edges_json": stmt.excluded.edges_json,
+                "competition_id": stmt.excluded.competition_id,
+                "season": stmt.excluded.season,
+            }
+        )
         
-        # Bulk insert
-        self.session.add_all(orm_objects)
-        await self.session.flush()
+        # Execute UPSERT
+        await self.session.execute(stmt)
         await self.session.commit()
         
         logger.debug(
             "edges_stored",
-            count=len(orm_objects),
+            count=len(items),
             competition_id=str(competition_id),
             season=season,
         )
         
-        return len(orm_objects)
+        return len(items)

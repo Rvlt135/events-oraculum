@@ -3,7 +3,7 @@ from typing import Dict, TYPE_CHECKING
 import structlog
 from prometheus_client import Counter, Histogram
 
-from app.infrastructure.di.services import get_collect_team_features_service
+from app.infrastructure.di.factory import create_team_features_service
 from app.tasks.broker import broker
 from app.utils.time_utils import now_utc
 
@@ -35,8 +35,8 @@ async def collect_team_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_team_features_service()
         container = broker.state.container
+        service = create_team_features_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
 
@@ -126,8 +126,9 @@ async def collect_match_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_team_features_service()
         container = broker.state.container
+
+        service = create_team_features_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
 
@@ -218,8 +219,8 @@ async def collect_poisson_features_task() -> Dict[str, str]:
     total_errors = 0
 
     try:
-        service = await get_collect_team_features_service()
         container = broker.state.container
+        service = create_team_features_service(container)
         policy_loader = container.policy_loader
         catalog_helper = service.catalog_cache_helper
 

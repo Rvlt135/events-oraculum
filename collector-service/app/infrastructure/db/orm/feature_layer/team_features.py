@@ -1,11 +1,12 @@
 from uuid import uuid4
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Float, Index, UniqueConstraint, func
+from sqlalchemy import Column, ForeignKey, Integer, Float, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.infrastructure.db.orm.base import Base
+from app.infrastructure.db.orm.mixins import TimestampMixin
 
 
-class TeamFeatures(Base):
+class TeamFeatures(Base, TimestampMixin):
     """Team features model for feature layer."""
     __tablename__ = "team_features"
 
@@ -19,7 +20,6 @@ class TeamFeatures(Base):
     goals_against_avg = Column(Float, nullable=False)
     goal_diff = Column(Integer, nullable=False)
     games_played = Column(Integer, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         Index("idx_team_features_competition_season", "competition_id", "season"),

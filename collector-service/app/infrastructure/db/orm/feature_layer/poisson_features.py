@@ -1,11 +1,12 @@
 from uuid import uuid4
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Float, Index, UniqueConstraint, func
+from sqlalchemy import Column, ForeignKey, Integer, Float, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.infrastructure.db.orm.base import Base
+from app.infrastructure.db.orm.mixins import TimestampMixin
 
 
-class PoissonFeatures(Base):
+class PoissonFeatures(Base, TimestampMixin):
     """Poisson features model for feature layer."""
     __tablename__ = "poisson_features"
 
@@ -33,8 +34,6 @@ class PoissonFeatures(Base):
     """Expected goals for home team."""
     expected_goals_away = Column(Float)
     """Expected goals for away team."""
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    """Timestamp when the record was created."""
 
     __table_args__ = (
         Index("idx_poisson_features_competition_season", "competition_id", "season"),

@@ -51,7 +51,7 @@ API keys are loaded from environment variables:
 ### Basic LLM Service Usage
 
 ```python
-from app.infrastructure.di.services import get_llm_service
+from app.infrastructure.factory import get_llm_service
 
 # Get service from DI
 llm_service = await get_llm_service()

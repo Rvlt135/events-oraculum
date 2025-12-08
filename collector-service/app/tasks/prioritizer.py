@@ -4,8 +4,8 @@ Prioritizer tasks for event prioritization.
 from typing import Dict
 import structlog
 
+from app.infrastructure.di.factory import create_prioritizer_service
 from app.utils.time_utils import now_utc
-from app.infrastructure.di.services import get_prioritizer_service
 from app.tasks.broker import broker
 from uuid import uuid4
 
@@ -27,8 +27,10 @@ async def prioritize_all() -> Dict[str, str]:
         raise RuntimeError("Container not found in broker.state")
 
     try:
-        prioritizer_service = await get_prioritizer_service()
         container = broker.state.container
+
+        prioritizer_service = create_prioritizer_service(container)
+
         policy_loader = container.policy_loader
         
         providers = policy_loader.get_providers()

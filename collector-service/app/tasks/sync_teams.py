@@ -4,8 +4,9 @@ Task for syncing teams from API Football.
 from typing import Dict
 import structlog
 
+from app.infrastructure.di.container import Container
+from app.infrastructure.di.factory import create_teams_sync_service
 from app.tasks.broker import broker
-from app.infrastructure.di.services import get_teams_sync_service
 
 logger = structlog.get_logger()
 
@@ -30,7 +31,8 @@ async def sync_teams_from_api_football(provider: str = "odds_api") -> Dict[str, 
     logger.info("sync_teams_task_started", provider=provider)
 
     try:
-        teams_sync_service = await get_teams_sync_service()
+        container: "Container" = broker.state.container
+        teams_sync_service = create_teams_sync_service(container)
 
         api_football_config = teams_sync_service.policy_loader.get_api_football(provider)
 

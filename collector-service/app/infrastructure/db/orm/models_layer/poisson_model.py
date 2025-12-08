@@ -2,9 +2,10 @@ from sqlalchemy import Column, Integer, Float, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from app.infrastructure.db.orm.base import Base
+from app.infrastructure.db.orm.mixins import TimestampMixin
 
 
-class PoissonModel(Base):
+class PoissonModel(Base, TimestampMixin):
     """Poisson model predictions for events."""
     __tablename__ = "poisson_model"
 

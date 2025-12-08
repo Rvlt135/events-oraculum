@@ -12,11 +12,11 @@ from redis.asyncio import Redis
 
 from app.infrastructure.di.factory import (
     get_db_session_from_factory,
-    get_sports_service_from_container,
-    get_events_service_from_container,
-    get_odds_service_from_container,
-    get_layer_model_service_from_container,
-    get_team_features_service_from_container
+    create_sports_service,
+    create_events_service,
+    create_odds_service,
+    # get_layer_model_service_from_container,
+    # get_team_features_service_from_container
 )
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ def get_sports_service(request: Request) -> "SportsService":
         SportsService instance with dependencies from container
     """
     container = request.app.state.container
-    return get_sports_service_from_container(container)
+    return create_sports_service(container)
 
 
 def get_events_service(request: Request) -> "EventsService":
@@ -92,7 +92,7 @@ def get_events_service(request: Request) -> "EventsService":
         EventsService instance with dependencies from container
     """
     container = request.app.state.container
-    return get_events_service_from_container(container)
+    return create_events_service(container)
 
 
 def get_odds_service(request: Request) -> "OddsService":
@@ -106,21 +106,7 @@ def get_odds_service(request: Request) -> "OddsService":
         OddsService instance with dependencies from container
     """
     container = request.app.state.container
-    return get_odds_service_from_container(container)
-
-
-def get_redis(request: Request) -> Redis:
-    """
-    Get Redis client from app state container.
-
-    Args:
-        request: FastAPI request object
-
-    Returns:
-        Redis client instance from container
-    """
-    return request.app.state.container.redis
-
+    return create_odds_service(container)
 
 def get_redis_cache(request: Request) -> Redis:
     """

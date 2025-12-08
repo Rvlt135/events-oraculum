@@ -67,48 +67,48 @@ class Container:
         self.ai_client: PrioritizerLLMClient | None = None
         self.llm_service: LLMService | None = None
         self.policy_loader: PolicyLoader | None = None
-        self.statistics_collect_service: StatisticsCollectService | None = None
+        # self.statistics_collect_service: StatisticsCollectService | None = None
     
-    def create_sports_service(self) -> "SportsService":
-        """
-        Factory method for SportsService.
-
-        Returns:
-            SportsService instance with dependencies from container
-        """
-        sports_cache = SportsCache(self.redis_cache)
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
-        return SportsService(
-            odds_client=self.odds_client,
-            session_factory=self.session_factory,
-            sports_cache=sports_cache,
-            competitions_cache=competitions_cache,
-            catalog_cache_helper=catalog_cache_helper,
-            policy_loader=self.policy_loader,
-        )
-
-    def create_events_service(self) -> "EventsService":
-        """
-        Factory method for EventsService.
-
-        Returns:
-            EventsService instance with dependencies from container
-        """
-
-        sports_cache = SportsCache(self.redis_cache)
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        events_cache = EventsCache(self.redis_cache)
-
-        return EventsService(
-            odds_client=self.odds_client,
-            session_factory=self.session_factory,
-            sports_cache=sports_cache,
-            competitions_cache=competitions_cache,
-            events_cache=events_cache,
-            policy_loader=self.policy_loader,
-        )
-
+    # def create_sports_service(self) -> "SportsService":
+    #     """
+    #     Factory method for SportsService.
+    #
+    #     Returns:
+    #         SportsService instance with dependencies from container
+    #     """
+    #     sports_cache = SportsCache(self.redis_cache)
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+    #     return SportsService(
+    #         odds_client=self.odds_client,
+    #         session_factory=self.session_factory,
+    #         sports_cache=sports_cache,
+    #         competitions_cache=competitions_cache,
+    #         catalog_cache_helper=catalog_cache_helper,
+    #         policy_loader=self.policy_loader,
+    #     )
+    #
+    # def create_events_service(self) -> "EventsService":
+    #     """
+    #     Factory method for EventsService.
+    #
+    #     Returns:
+    #         EventsService instance with dependencies from container
+    #     """
+    #
+    #     sports_cache = SportsCache(self.redis_cache)
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     events_cache = EventsCache(self.redis_cache)
+    #
+    #     return EventsService(
+    #         odds_client=self.odds_client,
+    #         session_factory=self.session_factory,
+    #         sports_cache=sports_cache,
+    #         competitions_cache=competitions_cache,
+    #         events_cache=events_cache,
+    #         policy_loader=self.policy_loader,
+    #     )
+    #
     def create_llm_service(self) -> "LLMService":
         """
         Factory method for LLMService.
@@ -124,175 +124,175 @@ class Container:
             ai_config=self.ai_config,
             llm_client=None,
         )
-
-    def create_prioritizer_service(self) -> "PrioritizerService":
-        """
-        Factory method for PrioritizerService.
-
-        Returns:
-            PrioritizerService instance with dependencies from container
-        
-        Raises:
-            ValueError: If required prioritizer configuration values are missing
-        """
-        ai_config = self.ai_config or get_ai_config_loader()
-        config = ai_config.load_models_config()
-        prioritizer_config = config.get("prioritizer")
-        
-        if not prioritizer_config:
-            raise ValueError("prioritizer configuration not found in models.yml")
-        
-        batch_size = prioritizer_config.get("batch_size")
-        if batch_size is None:
-            raise ValueError("batch_size not found in prioritizer configuration")
-        
-        rate_limit_qps = prioritizer_config.get("rate_limit_qps")
-        if rate_limit_qps is None:
-            raise ValueError("rate_limit_qps not found in prioritizer configuration")
-        
-        max_events = prioritizer_config.get("max_events")
-        if max_events is None:
-            raise ValueError("max_events not found in prioritizer configuration")
-        
-        enabled = prioritizer_config.get("enabled")
-        if enabled is None:
-            raise ValueError("enabled not found in prioritizer configuration")
-        
-        cache_ttl_sec = prioritizer_config.get("cache_ttl_sec")
-        if cache_ttl_sec is None:
-            raise ValueError("cache_ttl_sec not found in prioritizer configuration")
-        
-        events_cache = EventsCache(self.redis_cache)
-        tasks_cache = TasksCache(self.redis_broker, rate_limit_qps)
-
-        return PrioritizerService(
-            session_factory=self.session_factory,
-            redis_cache=self.redis_cache,
-            redis_broker=self.redis_broker,
-            events_cache=events_cache,
-            tasks_cache=tasks_cache,
-            batch_size=batch_size,
-            max_events=max_events,
-            enabled=enabled,
-            cache_ttl_sec=cache_ttl_sec,
-            ai_client=self.ai_client,
-        )
-
-    def create_odds_service(self) -> "OddsService":
-        """
-        Factory method for OddsService.
-
-        Returns:
-            OddsService instance with dependencies from container
-
-        Raises:
-            ValueError: If required prioritizer configuration values are missing
-        """
-
-        events_cache = EventsCache(self.redis_cache)
-        odds_cache = OddsCache(self.redis_cache)
-
-        return OddsService(
-            odds_client=self.odds_client,
-            session_factory=self.session_factory,
-            redis_cache=self.redis_cache,
-            events_cache=events_cache,
-            odds_cache=odds_cache,
-            policy_loader=self.policy_loader,
-        )
-
-    def create_teams_sync_service(self) -> "TeamsSyncService":
-        """
-        Factory method for TeamsSyncService.
-
-        Returns:
-            TeamsSyncService instance with dependencies from container
-        """
-
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        # events_cache = EventsCache(self.redis_cache)
-
-        return TeamsSyncService(
-            api_football_client=self.api_football_client,
-            session_factory=self.session_factory,
-            policy_loader=self.policy_loader,
-            competitions_cache=competitions_cache,
-            # events_cache=events_cache
-        )
-
-    def create_statistics_collect_service(self) -> "StatisticsCollectService":
-        """
-        Factory method for TeamsSyncService.
-
-        Returns:
-            TeamsSyncService instance with dependencies from container
-        """
-
-        sports_cache = SportsCache(self.redis_cache)
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        standings_cache = StandingsFootballCache(self.redis_cache)
-        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
-
-        return StatisticsCollectService(
-            api_football_client=self.api_football_client,
-            session_factory=self.session_factory,
-            policy_loader=self.policy_loader,
-            competitions_cache=competitions_cache,
-            standings_football_cache=standings_cache,
-            catalog_cache_helper=catalog_cache_helper
-        )
-
-    def create_team_features_service(self):
-        sports_cache = SportsCache(self.redis_cache)
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        team_features_cache = TeamFeaturesCache(self.redis_cache)
-        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
-        team_feature_builder = TeamFeaturesBuilder()
-        match_features_builder = MatchFeaturesBuilder()
-        poisson_feature_builder = PoissonFeaturesBuilder()
-
-        return TeamFeaturesService(
-            session_factory=self.session_factory,
-            team_features_cache=team_features_cache,
-            catalog_cache_helper=catalog_cache_helper,
-            team_feature_builder=team_feature_builder,
-            match_features_builder=match_features_builder,
-            poisson_feature_builder=poisson_feature_builder
-        )
-
-    def create_layer_model_service(self):
-        sports_cache = SportsCache(self.redis_cache)
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        team_features_cache = TeamFeaturesCache(self.redis_cache)
-        models_layer_cache = ModelsLayerCache(self.redis_cache)
-        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
-        elo_model_builder = EloModelBuilder()
-        poisson_model_builder = PoissonModelBuilder()
-
-        return LayerModelService(
-            session_factory=self.session_factory,
-            team_features_cache=team_features_cache,
-            catalog_cache_helper=catalog_cache_helper,
-            elo_model_builder=elo_model_builder,
-            poisson_model_builder=poisson_model_builder,
-            models_layer_cache=models_layer_cache
-        )
-
-    def create_event_layer_service(self):
-        sports_cache = SportsCache(self.redis_cache)
-        competitions_cache = CompetitionsCache(self.redis_cache)
-        team_features_cache = TeamFeaturesCache(self.redis_cache)
-        event_layer_cache = EventsLayerCache(self.redis_cache)
-        catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
-        event_layer_builder = EventLayerBuilder()
-
-        return EventLayerService(
-            session_factory=self.session_factory,
-            catalog_cache_helper=catalog_cache_helper,
-            team_features_cache=team_features_cache,
-            event_layer_builder=event_layer_builder,
-            event_layer_cache=event_layer_cache,
-        )
+    #
+    # def create_prioritizer_service(self) -> "PrioritizerService":
+    #     """
+    #     Factory method for PrioritizerService.
+    #
+    #     Returns:
+    #         PrioritizerService instance with dependencies from container
+    #
+    #     Raises:
+    #         ValueError: If required prioritizer configuration values are missing
+    #     """
+    #     ai_config = self.ai_config or get_ai_config_loader()
+    #     config = ai_config.load_models_config()
+    #     prioritizer_config = config.get("prioritizer")
+    #
+    #     if not prioritizer_config:
+    #         raise ValueError("prioritizer configuration not found in models.yml")
+    #
+    #     batch_size = prioritizer_config.get("batch_size")
+    #     if batch_size is None:
+    #         raise ValueError("batch_size not found in prioritizer configuration")
+    #
+    #     rate_limit_qps = prioritizer_config.get("rate_limit_qps")
+    #     if rate_limit_qps is None:
+    #         raise ValueError("rate_limit_qps not found in prioritizer configuration")
+    #
+    #     max_events = prioritizer_config.get("max_events")
+    #     if max_events is None:
+    #         raise ValueError("max_events not found in prioritizer configuration")
+    #
+    #     enabled = prioritizer_config.get("enabled")
+    #     if enabled is None:
+    #         raise ValueError("enabled not found in prioritizer configuration")
+    #
+    #     cache_ttl_sec = prioritizer_config.get("cache_ttl_sec")
+    #     if cache_ttl_sec is None:
+    #         raise ValueError("cache_ttl_sec not found in prioritizer configuration")
+    #
+    #     events_cache = EventsCache(self.redis_cache)
+    #     tasks_cache = TasksCache(self.redis_broker, rate_limit_qps)
+    #
+    #     return PrioritizerService(
+    #         session_factory=self.session_factory,
+    #         redis_cache=self.redis_cache,
+    #         redis_broker=self.redis_broker,
+    #         events_cache=events_cache,
+    #         tasks_cache=tasks_cache,
+    #         batch_size=batch_size,
+    #         max_events=max_events,
+    #         enabled=enabled,
+    #         cache_ttl_sec=cache_ttl_sec,
+    #         ai_client=self.ai_client,
+    #     )
+    #
+    # def create_odds_service(self) -> "OddsService":
+    #     """
+    #     Factory method for OddsService.
+    #
+    #     Returns:
+    #         OddsService instance with dependencies from container
+    #
+    #     Raises:
+    #         ValueError: If required prioritizer configuration values are missing
+    #     """
+    #
+    #     events_cache = EventsCache(self.redis_cache)
+    #     odds_cache = OddsCache(self.redis_cache)
+    #
+    #     return OddsService(
+    #         odds_client=self.odds_client,
+    #         session_factory=self.session_factory,
+    #         redis_cache=self.redis_cache,
+    #         events_cache=events_cache,
+    #         odds_cache=odds_cache,
+    #         policy_loader=self.policy_loader,
+    #     )
+    #
+    # def create_teams_sync_service(self) -> "TeamsSyncService":
+    #     """
+    #     Factory method for TeamsSyncService.
+    #
+    #     Returns:
+    #         TeamsSyncService instance with dependencies from container
+    #     """
+    #
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     # events_cache = EventsCache(self.redis_cache)
+    #
+    #     return TeamsSyncService(
+    #         api_football_client=self.api_football_client,
+    #         session_factory=self.session_factory,
+    #         policy_loader=self.policy_loader,
+    #         competitions_cache=competitions_cache,
+    #         # events_cache=events_cache
+    #     )
+    #
+    # def create_statistics_collect_service(self) -> "StatisticsCollectService":
+    #     """
+    #     Factory method for TeamsSyncService.
+    #
+    #     Returns:
+    #         TeamsSyncService instance with dependencies from container
+    #     """
+    #
+    #     sports_cache = SportsCache(self.redis_cache)
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     standings_cache = StandingsFootballCache(self.redis_cache)
+    #     catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+    #
+    #     return StatisticsCollectService(
+    #         api_football_client=self.api_football_client,
+    #         session_factory=self.session_factory,
+    #         policy_loader=self.policy_loader,
+    #         competitions_cache=competitions_cache,
+    #         standings_football_cache=standings_cache,
+    #         catalog_cache_helper=catalog_cache_helper
+    #     )
+    #
+    # def create_team_features_service(self):
+    #     sports_cache = SportsCache(self.redis_cache)
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     team_features_cache = TeamFeaturesCache(self.redis_cache)
+    #     catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+    #     team_feature_builder = TeamFeaturesBuilder()
+    #     match_features_builder = MatchFeaturesBuilder()
+    #     poisson_feature_builder = PoissonFeaturesBuilder()
+    #
+    #     return TeamFeaturesService(
+    #         session_factory=self.session_factory,
+    #         team_features_cache=team_features_cache,
+    #         catalog_cache_helper=catalog_cache_helper,
+    #         team_feature_builder=team_feature_builder,
+    #         match_features_builder=match_features_builder,
+    #         poisson_feature_builder=poisson_feature_builder
+    #     )
+    #
+    # def create_layer_model_service(self):
+    #     sports_cache = SportsCache(self.redis_cache)
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     team_features_cache = TeamFeaturesCache(self.redis_cache)
+    #     models_layer_cache = ModelsLayerCache(self.redis_cache)
+    #     catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+    #     elo_model_builder = EloModelBuilder()
+    #     poisson_model_builder = PoissonModelBuilder()
+    #
+    #     return LayerModelService(
+    #         session_factory=self.session_factory,
+    #         team_features_cache=team_features_cache,
+    #         catalog_cache_helper=catalog_cache_helper,
+    #         elo_model_builder=elo_model_builder,
+    #         poisson_model_builder=poisson_model_builder,
+    #         models_layer_cache=models_layer_cache
+    #     )
+    #
+    # def create_event_layer_service(self):
+    #     sports_cache = SportsCache(self.redis_cache)
+    #     competitions_cache = CompetitionsCache(self.redis_cache)
+    #     team_features_cache = TeamFeaturesCache(self.redis_cache)
+    #     event_layer_cache = EventsLayerCache(self.redis_cache)
+    #     catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+    #     event_layer_builder = EventLayerBuilder()
+    #
+    #     return EventLayerService(
+    #         session_factory=self.session_factory,
+    #         catalog_cache_helper=catalog_cache_helper,
+    #         team_features_cache=team_features_cache,
+    #         event_layer_builder=event_layer_builder,
+    #         event_layer_cache=event_layer_cache,
+    #     )
 
 
 def create_container() -> Container:
