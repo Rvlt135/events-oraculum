@@ -6,11 +6,13 @@ import structlog
 
 from app.config.settings import settings
 from app.infrastructure.db.pg import init_db, engine
-from app.infrastructure.cache.redis import recommendation_cache
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter, CollectorRegistry
+
 from app.api.routes import recommendations, internal
 from app.api.routes import health, run
 from fastapi.openapi.utils import get_openapi
 
+from app.infrastructure.di.container import create_container, dispose_container
 
 structlog.configure(
     processors=[
@@ -24,12 +26,34 @@ logger = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    logger.info("starting_edge_agents_service")
-    await init_db()
-    await recommendation_cache.initialize()
+    """
+    Lifespan context manager for FastAPI application.
+    Creates dependencies and stores them in app.state.container.
+    """
+    # logger.info("starting_odds_service", admin_enabled=settings.admin_enabled)
+
+    # Create container
+    container = create_container()
+
+    # Store container in app state
+    app.state.container = container
+
+    # Metrics
+    registry = CollectorRegistry()
+    http_requests_total = Counter(
+        "edge_agents_service_http_requests_total",
+        "Total HTTP requests",
+        ["method", "path", "route_type"],
+        registry=registry,
+    )
+    app.state.metrics_registry = registry
+    app.state.http_requests_total = http_requests_total
+
     yield
-    await recommendation_cache.dispose()
-    await engine.dispose()
+
+    # Dispose container
+    await dispose_container(container)
+
     logger.info("shutting_down_edge_agents_service")
 
 

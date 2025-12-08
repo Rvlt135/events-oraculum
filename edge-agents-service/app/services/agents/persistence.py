@@ -3,8 +3,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.entities.recommendation import RecommendationResponse
-from app.infrastructure.db.orm.recommendation import RecommendationCreate
+from app.domain.entities.recommendation import RecommendationResponse, RecommendationCreate
 from app.infrastructure.repositories.recommendation import RecommendationRepository
 from app.infrastructure.cache import RecommendationCache
 

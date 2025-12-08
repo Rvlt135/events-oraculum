@@ -4,7 +4,7 @@ from datetime import datetime
 import asyncpg
 import structlog
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config.settings import settings
 
@@ -106,8 +106,8 @@ class FeatureBuilder:
 
 
 class FeatureService:
-    def __init__(self, session: AsyncSession):
-        self.session = session
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
+        self.session_factory = session_factory
 
     async def get_event_features(self, event_id: UUID) -> Optional[Dict[str, Any]]:
         query = text("""
@@ -136,15 +136,15 @@ class FeatureService:
             ORDER BY n.created_at DESC
             LIMIT 1
         """)
+        async with self.session_factory() as session:
+            result = await session.execute(query, {"event_id": event_id})
+            row = result.fetchone()
 
-        result = await self.session.execute(query, {"event_id": event_id})
-        row = result.fetchone()
+            if not row:
+                logger.warning("event_not_found", event_id=str(event_id))
+                return None
 
-        if not row:
-            logger.warning("event_not_found", event_id=str(event_id))
-            return None
+            features = dict(row._mapping)
+            logger.info("features_built", event_id=str(event_id), home=features.get("home_team"))
 
-        features = dict(row._mapping)
-        logger.info("features_built", event_id=str(event_id), home=features.get("home_team"))
-
-        return features
+            return features

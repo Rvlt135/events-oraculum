@@ -5,8 +5,8 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.domain.entities.recommendation import RecommendationResponse
-from app.infrastructure.db.orm.recommendation import RecommendationORM, RecommendationCreate
+from app.domain.entities.recommendation import RecommendationResponse, RecommendationCreate
+from app.infrastructure.db.orm.recommendation import RecommendationORM
 
 logger = structlog.get_logger()
 
@@ -37,15 +37,15 @@ class RecommendationRepository:
             pick=rec.pick,
             confidence=rec.confidence,
         )
-
+        # TODO: Legacy code
         return RecommendationResponse.model_validate(db_rec)
 
-    async def get_by_event_id(self, event_id: UUID) -> List[RecommendationResponse]:
+    async def get_by_event_id(self, event_id: UUID) -> List[RecommendationORM]:
         result = await self.session.execute(
             select(RecommendationORM).where(RecommendationORM.event_id == event_id)
         )
         recs = result.scalars().all()
-        return [RecommendationResponse.model_validate(rec) for rec in recs]
+        return [i for i in recs]
 
     async def get_recommendations(
         self,

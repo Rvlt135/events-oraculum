@@ -6,25 +6,15 @@ import redis.asyncio as redis
 import structlog
 
 from app.config.settings import settings
+from app.infrastructure.cache.redis_client import RedisCacheClient
 
 logger = structlog.get_logger()
 
 
 class RecommendationCache:
-    def __init__(self):
-        self.client: Optional[redis.Redis] = None
+    def __init__(self, client: RedisCacheClient):
+        self.client = client
         self.ttl = 86400 * 3
-
-    async def initialize(self) -> None:
-        if not self.client:
-            self.client = await redis.from_url(settings.redis_url, decode_responses=True)
-            logger.info("recommendation_cache_initialized")
-
-    async def dispose(self) -> None:
-        if self.client:
-            await self.client.close()
-            self.client = None
-            logger.info("recommendation_cache_disposed")
 
     async def save_recommendation(
         self, event_id: UUID, recommendation: dict, ttl: Optional[int] = None
@@ -36,7 +26,7 @@ class RecommendationCache:
         ttl_value = ttl if ttl is not None else self.ttl
 
         try:
-            await self.client.set(key, json.dumps(recommendation), ex=ttl_value)
+            await self.client.rbd.set(key, json.dumps(recommendation), ex=ttl_value)
             logger.debug("recommendation_cached", event_id=str(event_id))
         except Exception as e:
             logger.error("cache_save_error", event_id=str(event_id), error=str(e))
@@ -48,7 +38,7 @@ class RecommendationCache:
         key = f"rec:{event_id}"
 
         try:
-            value = await self.client.get(key)
+            value = await self.client.rbd.get(key)
             if value:
                 logger.debug("cache_hit", event_id=str(event_id))
                 return json.loads(value)
@@ -67,9 +57,9 @@ class RecommendationCache:
         list_key = f"rec:list:{league}:{date_key}"
 
         try:
-            await self.client.lpush(list_key, json.dumps(recommendation))
-            await self.client.ltrim(list_key, 0, max_size - 1)
-            await self.client.expire(list_key, self.ttl)
+            await self.client.rbd.lpush(list_key, json.dumps(recommendation))
+            await self.client.rbd.ltrim(list_key, 0, max_size - 1)
+            await self.client.rbd.expire(list_key, self.ttl)
             logger.debug("added_to_list", league=league, date=date_key)
         except Exception as e:
             logger.error("list_add_error", league=league, error=str(e))
@@ -83,7 +73,7 @@ class RecommendationCache:
         list_key = f"rec:list:{league}:{date_key}"
 
         try:
-            values = await self.client.lrange(list_key, 0, limit - 1)
+            values = await self.client.rbd.lrange(list_key, 0, limit - 1)
             return [json.loads(v) for v in values]
         except Exception as e:
             logger.error("list_get_error", league=league, error=str(e))
@@ -96,14 +86,14 @@ class RecommendationCache:
         key = f"rec:{event_id}"
 
         try:
-            await self.client.delete(key)
+            await self.client.rbd.delete(key)
             logger.debug("cache_deleted", event_id=str(event_id))
         except Exception as e:
             logger.error("cache_delete_error", event_id=str(event_id), error=str(e))
 
 
-recommendation_cache = RecommendationCache()
-
-
-async def get_recommendation_cache() -> RecommendationCache:
-    return recommendation_cache
+# recommendation_cache = RecommendationCache()
+#
+#
+# async def get_recommendation_cache() -> RecommendationCache:
+#     return recommendation_cache

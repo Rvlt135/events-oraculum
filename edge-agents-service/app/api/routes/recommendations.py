@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
+from app.api.deps import get_recommendation_service
 from app.infrastructure.db.pg import get_session
 from app.infrastructure.repositories.recommendation import RecommendationRepository
 from app.domain.entities.recommendation import RecommendationResponse
+from app.services.recommendation.service import RecommendationService
 
 router = APIRouter(prefix="/_agents", tags=["Recommendations"])
 
@@ -50,20 +52,18 @@ async def get_recommendations(
 @router.get("/recommendations/{event_id}", response_model=List[RecommendationResponse])
 async def get_recommendations_by_event(
     event_id: UUID,
-    session: AsyncSession = Depends(get_session),
+    service: RecommendationService = Depends(get_recommendation_service),
 ) -> List[RecommendationResponse]:
     logger.info("get_recommendations_by_event", event_id=str(event_id))
 
-    repository = RecommendationRepository(session)
+    resp = await service.get_recommendations_by_event(event_id)
 
-    recommendations = await repository.get_by_event_id(event_id)
-
-    if not recommendations:
+    if not resp:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No recommendations found for event {event_id}"
         )
 
-    logger.info("event_recommendations_returned", event_id=str(event_id), count=len(recommendations))
+    logger.info("event_recommendations_returned", event_id=str(event_id), count=len(resp))
 
-    return recommendations
+    return resp

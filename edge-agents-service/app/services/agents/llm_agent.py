@@ -5,7 +5,7 @@ import structlog
 from app.services.agents.base import Agent, AgentPrediction
 from app.services.clients.base import BaseLLMClient
 from app.services.prompts.processor import PromptProcessor
-from app.infrastructure.db.orm.recommendation import RecommendationSchema
+from app.domain.entities.recommendation import RecommendationSchema
 
 logger = structlog.get_logger()
 
