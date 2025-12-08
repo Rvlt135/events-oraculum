@@ -2,7 +2,7 @@
 Service for building team features
 """
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 import structlog
@@ -24,11 +24,23 @@ class RecommendationService:
         self.cache = cache
 
     # TODO: LEGACY
-    async def get_recommendations_by_event(self, event_id: UUID) -> List[RecommendationResponse]:
-        async with self.session_factory() as session:
-            repository = RecommendationRepository(session)
-            recommendations = await repository.get_by_event_id(event_id)
-            return [RecommendationResponse.model_validate(rec) for rec in recommendations]
+    async def get_recommendations_by_event(self, session: AsyncSession, event_id: UUID) -> List[RecommendationResponse]:
+        repository = RecommendationRepository(session)
+        recommendations = await repository.get_by_event_id(event_id)
+        return [RecommendationResponse.model_validate(rec) for rec in recommendations]
+
+    async def get_recommendations(self, session: AsyncSession, league: Optional[str] = None, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None,
+                                  min_confidence: Optional[float] = None, limit: int = 100):
+        repository = RecommendationRepository(session)
+
+        recommendations = await repository.get_recommendations(
+            league=league,
+            from_date=from_date,
+            to_date=to_date,
+            min_confidence=min_confidence,
+            limit=limit
+        )
+        return recommendations
 
     # TODO: LEGACY
     async def save_recommendation(

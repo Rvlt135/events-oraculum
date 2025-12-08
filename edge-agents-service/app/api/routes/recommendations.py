@@ -23,6 +23,7 @@ async def get_recommendations(
     to_date: Optional[datetime] = Query(default=None, alias="to"),
     min_conf: Optional[float] = Query(default=None, ge=0.0, le=1.0),
     limit: int = Query(default=100, ge=1, le=1000),
+    service: RecommendationService = Depends(get_recommendation_service),
     session: AsyncSession = Depends(get_session),
 ) -> List[RecommendationResponse]:
     logger.info(
@@ -34,15 +35,7 @@ async def get_recommendations(
         limit=limit
     )
 
-    repository = RecommendationRepository(session)
-
-    recommendations = await repository.get_recommendations(
-        league=league,
-        from_date=from_date,
-        to_date=to_date,
-        min_confidence=min_conf,
-        limit=limit
-    )
+    recommendations = await service.get_recommendations(session, league=league, from_date=from_date, to_date=to_date, min_confidence=min_conf, limit=limit)
 
     logger.info("recommendations_returned", count=len(recommendations))
 
@@ -53,10 +46,11 @@ async def get_recommendations(
 async def get_recommendations_by_event(
     event_id: UUID,
     service: RecommendationService = Depends(get_recommendation_service),
+    session: AsyncSession = Depends(get_session)
 ) -> List[RecommendationResponse]:
     logger.info("get_recommendations_by_event", event_id=str(event_id))
 
-    resp = await service.get_recommendations_by_event(event_id)
+    resp = await service.get_recommendations_by_event(session, event_id)
 
     if not resp:
         raise HTTPException(
