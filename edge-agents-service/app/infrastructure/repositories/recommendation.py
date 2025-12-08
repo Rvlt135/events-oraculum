@@ -5,7 +5,8 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.models.recommendation import RecommendationDB, RecommendationCreate, RecommendationResponse
+from app.domain.entities.recommendation import RecommendationResponse
+from app.infrastructure.db.orm.recommendation import RecommendationORM, RecommendationCreate
 
 logger = structlog.get_logger()
 
@@ -15,7 +16,7 @@ class RecommendationRepository:
         self.session = session
 
     async def create(self, rec: RecommendationCreate) -> RecommendationResponse:
-        db_rec = RecommendationDB(
+        db_rec = RecommendationORM(
             event_id=rec.event_id,
             league_key=rec.league_key,
             pick=rec.pick,
@@ -41,7 +42,7 @@ class RecommendationRepository:
 
     async def get_by_event_id(self, event_id: UUID) -> List[RecommendationResponse]:
         result = await self.session.execute(
-            select(RecommendationDB).where(RecommendationDB.event_id == event_id)
+            select(RecommendationORM).where(RecommendationORM.event_id == event_id)
         )
         recs = result.scalars().all()
         return [RecommendationResponse.model_validate(rec) for rec in recs]
@@ -54,22 +55,22 @@ class RecommendationRepository:
         min_confidence: Optional[float] = None,
         limit: int = 100,
     ) -> List[RecommendationResponse]:
-        query = select(RecommendationDB)
+        query = select(RecommendationORM)
 
         filters = []
         if league:
-            filters.append(RecommendationDB.league_key == league)
+            filters.append(RecommendationORM.league_key == league)
         if from_date:
-            filters.append(RecommendationDB.created_ts >= from_date)
+            filters.append(RecommendationORM.created_ts >= from_date)
         if to_date:
-            filters.append(RecommendationDB.created_ts <= to_date)
+            filters.append(RecommendationORM.created_ts <= to_date)
         if min_confidence is not None:
-            filters.append(RecommendationDB.confidence >= min_confidence)
+            filters.append(RecommendationORM.confidence >= min_confidence)
 
         if filters:
             query = query.where(and_(*filters))
 
-        query = query.order_by(RecommendationDB.created_ts.desc()).limit(limit)
+        query = query.order_by(RecommendationORM.created_ts.desc()).limit(limit)
 
         result = await self.session.execute(query)
         recs = result.scalars().all()

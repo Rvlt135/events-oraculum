@@ -11,7 +11,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class RecommendationDB(Base):
+class RecommendationORM(Base):
     __tablename__ = "recommendations"
 
     rec_id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -61,18 +61,3 @@ class RecommendationSchema(BaseModel):
                 "reasoning": "• Home team undefeated in last 5 matches\n• Away team missing key striker\n• Historical H2H favors home (70% win rate)\n• Value in current odds (2.5 vs fair 2.1)"
             }
         }
-
-
-class RecommendationResponse(BaseModel):
-    rec_id: UUID
-    event_id: UUID
-    league_key: str
-    pick: str
-    confidence: float
-    short_explanation: str
-    reasoning: str
-    model_version: str
-    created_ts: datetime
-
-    class Config:
-        from_attributes = True

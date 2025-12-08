@@ -4,10 +4,10 @@ from uuid import UUID
 import structlog
 
 from app.config.settings import settings
-from app.db.pg import AsyncSessionLocal
+from app.infrastructure.db.pg import AsyncSessionLocal
 from app.services.clients.factory import create_llm_client
-from app.cache.redis import recommendation_cache
-from app.models.recommendation import RecommendationCreate
+from app.infrastructure.cache.redis import recommendation_cache
+from app.infrastructure.db.orm.recommendation import RecommendationCreate
 from app.services.agents.persistence import RecommendationPersistence
 from app.services.agents.llm_agent import LLMAgent
 from app.services.features import FeatureService

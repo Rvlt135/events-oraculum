@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.db.pg import get_session
-from app.db.repositories import RecommendationRepository
-from app.models.recommendation import RecommendationResponse
+from app.infrastructure.db.pg import get_session
+from app.infrastructure.repositories.recommendation import RecommendationRepository
+from app.domain.entities.recommendation import RecommendationResponse
 
 router = APIRouter(prefix="/_agents", tags=["Recommendations"])
 

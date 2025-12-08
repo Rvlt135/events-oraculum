@@ -8,8 +8,8 @@ from app.services.features import FeatureBuilder
 from app.services.agents.base import Agent
 from app.services.agents.llm_agent import LLMAgent
 from app.services.clients.factory import create_llm_client
-from app.db.repositories import RecommendationRepository
-from app.models.recommendation import RecommendationCreate
+from app.infrastructure.repositories.recommendation import RecommendationRepository
+from app.infrastructure.db.orm.recommendation import RecommendationCreate
 from app.config.settings import settings
 
 logger = structlog.get_logger()

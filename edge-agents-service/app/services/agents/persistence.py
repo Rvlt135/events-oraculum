@@ -1,11 +1,12 @@
-from datetime import datetime, date
+from datetime import datetime
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.models.recommendation import RecommendationDB, RecommendationCreate, RecommendationResponse
-from app.db.repositories import RecommendationRepository
-from app.cache.redis import RecommendationCache
+from app.domain.entities.recommendation import RecommendationResponse
+from app.infrastructure.db.orm.recommendation import RecommendationCreate
+from app.infrastructure.repositories.recommendation import RecommendationRepository
+from app.infrastructure.cache import RecommendationCache
 
 logger = structlog.get_logger()
 

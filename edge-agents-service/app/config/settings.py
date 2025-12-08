@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     redis_url: str = Field(default="redis://localhost:6379/0")
 
-    postgres_host: str = Field(default="localhost")
+    postgres_host: str = Field(default="0.0.0.0")
     postgres_port: int = Field(default=5432)
     postgres_user: str = Field(default="postgres")
     postgres_password: str = Field(default="postgres")

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 import structlog
 
 from app.config.settings import settings
-from app.models.recommendation import Base
+from app.infrastructure.db.orm.recommendation import Base
 
 logger = structlog.get_logger()
 
