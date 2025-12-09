@@ -1,4 +1,4 @@
-from typing import Type, TypeVar, Dict, Any
+from typing import Type, TypeVar, Any
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 import instructor
@@ -6,7 +6,7 @@ import structlog
 
 from app.config.settings import settings
 from app.config.model_loader import ModelConfig
-from app.services.clients.base import BaseLLMClient
+from app.llm.clients.base import BaseLLMClient
 
 logger = structlog.get_logger()
 

@@ -5,9 +5,9 @@ import asyncio
 import structlog
 
 from app.services.features import FeatureBuilder
-from app.services.agents.base import Agent
-from app.services.agents.llm_agent import LLMAgent
-from app.services.clients.factory import create_llm_client
+from app.agents.base import Agent
+from app.agents.llm_agent import LLMAgent
+from app.llm.clients.factory import create_llm_client
 from app.infrastructure.repositories.recommendation import RecommendationRepository
 from app.domain.entities.recommendation import RecommendationCreate
 from app.config.settings import settings

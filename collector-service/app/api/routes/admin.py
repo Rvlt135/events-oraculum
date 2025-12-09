@@ -123,6 +123,8 @@ async def get_competitions_catalog(
     - all_available: All competitions except unavailable
 
     Args:
+        sports_service: sport service
+        _auth: auth token
         category: Required sport category (e.g., 'soccer')
         plan: Plan filter type
 

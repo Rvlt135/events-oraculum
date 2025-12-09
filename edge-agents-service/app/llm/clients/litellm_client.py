@@ -1,23 +1,23 @@
-from typing import Type, TypeVar, Dict, Any
+from typing import Type, TypeVar, Any
 from pydantic import BaseModel
 import structlog
 
 from app.config.model_loader import ModelConfig
-from app.services.clients.base import BaseLLMClient
+from app.llm.clients.base import BaseLLMClient
 
 logger = structlog.get_logger()
 
 T = TypeVar("T", bound=BaseModel)
 
 
-class LangChainClient(BaseLLMClient):
+class LiteLLMClient(BaseLLMClient):
     def __init__(self, model_config: ModelConfig):
         self.model_config = model_config
 
         logger.info(
-            "langchain_client_initialized",
+            "litellm_client_initialized",
             model=model_config.model_id,
-            note="Adapter stub - LangChain integration can be implemented here"
+            note="Adapter stub - LiteLLM integration can be implemented here"
         )
 
     async def generate(
@@ -28,15 +28,15 @@ class LangChainClient(BaseLLMClient):
         **kwargs: Any
     ) -> T:
         logger.warning(
-            "langchain_generation_not_implemented",
+            "litellm_generation_not_implemented",
             model=self.model_config.model_id,
-            note="Use instructor client or implement LangChain integration"
+            note="Use instructor client or implement LiteLLM integration"
         )
 
         raise NotImplementedError(
-            "LangChain client is a stub. "
-            "To implement: use langchain-openai ChatOpenAI with "
-            "structured output via with_structured_output(schema)"
+            "LiteLLM client is a stub. "
+            "To implement: use litellm.acompletion() with "
+            "response_format for structured output"
         )
 
     def get_model_id(self) -> str:

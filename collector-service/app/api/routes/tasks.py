@@ -49,7 +49,6 @@ async def trigger_collection_sport(
             message=f"Failed to enqueue task: {str(e)}",
         )
 
-
 @router.post("/sync/teams", response_model=TaskTriggerResponse, status_code=202)
 async def trigger_teams_sync_from_api_football(
         request: Request,

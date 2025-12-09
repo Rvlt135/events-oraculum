@@ -6,11 +6,10 @@ import structlog
 
 from app.config.settings import settings
 from app.domain.entities.recommendation import RecommendationCreate
-from app.infrastructure.db.pg import AsyncSessionLocal
 from app.infrastructure.di.container import Container
 from app.infrastructure.di.service_factory import create_recommendation_service, create_feature_service
-from app.services.agents.llm_agent import LLMAgent
-from app.services.clients.factory import create_llm_client
+from app.agents.llm_agent import LLMAgent
+from app.llm.clients.factory import create_llm_client
 from app.tasks.broker import broker
 
 logger = structlog.get_logger()

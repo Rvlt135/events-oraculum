@@ -2,8 +2,8 @@ from typing import Dict, Any, Optional
 from uuid import UUID
 import structlog
 
-from app.services.agents.base import Agent, AgentPrediction
-from app.services.clients.base import BaseLLMClient
+from app.agents.base import Agent, AgentPrediction
+from app.llm.clients.base import BaseLLMClient
 from app.services.prompts.processor import PromptProcessor
 from app.domain.entities.recommendation import RecommendationSchema
 
