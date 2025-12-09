@@ -102,6 +102,28 @@ class EventRepository(BaseRepository[Event]):
         )
         return list(result.scalars().all())
 
+    async def get_upcoming_events_by_competition(
+        self, competition_id: UUID
+    ) -> List[Event]:
+        """
+        Get upcoming events for a competition filtered by commence_time > now().
+
+        Args:
+            competition_id: Competition UUID
+
+        Returns:
+            List of Event ORM objects where commence_time > now() and status = 'upcoming'
+        """
+        current_time = now_utc()
+        result = await self.session.execute(
+            select(Event).where(
+                Event.competition_id == competition_id,
+                Event.commence_time > current_time,
+                Event.status == "upcoming"
+            ).order_by(Event.commence_time)
+        )
+        return list(result.scalars().all())
+
     async def update_status(self, event_id: UUID, status: str) -> None:
         event = await self.get_by_id(event_id)
         if event:

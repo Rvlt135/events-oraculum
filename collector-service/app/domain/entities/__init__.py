@@ -1,5 +1,5 @@
-from app.domain.entities.sport import SportEntity
-from app.domain.entities.competition import CompetitionEntity
+from app.domain.entities.data_layer.sport import SportEntity
+from app.domain.entities.data_layer.competition import CompetitionEntity
 from app.domain.entities.odds_models.odds import (
     BookmakerDTO,
     OddsOutcomeDTO,

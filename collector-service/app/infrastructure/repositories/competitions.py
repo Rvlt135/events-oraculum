@@ -2,10 +2,13 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 import structlog
 
+from app.domain.entities import CompetitionEntity
 from app.infrastructure.db.orm.competition import Competition
 from app.infrastructure.repositories.base import BaseRepository
+from app.utils.time_utils import now_utc
 
 logger = structlog.get_logger()
 
@@ -116,3 +119,76 @@ class CompetitionsRepository(BaseRepository[Competition]):
             )
         )
         return list(result.scalars().all())
+
+    # TODO: New
+    async def bulk_upsert(self, competitions: list[CompetitionEntity]) -> list[Competition]:
+        """
+        Bulk upsert competitions by unique key (provider, slug_key).
+        
+        Performs INSERT ... ON CONFLICT DO UPDATE for multiple competition records.
+        Updates only mutable fields: title, plan_visibility, is_active, api_sources, updated_at.
+        
+        Args:
+            competitions: List of CompetitionEntity to upsert (sport_id must be set)
+            
+        Returns:
+            List of Competition ORM models with actual id and sport_id values assigned by DB
+        """
+        if not competitions:
+            logger.debug("bulk_upsert_competitions_empty_input")
+            return []
+        
+        try:
+            logger.info("bulk_upsert_competitions_started", count=len(competitions))
+            
+            # Build insert values from CompetitionEntity
+            values = []
+            for comp_entity in competitions:
+                values.append({
+                    "provider": comp_entity.provider,
+                    "slug_key": comp_entity.slug_key,
+                    "sport_id": comp_entity.sport_id,
+                    "title": comp_entity.title,
+                    "plan_visibility": comp_entity.plan_visibility,
+                    "is_active": comp_entity.is_active,
+                    "api_sources": comp_entity.api_sources or {},
+                })
+            
+            # Build INSERT ... ON CONFLICT DO UPDATE statement
+            stmt = insert(Competition).values(values)
+            
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_competitions_slug_key",
+                set_={
+                    "title": stmt.excluded.title,
+                    "plan_visibility": stmt.excluded.plan_visibility,
+                    "is_active": stmt.excluded.is_active,
+                    "api_sources": stmt.excluded.api_sources,
+                    "updated_at": now_utc(),
+                }
+            ).returning(Competition)
+            
+            # Execute and fetch results
+            result = await self.session.execute(stmt)
+            await self.session.flush()
+            
+            upserted_competitions = list(result.scalars().all())
+            
+            logger.debug(
+                "bulk_upsert_competitions_completed",
+                input_count=len(competitions),
+                upserted_count=len(upserted_competitions),
+            )
+            
+            logger.info("bulk_upsert_competitions_success", count=len(upserted_competitions))
+            
+            return upserted_competitions
+            
+        except Exception as e:
+            logger.error(
+                "bulk_upsert_competitions_failed",
+                error=str(e),
+                count=len(competitions) if competitions else 0,
+                exc_info=True,
+            )
+            raise

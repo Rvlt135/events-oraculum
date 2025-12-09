@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -16,14 +17,14 @@ class PoissonInputFeaturesDTO(BaseModel):
     poisson_features: dict[UUID, PoissonFeaturesDTO]
 
 class PoissonModelDTO(BaseModel):
-        event_id: UUID
-        competition_id: UUID
-        season: int
-        goal_probs_home: list[float]   # P(0), P(1), ... P(6)
-        goal_probs_away: list[float]
-        p_home: float
-        p_draw: float
-        p_away: float
-        fair_home: float
-        fair_draw: float
-        fair_away: float
+    event_id: Optional[UUID] = None
+    competition_id: UUID
+    season: int
+    goal_probs_home: list[float]   # P(0), P(1), ... P(6)
+    goal_probs_away: list[float]
+    p_home: float
+    p_draw: float
+    p_away: float
+    fair_home: float
+    fair_draw: float
+    fair_away: float

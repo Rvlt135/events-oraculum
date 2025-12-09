@@ -7,22 +7,6 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 import redis.asyncio as redis
 
-from app.builders.event_layer.event_layer_builder import EventLayerBuilder
-from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
-from app.builders.feature_layer.team_features import TeamFeaturesBuilder
-from app.builders.feature_layer.match_features import MatchFeaturesBuilder
-from app.builders.models_layer.elo_model_builder import EloModelBuilder
-from app.builders.models_layer.poisson_model_builder import PoissonModelBuilder
-from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
-from app.infrastructure.cache.catalog.sports import SportsCache
-from app.infrastructure.cache.catalog.competitions import CompetitionsCache
-from app.infrastructure.cache.catalog.events import EventsCache
-from app.infrastructure.cache.catalog.odds import OddsCache
-from app.infrastructure.cache.catalog.standings import StandingsFootballCache
-from app.infrastructure.cache.events_layer.events_layer_cache import EventsLayerCache
-from app.infrastructure.cache.feature_layer.team_features import TeamFeaturesCache
-from app.infrastructure.cache.models_layer.models_layer_cache import ModelsLayerCache
-from app.infrastructure.cache.tasks_cache import TasksCache
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.api_football import APIFootballClient
@@ -30,26 +14,11 @@ from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.ai.config_loader import AIConfigLoader, get_ai_config_loader
 from app.infrastructure.ai.clients.prioritizer import PrioritizerLLMClient
 from app.infrastructure.config.policy_loader import PolicyLoader
-from app.services.event_layer.event_layer_service import EventLayerService
-from app.services.models_layer.layer_model_service import LayerModelService
-from app.services.odds_service import OddsService
-from app.services.sports_service import SportsService
-from app.services.events_service import EventsService
 from app.services.llm_service import LLMService
-from app.services.prioritizer_service import PrioritizerService
-from app.services.statistics_collect import StatisticsCollectService
-from app.services.teams_sync_service import TeamsSyncService
-from app.services.feature_layer.team_features import TeamFeaturesService
-from app.infrastructure.cache.catalog.events import EventsCache
 from app.config.settings import settings
 
 if TYPE_CHECKING:
-    from app.services.sports_service import SportsService
-    from app.services.events_service import EventsService
     from app.services.llm_service import LLMService
-    from app.services.prioritizer_service import PrioritizerService
-    from app.services.teams_sync_service import TeamsSyncService
-    from app.services.feature_layer.team_features import TeamFeaturesService
 
 logger = structlog.get_logger()
 

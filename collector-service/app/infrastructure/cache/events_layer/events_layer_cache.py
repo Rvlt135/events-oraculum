@@ -136,6 +136,19 @@ class EventsLayerCache:
             logger.debug("set_bundles_failed", error=str(e), total=len(items))
             return 0
 
+    async def get_bundle(self, event_id: UUID) -> EventFeatureBundleDTO | None:
+        """Get event feature bundle from cache by event ID.
+
+        Args:
+            event_id: Event identifier.
+
+        Returns:
+            EventFeatureBundleDTO if found in cache, None otherwise.
+        """
+        key = self._key_bundle(event_id)
+        raw_value = await self._r.get(key)
+        return self._deserialize_events_bundle(raw_value)
+
     async def get_bundles(self, event_ids: list[UUID]) -> dict[UUID, EventFeatureBundleDTO]:
         """Get event feature bundles from cache by event IDs.
 

@@ -45,7 +45,7 @@ class OddsAPIClient:
         return load_mock_odds()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def get_sports(self, all_sports: bool = False) -> List[Dict[str, Any]]:
+    async def get_sports(self, all_sports: bool = False) -> SportList:
         params = {"all": all_sports}
         url = self.base.build_url("sports")
         
@@ -65,7 +65,7 @@ class OddsAPIClient:
                     validated_sports.append(sport.model_dump())
                 except Exception as e:
                     logger.warning("sport_validation_failed", sport_data=sport_data, error=str(e))
-            return validated_sports
+            return SportList(sports=validated_sports)
         elif isinstance(raw_json, dict) and "sports" in raw_json:
             # Response is wrapped in {"sports": [...]}
             logger.info("api_returned_wrapped_list", count=len(raw_json.get("sports", [])))

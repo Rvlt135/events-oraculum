@@ -10,7 +10,7 @@ from starlette.requests import Request
 import structlog
 
 from app.config.settings import settings
-from app.api.routes import admin, public, tasks
+from app.api.routes import admin, public, tasks, bundles
 from app.infrastructure.di.container import Container, create_container, dispose_container
 
 structlog.configure(
@@ -112,6 +112,10 @@ def create_app(env: str = "development") -> FastAPI:
         app.include_router(
             admin.router,
             prefix=settings.admin_prefix,
+            include_in_schema=include_admin_in_schema,
+        )
+        app.include_router(
+            bundles.router,
             include_in_schema=include_admin_in_schema,
         )
         app.include_router(

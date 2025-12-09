@@ -1,8 +1,9 @@
-from typing import AsyncGenerator, TYPE_CHECKING
+from typing import AsyncGenerator
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.builders.data_layer.data_layer_builder import DataLayerBuilder
 from app.config.settings import settings as _settings, Settings
 from app.builders.event_layer.event_layer_builder import EventLayerBuilder
 from app.builders.feature_layer.poisson_feature_builder import PoissonFeaturesBuilder
@@ -14,7 +15,6 @@ from app.infrastructure.ai.config_loader import get_ai_config_loader
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
-from app.infrastructure.cache.catalog.events import EventsCache
 from app.infrastructure.cache.catalog.odds import OddsCache
 from app.infrastructure.cache.catalog.standings import StandingsFootballCache
 from app.infrastructure.cache.events_layer.events_layer_cache import EventsLayerCache
@@ -25,15 +25,13 @@ from app.infrastructure.di.container import Container
 from app.services.event_layer.event_layer_service import EventLayerService
 from app.services.models_layer.layer_model_service import LayerModelService
 from app.services.odds_service import OddsService
-from app.services.sports_service import SportsService
+from app.services.data_layer.sports_service import SportsService
 from app.services.events_service import EventsService
-from app.services.llm_service import LLMService
 from app.services.prioritizer_service import PrioritizerService
 from app.services.statistics_collect import StatisticsCollectService
 from app.services.teams_sync_service import TeamsSyncService
 from app.services.feature_layer.team_features import TeamFeaturesService
 from app.infrastructure.cache.catalog.events import EventsCache
-from app.config.settings import settings
 
 # if TYPE_CHECKING:
 #     from app.services.sports_service import SportsService
@@ -95,6 +93,7 @@ def create_sports_service(container: Container) -> "SportsService":
     sports_cache = SportsCache(container.redis_cache)
     competitions_cache = CompetitionsCache(container.redis_cache)
     catalog_cache_helper = CatalogCacheHelper(sports_cache, competitions_cache)
+    data_builder = DataLayerBuilder(policy_loader=container.policy_loader)
     return SportsService(
         odds_client=container.odds_client,
         session_factory=container.session_factory,
@@ -102,6 +101,7 @@ def create_sports_service(container: Container) -> "SportsService":
         competitions_cache=competitions_cache,
         catalog_cache_helper=catalog_cache_helper,
         policy_loader=container.policy_loader,
+        data_builder=data_builder
     )
 
 def create_events_service(container: Container) -> "EventsService":

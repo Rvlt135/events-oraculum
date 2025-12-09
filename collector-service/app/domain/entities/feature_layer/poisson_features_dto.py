@@ -1,9 +1,11 @@
+from typing import Optional
+
 from pydantic import BaseModel
 from uuid import UUID
 
 
 class PoissonFeaturesDTO(BaseModel):
-    event_id: UUID
+    event_id: Optional[UUID] = None
     home_team_id: UUID
     away_team_id: UUID
     competition_id: UUID

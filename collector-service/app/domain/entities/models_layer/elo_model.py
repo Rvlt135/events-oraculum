@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -16,7 +17,7 @@ class EloInputFeaturesDTO(BaseModel):
 
 
 class EloModelDTO(BaseModel):
-    event_id: UUID
+    event_id: Optional[UUID] = None
     elo_home_new: float
     elo_away_new: float
     expected_home: float

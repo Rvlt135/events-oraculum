@@ -39,9 +39,15 @@ async def collect_sports_task() -> Dict[str, str]:
         container: "Container" = broker.state.container
 
         sports_service = create_sports_service(container)
+        # Get visibility map from policy loader
+        policy_dto = sports_service.policy_loader.visibility_map("odds_api")
+        visibility_sports_map = policy_dto.sports_visibility
+        visibility_competitions_map = policy_dto.competitions_visibility
         
         # Delegate to service for business logic
-        result = await sports_service.sync_sports_and_competitions()
+        dto = await sports_service.fetch_and_prepare_sports(visibility_sports_map, visibility_competitions_map)
+
+        result = await sports_service.save_sports_and_competitions(dto)
         
         duration = (now_utc() - start_time).total_seconds()
         collection_duration.observe(duration)
@@ -52,13 +58,13 @@ async def collect_sports_task() -> Dict[str, str]:
             **result
         )
         
-        # Handle new nested result structure
-        categories_count = result.get("categories", {}).get("synced_count", 0)
-        competitions_count = result.get("competitions", {}).get("synced_count", 0)
+        # Extract counts from result
+        sports_count = result.get("sports_count", 0)
+        competitions_count = result.get("competitions_count", 0)
         
         return {
-            "status": result["status"],
-            "categories_synced": str(categories_count),
+            "status": "ok",
+            "categories_synced": str(sports_count),
             "competitions_synced": str(competitions_count),
             "timestamp": now_utc().isoformat(),
         }

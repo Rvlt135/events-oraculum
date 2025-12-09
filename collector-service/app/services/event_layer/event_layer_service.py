@@ -81,7 +81,6 @@ class EventLayerService:
         
         return len(bundles)
 
-
     async def load_enriched_bundles(self, event_ids: list[UUID]) -> dict[UUID, EventFeatureBundleDTO]:
         """Load enriched event feature bundles from cache and database.
         
@@ -180,3 +179,87 @@ class EventLayerService:
         )
         
         return db_count
+
+    async def get_bundle(self, event_id: UUID) -> EventFeatureBundleDTO | None:
+        """Get single event feature bundle from cache and database.
+        
+        Args:
+            event_id: Event identifier to fetch bundle for.
+            
+        Returns:
+            EventFeatureBundleDTO if found, None otherwise.
+        """
+        # Try cache first
+        cached = await self.event_layer_cache.get_bundles(event_id)
+        if cached is not None:
+            return cached
+        
+        # Load from DB
+        async with self.session_factory() as session:
+            repo = EventLayerRepository(session)
+            raw_json = await repo.get_bundle_json(event_id)
+        
+        if raw_json is None:
+            return None
+        
+        # Build DTO
+        bundle = EventFeatureBundleDTO(**raw_json)
+        
+        # Cache the result
+        await self.event_layer_cache.set_bundle(event_id, bundle)
+        
+        return bundle
+
+    async def get_events_bundles(
+        self,
+        event_ids: list[UUID],
+    ) -> list[EventFeatureBundleDTO]:
+        """Get event feature bundles from cache and database.
+        
+        Args:
+            event_ids: List of event identifiers to fetch bundles for.
+            
+        Returns:
+            List of EventFeatureBundleDTO instances, preserving original order.
+        """
+        if not event_ids:
+            return []
+        
+        # Cache lookup
+        cached: dict[UUID, EventFeatureBundleDTO] = await self.event_layer_cache.get_bundles(event_ids)
+        missing: list[UUID] = [eid for eid in event_ids if eid not in cached]
+        
+        logger.debug("cache_hit", count=len(cached))
+        logger.debug("cache_miss", count=len(missing))
+        
+        # If all found in cache, return early
+        if not missing:
+            return [cached[eid] for eid in event_ids]
+        
+        # DB lookup for missing
+        async with self.session_factory() as session:
+            repo = EventLayerRepository(session)
+            rows: dict[UUID, dict | None] = await repo.get_bundles_json(missing)
+        
+        # Convert raw rows to DTO
+        loaded: dict[UUID, EventFeatureBundleDTO] = {}
+        for eid, raw_json in rows.items():
+            if raw_json:
+                try:
+                    loaded[eid] = EventFeatureBundleDTO(**raw_json)
+                except Exception:
+                    logger.debug("bundle_parse_failed", event_id=str(eid))
+        
+        logger.debug("db_fallback", count=len(loaded))
+        
+        # Cache set
+        if loaded:
+            await self.event_layer_cache.set_bundles(loaded)
+        
+        # Merge maps
+        merged: dict[UUID, EventFeatureBundleDTO] = {**cached, **loaded}
+        
+        logger.debug("merged_count", count=len(merged))
+        
+        # Return ordered list preserving event_ids input
+        return [merged[eid] for eid in event_ids if eid in merged]

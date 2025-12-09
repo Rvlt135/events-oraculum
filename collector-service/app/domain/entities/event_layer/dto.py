@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -33,6 +34,16 @@ class UpcomingEventDTO(BaseModel):
     competition_id: UUID
     season: int
     market_odds: MarketOddsDTO
+
+
+class UpcomingEventCatalogDTO(BaseModel):
+    """Simplified DTO for upcoming events catalog without market odds."""
+    event_id: UUID
+    competition_id: UUID
+    season: int
+    home_id: UUID
+    away_id: UUID
+    date: datetime
 
 class EventLayerBuildInputDTO(BaseModel):
     events: list[UpcomingEventDTO]

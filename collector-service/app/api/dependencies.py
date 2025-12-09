@@ -14,13 +14,14 @@ from app.infrastructure.di.factory import (
     get_db_session_from_factory,
     create_sports_service,
     create_events_service,
-    create_odds_service,
+    create_odds_service, create_event_layer_service,
     # get_layer_model_service_from_container,
     # get_team_features_service_from_container
 )
+from app.services.event_layer.event_layer_service import EventLayerService
 
 if TYPE_CHECKING:
-    from app.services.sports_service import SportsService
+    from app.services.data_layer.sports_service import SportsService
     from app.services.events_service import EventsService
     from app.services.odds_service import OddsService
 
@@ -93,6 +94,22 @@ def get_events_service(request: Request) -> "EventsService":
     """
     container = request.app.state.container
     return create_events_service(container)
+
+def get_event_layer_service(request: Request) -> "EventLayerService":
+    """
+    Get EventLayerService with injected dependencies from container.
+
+    This is a thin wrapper around  that
+    extracts the container from FastAPI's request object.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        EventLayerService instance with dependencies from container
+    """
+    container = request.app.state.container
+    return create_event_layer_service(container)
 
 
 def get_odds_service(request: Request) -> "OddsService":

@@ -150,6 +150,46 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
         
         return len(orm_objects)
 
+    async def get_bundle_json(self, event_id: UUID) -> dict | None:
+        """Fetch event feature bundle JSON by event ID.
+        
+        Args:
+            event_id: Event UUID to fetch bundle for.
+            
+        Returns:
+            Bundle JSON dict if found, None otherwise.
+        """
+        stmt = select(EventFeatureBundleORM.bundle_json).where(
+            EventFeatureBundleORM.event_id == event_id
+        )
+        result = await self.session.execute(stmt)
+        bundle_json = result.scalar_one_or_none()
+        return bundle_json
+
+    async def get_bundles_json(self, event_ids: list[UUID]) -> dict[UUID, dict | None]:
+        """Fetch event feature bundle JSONs by event IDs.
+        
+        Args:
+            event_ids: List of event UUIDs to fetch bundles for.
+            
+        Returns:
+            Dictionary mapping event_id to bundle_json (or None if not found).
+        """
+        if not event_ids:
+            return {}
+        
+        stmt = select(
+            EventFeatureBundleORM.event_id,
+            EventFeatureBundleORM.bundle_json
+        ).where(
+            EventFeatureBundleORM.event_id.in_(event_ids)
+        )
+        
+        result = await self.session.execute(stmt)
+        rows = result.all()
+        
+        return {row.event_id: row.bundle_json for row in rows}
+
     async def get_bundles(self, event_ids: list[UUID]) -> list[EventFeatureBundleORM]:
         """Fetch event feature bundles by event IDs.
         

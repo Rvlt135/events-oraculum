@@ -18,6 +18,8 @@ from app.domain.entities.events.events_window import (
     EventKeyResultDTO,
     EventsRunSummaryDTO,
 )
+from app.domain.entities.event_layer.dto import UpcomingEventCatalogDTO
+
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.event import EventRepository
 from app.infrastructure.repositories.team import TeamRepository
@@ -30,6 +32,10 @@ from app.infrastructure.config.policy_loader import PolicyLoader
 from app.domain.entities.events.event import EventDTO
 from app.domain.entities.participant import EventUpsertDTO, ParticipantItemDTO
 from app.services.participants_helper import build_participants
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.domain.entities.event_layer.dto import UpcomingEventCatalogDTO
 
 logger = structlog.get_logger()
 
@@ -1109,3 +1115,71 @@ class EventsService:
 
         # Convert EventDTO to dict for JSON serialization (maintain API interface)
         return [event.model_dump(mode="json") for event in limited_events]
+
+    async def get_upcoming_events_catalog(
+        self, competition_id: UUID, season: int
+    ) -> list["UpcomingEventCatalogDTO"]:
+        """
+        Get upcoming events catalog for a competition and season.
+
+        Args:
+            competition_id: Competition UUID
+            season: Season year
+
+        Returns:
+            List of UpcomingEventCatalogDTO (empty if none found)
+        """
+
+        logger.debug(
+            "get_upcoming_events_catalog_started",
+            competition_id=str(competition_id),
+            season=season
+        )
+
+        try:
+            async with self._session_factory() as session:
+                event_repo = EventRepository(session)
+                events_orm = await event_repo.get_upcoming_events_by_competition(
+                    competition_id=competition_id
+                )
+
+                results: list[UpcomingEventCatalogDTO] = []
+                for event in events_orm:
+                    # Calculate season from commence_time (year of the event)
+                    event_season = event.commence_time.year
+
+                    # Filter by season
+                    if event_season != season:
+                        continue
+
+                    # Skip events without team IDs
+                    if not event.home_team_id or not event.away_team_id:
+                        continue
+
+                    dto = UpcomingEventCatalogDTO(
+                        event_id=event.id,
+                        competition_id=event.competition_id,
+                        season=event_season,
+                        home_id=event.home_team_id,
+                        away_id=event.away_team_id,
+                        date=event.commence_time,
+                    )
+                    results.append(dto)
+
+                logger.info(
+                    "get_upcoming_events_catalog_completed",
+                    competition_id=str(competition_id),
+                    season=season,
+                    count=len(results)
+                )
+
+                return results
+
+        except Exception as e:
+            logger.error(
+                "get_upcoming_events_catalog_failed",
+                competition_id=str(competition_id),
+                season=season,
+                error=str(e)
+            )
+            raise

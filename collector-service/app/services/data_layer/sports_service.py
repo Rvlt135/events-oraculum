@@ -7,17 +7,18 @@ from prometheus_client import Counter, Histogram
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from uuid import UUID
 
+from app.builders.data_layer.data_layer_builder import DataLayerBuilder
 from app.infrastructure.http.odds_api import OddsAPIClient
 from app.infrastructure.repositories.competitions import CompetitionsRepository
 from app.infrastructure.repositories.sport import SportRepository
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 from app.infrastructure.config.policy_loader import PolicyLoader
-from app.domain.entities.sport import SportEntity
-from app.domain.entities.competition import CompetitionEntity
+from app.domain.entities.data_layer.sport import SportEntity
+from app.domain.entities.data_layer.competition import CompetitionEntity, CompetitionReadDTO
 from app.api.schemas.schemas import SportDTO, CompetitionDTO
 from app.infrastructure.cache.catalog.catalog_cache_helper import CatalogCacheHelper
-
+from app.domain.entities.data_layer.sport_dto import SportDTO, SportsAndCompetitionsDTO
 logger = structlog.get_logger()
 
 # Metrics
@@ -37,15 +38,17 @@ class SportsService:
         competitions_cache: CompetitionsCache,
         catalog_cache_helper: CatalogCacheHelper,
         policy_loader: PolicyLoader,
+        data_builder: DataLayerBuilder
     ):
         self._odds_client = odds_client
         self._session_factory = session_factory
         self._sports_cache = sports_cache
         self._competitions_cache = competitions_cache
         self._catalog_cache_helper = catalog_cache_helper
-        self._policy_loader = policy_loader
+        self.policy_loader = policy_loader
+        self.data_builder = data_builder
 
-
+    # TODO: Legacy
     async def sync_sports_categories(self, resp: List[Dict[str, Any]]) -> dict:
         """
         Extract unique sport categories (from 'group') and upsert them into the sports table.
@@ -376,7 +379,7 @@ class SportsService:
 
             return filtered_sports
 
-    async def get_competitions_catalog(self, category: str, plan: Literal["free", "pro", "all_available"]) -> List:
+    async def get_competitions_catalog(self, category: str, plan: Literal["free", "pro", "all_available"]) -> List[CompetitionReadDTO]:
         """
         Get competitions catalog with cache-first strategy and plan filtering.
         Uses CatalogCacheHelper for cache reads and Repository for DB fallback.
@@ -415,11 +418,10 @@ class SportsService:
 
             # Convert to DTOs
             competitions_dtos = [
-                CompetitionDTO(
+                CompetitionReadDTO(
                     id=comp.id,
                     sport_id=comp.sport_id,
                     title=comp.title,
-                    provider=comp.provider,
                     slug_key=comp.slug_key,
                     plan_visibility=comp.plan_visibility,
                     is_active=comp.is_active,
@@ -436,3 +438,179 @@ class SportsService:
             logger.info("competitions_catalog_from_db_service", category=category, plan=plan, count=len(filtered_competitions))
 
             return filtered_competitions
+
+    # TODO: NEW
+
+    async def fetch_and_prepare_sports(self, visibility_sports_map: dict[str, str], visibility_competitions_map: dict[str, str]) -> SportsAndCompetitionsDTO:
+        """
+        Fetch raw sports data and normalize via builder.
+
+        Fetches sports from provider, wraps into SportList model,
+        and normalizes via DataLayerBuilder for both sports and competitions.
+
+        Returns:
+            SportsAndCompetitionsDTO with normalized sports and competitions
+        """
+        logger.debug("fetch_and_prepare_sports_started")
+
+        try:
+            # Fetch raw sports data
+            raw_sports = await self._odds_client.get_sports()
+            logger.info("fetch_and_prepare_sports_received", count=len(raw_sports.sports))
+
+            # Normalize sports via builder
+            sports_dto = self.data_builder.normalize_sports(raw_sports, visibility_sports_map)
+
+            # Normalize competitions via builder
+            competitions = self.data_builder.normalize_competitions(raw_sports, visibility_competitions_map)
+
+            logger.info(
+                "fetch_and_prepare_sports_completed",
+                sports_count=len(sports_dto),
+                competitions_count=len(competitions),
+            )
+
+            return SportsAndCompetitionsDTO(
+                sports=sports_dto,
+                competitions=competitions,
+            )
+
+        except Exception as e:
+            logger.error("fetch_and_prepare_sports_failed", error=str(e), exc_info=True)
+            return SportsAndCompetitionsDTO(sports=[], competitions=[])
+
+    async def save_sports_and_competitions(self, dto: SportsAndCompetitionsDTO) -> dict[str, int]:
+        """
+        Save sports and competitions to database and update cache.
+        
+        Upserts sports first, then maps competitions to sports by category,
+        upserts competitions with sport_id injected, and writes to cache.
+        
+        Args:
+            dto: SportsAndCompetitionsDTO containing sports and competitions to save
+            
+        Returns:
+            Dict with sports and competitions counts
+        """
+        sports_dto = dto.sports
+        competitions_entities = dto.competitions
+        
+        # Early return if both lists are empty
+        if not sports_dto and not competitions_entities:
+            logger.debug("save_sports_and_competitions_empty_input")
+            return {"sports": 0, "competitions": 0}
+        
+        logger.debug(
+            "save_sports_and_competitions_started",
+            sports_count=len(sports_dto),
+            competitions_count=len(competitions_entities),
+        )
+        
+        try:
+            async with self._session_factory() as session:
+                sports_repo = SportRepository(session)
+                comps_repo = CompetitionsRepository(session)
+                
+                # Upsert sports first
+                logger.info("bulk_upsert_sports_started", count=len(sports_dto))
+                saved_sports = await sports_repo.bulk_upsert(sports_dto)
+                logger.debug(
+                    "bulk_upsert_sports_completed",
+                    input_count=len(sports_dto),
+                    upserted_count=len(saved_sports),
+                )
+                
+                # Build mapping: category -> sport_id
+                saved_map = {model.category: model.id for model in saved_sports}
+                # Build reverse mapping: sport_id -> category
+                sport_id_to_category = {model.id: model.category for model in saved_sports}
+                
+                # Inject sport_id into competitions using comp.category
+                # Filter out competitions without matching sport
+                valid_competitions = []
+                for comp in competitions_entities:
+                    sport_id = saved_map.get(comp.category)
+                    if sport_id:
+                        comp.sport_id = sport_id
+                        valid_competitions.append(comp)
+                    else:
+                        logger.warning(
+                            "competition_skipped_no_sport",
+                            slug_key=comp.slug_key,
+                            category=comp.category,
+                        )
+                
+                # Upsert competitions
+                logger.info("bulk_upsert_competitions_started", count=len(valid_competitions))
+                saved_competitions = await comps_repo.bulk_upsert(valid_competitions) if valid_competitions else []
+                logger.debug(
+                    "bulk_upsert_competitions_completed",
+                    input_count=len(valid_competitions),
+                    upserted_count=len(saved_competitions),
+                )
+                
+                # Commit transaction
+                await session.commit()
+                
+                # Write sports cache
+                await self._sports_cache.set_catalog({
+                    "sports": [
+                        {
+                            "id": str(s.id),
+                            "category": s.category,
+                            "is_active": s.is_active,
+                            "plan_visibility": s.plan_visibility,
+                        }
+                        for s in saved_sports
+                    ]
+                })
+                
+                # Group competitions by category and write cache
+                competitions_by_category: dict[str, list] = {}
+                for c in saved_competitions:
+                    category = sport_id_to_category.get(c.sport_id)
+                    if category:
+                        if category not in competitions_by_category:
+                            competitions_by_category[category] = []
+                        competitions_by_category[category].append(c)
+                
+                # Write competitions cache by category
+                for category, comps in competitions_by_category.items():
+                    await self._competitions_cache.set_catalog(
+                        category,
+                        {
+                            "competitions": [
+                                {
+                                    "id": str(c.id),
+                                    "title": c.title,
+                                    "sport_id": str(c.sport_id),
+                                    "slug_key": c.slug_key,
+                                    "plan_visibility": c.plan_visibility,
+                                    "api_sources": c.api_sources,
+                                    "is_active": c.is_active,
+                                }
+                                for c in comps
+                            ]
+                        }
+                    )
+                
+                logger.info(
+                    "save_sports_and_competitions_completed",
+                    sports_count=len(saved_sports),
+                    competitions_count=len(saved_competitions),
+                )
+                
+                return {
+                    "sports": len(saved_sports),
+                    "competitions": len(saved_competitions),
+                }
+                
+        except Exception as e:
+            logger.error(
+                "save_sports_and_competitions_failed",
+                error=str(e),
+                sports_count=len(sports_dto) if sports_dto else 0,
+                competitions_count=len(competitions_entities) if competitions_entities else 0,
+                exc_info=True,
+            )
+            raise

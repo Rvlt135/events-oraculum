@@ -56,6 +56,11 @@ class ApiFootballDTO(BaseModel):
     """DTO for API Football configuration."""
     competitions: Dict[str, ApiFootballCompetitionDTO] = {}
 
+class ProviderPolicyDTO(BaseModel):
+    provider: str
+    sports_visibility: dict[str, str]
+    competitions_visibility: dict[str, str]
+
 
 class PolicyLoader:
     """Policy loader with in-memory cache."""
@@ -291,7 +296,109 @@ class PolicyLoader:
         participants_config = provider_config.get("participants", {})
         mode_by_sport = participants_config.get("participant_mode_by_sport", {})
         return mode_by_sport.get(sport_key.lower(), "unknown")
-    
+
+    def _normalize_key(self, key: str) -> str:
+        """
+        Normalize key using legacy normalization logic.
+        
+        Args:
+            key: Raw key string
+            
+        Returns:
+            Normalized key (lowercase, stripped, spaces replaced with underscores)
+        """
+        if not key:
+            return ""
+        normalized = key.lower().strip()
+        # Replace spaces with underscores (legacy normalization)
+        normalized = normalized.replace(" ", "_")
+        return normalized
+
+    def visibility_map(self, provider: str) -> ProviderPolicyDTO:
+        """
+        Generate visibility maps for sports and competitions.
+        
+        Args:
+            provider: Provider name (e.g., "odds_api")
+            
+        Returns:
+            ProviderPolicyDTO with sports_visibility and competitions_visibility maps
+        """
+        # Check cache first
+        if not self._cache:
+            logger.debug("visibility_map_cache_empty", provider=provider)
+            return ProviderPolicyDTO(
+                provider=provider,
+                sports_visibility={},
+                competitions_visibility={},
+            )
+        
+        # Load provider section
+        data = self._cache.get(provider, {})
+        if not data:
+            logger.debug("visibility_map_provider_not_found", provider=provider)
+            return ProviderPolicyDTO(
+                provider=provider,
+                sports_visibility={},
+                competitions_visibility={},
+            )
+        
+        try:
+            sports_cfg = data.get("sports", {})
+            comps_cfg = data.get("competitions", {})
+            
+            # Build sports visibility map
+            sports_visibility: dict[str, str] = {}
+            for item in sports_cfg.get("free", []):
+                normalized_key = self._normalize_key(item)
+                if normalized_key:
+                    sports_visibility[normalized_key] = "free"
+            
+            for item in sports_cfg.get("pro", []):
+                normalized_key = self._normalize_key(item)
+                if normalized_key:
+                    # Pro overrides free if same key exists
+                    sports_visibility[normalized_key] = "pro"
+            
+            # Build competitions visibility map
+            competitions_visibility: dict[str, str] = {}
+            for item in comps_cfg.get("free", []):
+                normalized_key = self._normalize_key(item)
+                if normalized_key:
+                    competitions_visibility[normalized_key] = "free"
+            
+            for item in comps_cfg.get("pro", []):
+                normalized_key = self._normalize_key(item)
+                if normalized_key:
+                    # Pro overrides free if same key exists
+                    competitions_visibility[normalized_key] = "pro"
+            
+            logger.debug(
+                "visibility_map_built",
+                provider=provider,
+                sports_count=len(sports_visibility),
+                competitions_count=len(competitions_visibility),
+            )
+            
+            return ProviderPolicyDTO(
+                provider=provider,
+                sports_visibility=sports_visibility,
+                competitions_visibility=competitions_visibility,
+            )
+            
+        except Exception as e:
+            logger.error(
+                "visibility_map_build_failed",
+                provider=provider,
+                error=str(e),
+                exc_info=True,
+            )
+            return ProviderPolicyDTO(
+                provider=provider,
+                sports_visibility={},
+                competitions_visibility={},
+            )
+
     def reload(self) -> None:
         """Reload policy from file (dev-only)."""
         self._cache = None

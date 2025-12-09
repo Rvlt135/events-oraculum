@@ -6,6 +6,8 @@ from typing import List, Literal, Optional
 import structlog
 
 from app.api.schemas.schemas import SportDTO, CompetitionDTO
+from app.domain.entities import CompetitionEntity
+from app.domain.entities.data_layer.competition import CompetitionReadDTO
 from app.infrastructure.cache.catalog.sports import SportsCache
 from app.infrastructure.cache.catalog.competitions import CompetitionsCache
 
@@ -55,7 +57,7 @@ class CatalogCacheHelper:
 
     async def get_competitions_from_cache(
         self, category: str, plan: PlanFilter
-    ) -> Optional[List[CompetitionDTO]]:
+    ) -> Optional[List[CompetitionReadDTO]]:
         """
         Get competitions catalog from cache only.
 
@@ -76,7 +78,7 @@ class CatalogCacheHelper:
             return None
 
         logger.info("competitions_catalog_from_cache", category=category, count=len(cached_data["competitions"]))
-        competitions_dtos = [CompetitionDTO(**comp) for comp in cached_data["competitions"]]
+        competitions_dtos = [CompetitionReadDTO(**comp) for comp in cached_data["competitions"]]
 
         # Filter by plan
         filtered = self.filter_competitions_by_plan(competitions_dtos, plan)
@@ -98,7 +100,7 @@ class CatalogCacheHelper:
         await self.sports_cache.set_catalog(cache_data)
         logger.info("sports_cache_warmed", count=len(sports_dtos))
 
-    async def warm_competitions_cache(self, category: str, competitions_dtos: List[CompetitionDTO]) -> None:
+    async def warm_competitions_cache(self, category: str, competitions_dtos: List[CompetitionReadDTO]) -> None:
         """
         Warm competitions cache with provided DTOs.
 
@@ -133,8 +135,8 @@ class CatalogCacheHelper:
         return []
 
     def filter_competitions_by_plan(
-        self, competitions: List[CompetitionDTO], plan: PlanFilter
-    ) -> List[CompetitionDTO]:
+        self, competitions: List[CompetitionReadDTO], plan: PlanFilter
+    ) -> List[CompetitionReadDTO]:
         """
         Filter competitions by plan using plan_visibility from DTO.
         
@@ -153,7 +155,7 @@ class CatalogCacheHelper:
 
         return []
 
-    async def get_competitions_by_slugs(self, category: str, slugs: list[str]) -> list[CompetitionDTO]:
+    async def get_competitions_by_slugs(self, category: str, slugs: list[str]) -> list[CompetitionReadDTO]:
         """
         Get competitions from cache filtered by slug_key.
         
@@ -169,9 +171,13 @@ class CatalogCacheHelper:
             
             if not cached or "competitions" not in cached:
                 return []
-            
+
             slugs_set = set(slugs)
-            competitions_dtos = [CompetitionDTO(**comp) for comp in cached["competitions"]]
+            competitions_dtos = [CompetitionReadDTO(id=comp["id"], sport_id=comp["sport_id"], slug_key=comp["slug_key"],
+                                                   title=comp["title"],
+                                                   plan_visibility=comp["plan_visibility"],
+                                                   is_active=comp["is_active"],
+                                                   api_sources=comp["api_sources"]) for comp in cached["competitions"]]
             
             filtered = [c for c in competitions_dtos if c.slug_key in slugs_set]
             

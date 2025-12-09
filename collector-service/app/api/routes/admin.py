@@ -26,6 +26,7 @@ from app.api.schemas.schemas import (
     CompetitionDTO,
 )
 from app.config.security import verify_admin_token
+from app.domain.entities.data_layer.competition import CompetitionReadDTO
 from app.infrastructure.repositories import NormalizedOddsRepository
 
 # from app.infrastructure.di.services import get_events_service
@@ -104,7 +105,7 @@ async def get_sports_catalog(
         raise HTTPException(status_code=500, detail="Failed to fetch sports catalog")
 
 
-@router.get("/catalog/competitions", response_model=List[CompetitionDTO])
+@router.get("/catalog/competitions", response_model=List[CompetitionReadDTO])
 async def get_competitions_catalog(
     category: str = Query(..., description="Sport category (e.g., soccer, tennis)"),
     plan: Literal["free", "pro", "all_available"] = Query(
@@ -113,7 +114,7 @@ async def get_competitions_catalog(
     ),
     sports_service = Depends(get_sports_service),
     _auth: None = Depends(verify_admin_token),
-) -> List[CompetitionDTO]:
+) -> List[CompetitionReadDTO]:
     """
     Get competitions catalog for a specific category with cache-first strategy.
 
@@ -147,30 +148,51 @@ async def get_competitions_catalog(
 
 @router.get("/catalog/events/upcoming")
 async def get_upcoming_events_catalog(
+    competition_id: UUID = Query(..., description="Competition UUID"),
+    season: int = Query(..., description="Season year"),
     _auth: None = Depends(verify_admin_token),
     events_service = Depends(get_events_service),
-):
+) -> list:
     """
-    Get upcoming events from process cache (E10).
+    Get upcoming events catalog for a competition and season.
 
-    Returns flat list of upcoming events aggregated from all enabled competitions.
-    Data source: catalog:events:{slug_key}:upcoming cache keys.
+    Returns list of upcoming events filtered by competition_id and season.
+    Only events with commence_time > now() are returned.
 
-    No filters, no pagination - returns up to limit from provider_policy.admin.events_view_limit.
+    Args:
+        competition_id: Competition UUID
+        season: Season year
+
+    Returns:
+        List of UpcomingEventCatalogDTO (empty if none found)
     """
-    logger.info("get_upcoming_events_catalog_endpoint")
+    logger.debug(
+        "get_upcoming_events_catalog_endpoint",
+        competition_id=str(competition_id),
+        season=season
+    )
 
     try:
-        events = await events_service.get_upcoming_events_from_cache()
+        events = await events_service.get_upcoming_events_catalog(
+            competition_id=competition_id,
+            season=season
+        )
 
-        logger.info("upcoming_events_returned", count=len(events))
-        return {
-            "count": len(events),
-            "events": events
-        }
+        logger.info(
+            "upcoming_events_returned",
+            competition_id=str(competition_id),
+            season=season,
+            count=len(events)
+        )
+        return events
 
     except Exception as e:
-        logger.error("failed_to_get_upcoming_events", error=str(e))
+        logger.error(
+            "failed_to_get_upcoming_events",
+            competition_id=str(competition_id),
+            season=season,
+            error=str(e)
+        )
         raise HTTPException(status_code=500, detail="Failed to fetch upcoming events")
 
 
