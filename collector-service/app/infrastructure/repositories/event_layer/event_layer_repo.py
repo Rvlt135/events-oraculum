@@ -280,3 +280,27 @@ class EventLayerRepository(BaseRepository[EventFeatureBundleORM]):
         )
         
         return len(items)
+
+    async def get_edges_json(self, event_ids: list[UUID]) -> dict[UUID, dict | None]:
+        """Fetch event edge JSONs by event IDs.
+        
+        Args:
+            event_ids: List of event UUIDs to fetch edges for.
+            
+        Returns:
+            Dictionary mapping event_id to edges_json (or None if not found).
+        """
+        if not event_ids:
+            return {}
+        
+        stmt = select(
+            EventEdgeORM.event_id,
+            EventEdgeORM.edges_json
+        ).where(
+            EventEdgeORM.event_id.in_(event_ids)
+        )
+        
+        result = await self.session.execute(stmt)
+        rows = result.all()
+        
+        return {row.event_id: row.edges_json for row in rows}

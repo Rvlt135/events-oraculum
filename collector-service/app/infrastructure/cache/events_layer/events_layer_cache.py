@@ -221,3 +221,91 @@ class EventsLayerCache:
         except Exception as e:
             logger.debug("store_edges_failed", error=str(e), total=len(items))
             return 0
+
+    def _deserialize_edge(self, raw_value) -> EventEdgeDTO | None:
+        """Deserialize raw JSON string to EventEdgeDTO.
+        
+        Args:
+            raw_value: Raw JSON string from cache or None.
+            
+        Returns:
+            EventEdgeDTO if valid, None otherwise.
+        """
+        if not raw_value:
+            return None
+        
+        try:
+            data = json.loads(raw_value)
+            return EventEdgeDTO(**data)
+        except Exception:
+            return None
+
+    async def get_edges(self, event_ids: list[UUID]) -> dict[UUID, EventEdgeDTO]:
+        """Get event edges from cache by event IDs.
+        
+        Args:
+            event_ids: List of event identifiers.
+            
+        Returns:
+            Dictionary mapping event_id to EventEdgeDTO (cache hits only).
+        """
+        if not event_ids:
+            return {}
+
+        logger.debug("get_edges_called", event_ids_count=len(event_ids))
+
+        async with self._r.pipeline() as pipe:
+            for event_id in event_ids:
+                key = self._key_store_edge(event_id)
+                await pipe.get(key)
+            raw_values: list[bytes | None] = await pipe.execute()
+
+        result: dict[UUID, EventEdgeDTO] = {}
+        for event_id, raw_value in zip(event_ids, raw_values):
+            dto = self._deserialize_edge(raw_value)
+            if dto is not None:
+                result[event_id] = dto
+
+        logger.debug("event_edges_cache_loaded", fetched_count=len(result))
+        return result
+
+    async def set_edges(
+        self,
+        items: dict[UUID, EventEdgeDTO],
+        ttl_sec: int | None = None,
+    ) -> int:
+        """Store event edges in Redis cache using pipeline.
+        
+        Args:
+            items: Dictionary mapping event_id to EventEdgeDTO.
+            ttl_sec: Optional TTL in seconds.
+            
+        Returns:
+            Number of successfully stored edges.
+        """
+        if not items:
+            return 0
+        
+        logger.debug("set_edges_called", count=len(items))
+        
+        try:
+            async with self._r.pipeline() as pipe:
+                for event_id, dto in items.items():
+                    key = self._key_store_edge(event_id)
+                    payload = dto.model_dump_json()
+                    
+                    if ttl_sec is not None:
+                        await pipe.set(key, payload, ex=ttl_sec)
+                    else:
+                        await pipe.set(key, payload)
+                
+                results = await pipe.execute()
+            
+            # Count successful writes (True or "OK" responses)
+            count = sum(1 for result in results if result)
+            
+            logger.debug("set_edges_completed", count=count, total=len(items))
+            return count
+        except Exception as e:
+            logger.debug("set_edges_failed", error=str(e), total=len(items))
+            return 0

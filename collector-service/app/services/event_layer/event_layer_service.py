@@ -263,3 +263,59 @@ class EventLayerService:
         
         # Return ordered list preserving event_ids input
         return [merged[eid] for eid in event_ids if eid in merged]
+
+    async def get_edges(
+        self,
+        event_ids: list[UUID],
+    ) -> dict[UUID, EventEdgeDTO]:
+        """Get event edges from cache and database.
+        
+        Args:
+            event_ids: List of event identifiers to fetch edges for.
+            
+        Returns:
+            Dictionary mapping event_id to EventEdgeDTO, preserving original order.
+        """
+        if not event_ids:
+            return {}
+        
+        # Batch cache read
+        cached_map: dict[UUID, EventEdgeDTO] = await self.event_layer_cache.get_edges(event_ids)
+        missing_ids: list[UUID] = [eid for eid in event_ids if eid not in cached_map]
+        
+        logger.debug("cache_hit", count=len(cached_map))
+        logger.debug("cache_miss", count=len(missing_ids))
+        
+        # If all found in cache, return preserving original order
+        if not missing_ids:
+            return {eid: cached_map[eid] for eid in event_ids}
+        
+        # DB lookup for missing
+        async with self.session_factory() as session:
+            repo = EventLayerRepository(session)
+            rows: dict[UUID, dict | None] = await repo.get_edges_json(missing_ids)
+        
+        # Convert raw_json into EventEdgeDTO
+        missing_edges_dict: dict[UUID, EventEdgeDTO] = {}
+        for eid, raw_json in rows.items():
+            if raw_json is not None:
+                try:
+                    edge = EventEdgeDTO(**raw_json)
+                    missing_edges_dict[eid] = edge
+                    logger.debug("edge_loaded", event_id=str(eid))
+                except Exception:
+                    logger.debug("edge_parse_failed", event_id=str(eid))
+        
+        logger.debug("db_fallback", count=len(missing_edges_dict))
+        
+        # Batch cache set
+        if missing_edges_dict:
+            await self.event_layer_cache.set_edges(missing_edges_dict)
+        
+        # Merge cached_map + missing_edges_dict
+        merged: dict[UUID, EventEdgeDTO] = {**cached_map, **missing_edges_dict}
+        
+        logger.debug("merged_count", count=len(merged))
+        
+        # Return final dict preserving original event_ids order
+        return {eid: merged[eid] for eid in event_ids if eid in merged}

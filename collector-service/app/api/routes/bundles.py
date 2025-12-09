@@ -18,7 +18,7 @@ from fastapi.params import Query
 
 from app.api.dependencies import get_odds_service, get_event_layer_service
 from app.config.security import verify_admin_token
-from app.domain.entities.event_layer.dto import EventFeatureBundleDTO
+from app.domain.entities.event_layer.dto import EventFeatureBundleDTO, EventEdgeDTO
 from app.services.event_layer.event_layer_service import EventLayerService
 
 # from app.infrastructure.di.services import get_events_service
@@ -67,65 +67,34 @@ async def get_event_bundles(
         raise HTTPException(status_code=500, detail="Failed to load event bundles")
 
 
-@router.get("events/edges")
+@router.get("/events/edges", response_model=list[EventEdgeDTO])
 async def get_event_edges(
-    slug_key: str,
-    service: EventLayerService = Depends(get_event_layer_service),
     event_ids: list[UUID] = Query(..., description="List of event IDs"),
+    service: EventLayerService = Depends(get_event_layer_service),
     _auth: None = Depends(verify_admin_token),
-) -> Dict[str, Any]:
+) -> list[EventEdgeDTO]:
+    """Get event edges for specified event IDs.
+    
+    Args:
+        event_ids: List of event identifiers to fetch edges for.
+        service: Event layer service instance.
+        _auth: Admin token verification.
+        
+    Returns:
+        List of EventEdgeDTO instances.
     """
-    Get upcoming events with odds availability for a competition.
-
-    Reads normalized odds from Redis (catalog:odds:{slug_key}:{event_id}),
-    supplements with basic event info from events cache if available.
-    Does not fail if event info is missing.
-    """
-    logger.info("get_odds_catalog_endpoint", slug_key=slug_key)
-
+    logger.info("get_event_edges_started", count=len(event_ids))
+    
     try:
-        # Get upcoming events from events cache
-        bundles = await service.get_events_edges(event_ids)
-
-        if not bundles:
-            return {
-                "slug_key": slug_key,
-                "count": 0,
-                "items": []
-            }
-
-        items = []
-        for event in upcoming_events:
-            try:
-                # Read normalized odds from odds cache
-                odds_list = await odds_service.odds_cache.read_event_odds(
-                    slug_key=slug_key,
-                    event_id=event.id
-                )
-                has_odds = len(odds_list) > 0
-            except Exception as e:
-                logger.debug(
-                    "failed_to_read_odds_for_event",
-                    slug_key=slug_key,
-                    event_id=str(event.id),
-                    error=str(e)
-                )
-                has_odds = False
-
-            items.append({
-                "event_id": str(event.id),
-                "commence_time": event.commence_time.isoformat() if event.commence_time else None,
-                "home_team": event.home_team_name or "",
-                "away_team": event.away_team_name or "",
-                "has_odds": has_odds
-            })
-
-        return {
-            "slug_key": slug_key,
-            "count": len(items),
-            "items": items
-        }
-
+        # Call service method
+        edges_map: dict[UUID, EventEdgeDTO] = await service.get_edges(event_ids)
+        
+        # Convert result dict → ordered list
+        result: list[EventEdgeDTO] = [edges_map[eid] for eid in event_ids if eid in edges_map]
+        
+        logger.info("get_event_edges_completed", count=len(result))
+        return result
+        
     except Exception as e:
-        logger.error("failed_to_get_odds_catalog", slug_key=slug_key, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch odds catalog")
+        logger.error("get_event_edges_failed", event_ids_count=len(event_ids), error=str(e))
+        raise HTTPException(status_code=500, detail="failed_to_load_edges")
