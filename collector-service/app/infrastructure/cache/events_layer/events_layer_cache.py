@@ -41,18 +41,19 @@ class EventsLayerCache:
         return f"{KEY_PREFIX_EDGE}:{event_id}" # TODO: need competition_id and season
 
     def _deserialize_events_bundle(self, raw_value) -> EventFeatureBundleDTO | None:
-        """Deserialize raw JSON string to PoissonFeaturesDTO.
-
+        """Deserialize raw JSON string to EventFeatureBundleDTO.
+        
         Args:
             raw_value: Raw JSON string from cache or None.
-
+            
         Returns:
-            PoissonFeaturesDTO if valid, None otherwise.
+            EventFeatureBundleDTO if valid, None otherwise.
         """
         if not raw_value:
             return None
-
+        
         try:
+            # Deserialize as-is without modification - DTO handles validation
             data = json.loads(raw_value)
             return EventFeatureBundleDTO(**data)
         except Exception:
@@ -77,9 +78,8 @@ class EventsLayerCache:
         logger.debug("set_bundle_called", event_id=str(event_id))
         
         key = self._key_bundle(event_id)
-        # Use cleaned dict to remove nested event_id fields
-        clean_data = data.to_clean_dict()
-        payload = json.dumps(clean_data)
+        # Store JSON as-is without modification - cache is dumb storage
+        payload = json.dumps(data.model_dump(mode="json", exclude_none=True))
         
         try:
             if ttl_sec is not None:
@@ -116,9 +116,8 @@ class EventsLayerCache:
             async with self._r.pipeline() as pipe:
                 for event_id, data in items.items():
                     key = self._key_bundle(event_id)
-                    # Use cleaned dict to remove nested event_id fields
-                    clean_data = data.to_clean_dict()
-                    payload = json.dumps(clean_data)
+                    # Store JSON as-is without modification - cache is dumb storage
+                    payload = json.dumps(data.model_dump(mode="json", exclude_none=True))
                     
                     if ttl_sec is not None:
                         await pipe.set(key, payload, ex=ttl_sec)

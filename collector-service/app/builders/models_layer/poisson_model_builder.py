@@ -71,6 +71,12 @@ class PoissonModelBuilder:
             lambda_home = max(min(lambda_home_base, 2.5), 0.1)
             lambda_away = max(min(lambda_away_base, 2.5), 0.1)
             
+            logger.debug(
+                "poisson_lambda_clamped",
+                event_id=str(event_id),
+                lambda_home=lambda_home,
+                lambda_away=lambda_away,
+            )
             
             # Generate Poisson distributions for goals 0..6
             goal_probs_home = [self._poisson_pmf(lambda_home, g) for g in range(7)]

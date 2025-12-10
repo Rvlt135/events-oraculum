@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
 from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeaturesDTO
@@ -17,6 +17,8 @@ class EloInputFeaturesDTO(BaseModel):
 
 
 class EloModelDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
     event_id: Optional[UUID] = None
     elo_home_new: float
     elo_away_new: float

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.domain.entities.feature_layer.match_features_dto import MatchFeaturesDTO
 from app.domain.entities.feature_layer.poisson_features_dto import PoissonFeaturesDTO
@@ -53,6 +53,8 @@ class EventLayerBuildInputDTO(BaseModel):
     model_outputs: ModelScopesDTO # TODO: не понятно что здесь должно быть
 
 class EventFeatureBundleDTO(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
     event_id: UUID
 
     home_team: TeamFeaturesDTO
@@ -79,7 +81,7 @@ class EventFeatureBundleDTO(BaseModel):
         Returns:
             Dictionary representation with nested event_id fields removed.
         """
-        data = self.model_dump(mode="json")
+        data = self.model_dump(mode="json", exclude_none=True)
         
         # Remove nested event_id fields if present
         for key in ["elo_output", "poisson_output", "poisson_event_features"]:

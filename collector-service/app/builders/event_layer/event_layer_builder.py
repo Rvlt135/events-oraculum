@@ -135,10 +135,10 @@ class EventLayerBuilder:
             match_history_home = data.match_features[e.home_team_id]
             match_history_away = data.match_features[e.away_team_id]
             
-            # Poisson L2 features
+            # Poisson L2 features (raw from F3 - contains lambda values)
             poisson_event_features = data.poisson_features[e.event_id]
             
-            # Model outputs (L3)
+            # Model outputs (L3 - probabilities and fair odds only, no lambda)
             elo_output = data.model_outputs.elo_outputs[e.event_id]
             poisson_output = data.model_outputs.poisson_outputs[e.event_id]
             
@@ -193,15 +193,7 @@ class EventLayerBuilder:
                 logger.debug("parse_bundle_failed", error=f"Unsupported type: {type(raw_json).__name__}")
                 return None
             
-            # Recover nested event_id fields from root event_id
-            root_id = bundle_dict.get("event_id")
-            if root_id:
-                for key in ["elo_output", "poisson_output", "poisson_event_features"]:
-                    if key in bundle_dict and isinstance(bundle_dict[key], dict):
-                        bundle_dict[key].setdefault("event_id", root_id)
-                logger.debug("parse_bundle_recover_event_id", event_id=str(root_id))
-            
-            # Validate and create DTO
+            # Validate and create DTO (EventFeatureBundleDTO handles event_id and extra fields itself)
             bundle = EventFeatureBundleDTO.model_validate(bundle_dict)
             
             logger.debug("parse_bundle_success", event_id=str(bundle.event_id))

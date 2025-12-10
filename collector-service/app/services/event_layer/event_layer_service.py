@@ -241,14 +241,17 @@ class EventLayerService:
             repo = EventLayerRepository(session)
             rows: dict[UUID, dict | None] = await repo.get_bundles_json(missing)
         
-        # Convert raw rows to DTO
+        # Convert raw rows to DTO (no patching - EventFeatureBundleDTO handles missing fields)
         loaded: dict[UUID, EventFeatureBundleDTO] = {}
         for eid, raw_json in rows.items():
             if raw_json:
                 try:
-                    loaded[eid] = EventFeatureBundleDTO(**raw_json)
-                except Exception:
-                    logger.debug("bundle_parse_failed", event_id=str(eid))
+                    # Direct validation without mutation - DTO accepts missing nested event_id
+                    bundle = EventFeatureBundleDTO(**raw_json)
+                    loaded[eid] = bundle
+                    logger.debug("bundle_parsed", event_id=str(eid))
+                except Exception as e:
+                    logger.debug("bundle_parse_failed", event_id=str(eid), error=str(e))
         
         logger.debug("db_fallback", count=len(loaded))
         
