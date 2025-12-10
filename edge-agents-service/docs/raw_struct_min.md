@@ -1,0 +1,38 @@
+```
+app/
+  agents/
+    base.py
+    math_agent.py
+    trend_agent.py
+    market_agent.py
+    risk_agent.py
+    meta_agent.py
+    main_analysis_agent.py
+  app/api
+  pipelines/
+    agent_pipeline.py
+  domain/entities/
+	  agent_input_dto.py
+	  agent_output_dto.py
+	  main_analysis_output_dto.py
+  llm/
+    base.py
+    router.py
+    clients/
+	    factory.py
+	    langchain_client.py
+	    litellm_client.py
+	    openai_instructor.py
+  infrastructure/
+	  repositories/
+	    agent_output_repository.py не реализован
+	  cache/
+	    agent_cache.py не реализован
+  services/
+    agents_service.py
+  tasks/
+	  broker.py
+	  run_batch.py
+boot/
+	worker.py
+```

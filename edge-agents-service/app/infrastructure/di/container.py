@@ -11,6 +11,8 @@ from app.infrastructure.cache.redis_client import RedisCacheClient
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.collector_api_client import CollectorApiClient
+from app.llm.base import BaseLLMClient
+from app.llm.clients.factory import create_llm_client
 
 logger = structlog.get_logger()
 
@@ -26,6 +28,7 @@ class Container:
         self.redis_broker: redis.Redis | None = None
         self.redis_cache_client:  RedisCacheClient | None = None
         self.redis_broker_client: RedisCacheClient | None = None
+        self.llm_clients: BaseLLMClient | None = None
 
 
 def create_container() -> Container:
@@ -67,6 +70,8 @@ def create_container() -> Container:
 
     container.redis_cache_client = RedisCacheClient(raw_redis=container.redis_cache)
     container.redis_broker_client = RedisCacheClient(raw_redis=container.redis_broker)
+
+    container.llm_clients = create_llm_client(settings.active_model_name)
 
     return container
 

@@ -4,7 +4,7 @@ from uuid import UUID
 import asyncio
 import structlog
 
-from app.services.features import FeatureBuilder
+from app.services.legacy.features import FeatureBuilder
 from app.agents.base import Agent
 from app.agents.llm_agent import LLMAgent
 from app.llm.clients.factory import create_llm_client

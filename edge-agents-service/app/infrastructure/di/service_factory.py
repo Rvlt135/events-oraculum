@@ -1,6 +1,11 @@
+from app.agents.main_analysis_agent import MainAnalysisAgent
+from app.agents.market_agent import MarketAgent
+from app.agents.math_agent import MathAgent
 from app.infrastructure.cache import RecommendationCache
 from app.infrastructure.cache.catalog.halper import CatalogHalperCache
 from app.infrastructure.di.container import Container
+from app.llm.llm_router import LLMRouter
+from app.pipelines.agents_pipeline import AgentsPipeline
 from app.services.event_bundle_consumer import EventBundleConsumer
 from app.services.legacy.features import FeatureService
 from app.services.legacy.service import RecommendationService
@@ -20,3 +25,15 @@ def create_event_bundle_consumer(container: Container) -> EventBundleConsumer:
     return EventBundleConsumer(session_factory=container.session_factory,
                                collector_api_client=container.collector_api_client,
                                catalog_rdb_halper=catalog_rdb_halper)
+
+def create_llm_router(container: Container):
+    return LLMRouter(client=container.llm_clients)
+
+
+def create_agents_pipeline(container: Container) -> AgentsPipeline:
+    llm_router = LLMRouter(client=container.llm_clients)
+    math_agent = MathAgent(llm=llm_router)
+    market_agent = MarketAgent(llm=llm_router)
+    main_agent = MainAnalysisAgent(llm_router=llm_router)
+    agents_pipeline = AgentsPipeline([math_agent, market_agent], main_agent)
+    return agents_pipeline
