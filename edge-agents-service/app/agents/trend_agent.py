@@ -18,6 +18,7 @@ class TrendAgent(BaseAgent):
     """Analyzes team form trends and recent performance patterns."""
     
     name = "trend_agent"
+    model_id = "openai/gpt-4o-mini"
 
     def _build_prompt(self, input_data: AgentInputDTO) -> str:
         """

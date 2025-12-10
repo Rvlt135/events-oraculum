@@ -15,6 +15,7 @@ class SummarySchema(BaseModel):
     summary: str
 
 
+
 class MainAnalysisAgent:
     """Aggregates outputs from multiple agents and generates final analysis."""
     
@@ -22,6 +23,7 @@ class MainAnalysisAgent:
 
     def __init__(self, llm_router: LLMRouter):
         self.llm = llm_router
+        self.model_id = "openai/gpt-4o-mini"
 
     async def analyze(self, input_data: AgentInputDTO) -> AgentOutputDTO:
         """Not used for MainAnalysisAgent - use aggregate() instead."""
@@ -84,6 +86,7 @@ class MainAnalysisAgent:
         summary_result: SummarySchema = await self.llm.generate(
             prompt=prompt,
             schema=SummarySchema,
+            model_id=self.model_id,
         )
         
         logger.debug("summary_generated", summary_length=len(summary_result.summary))

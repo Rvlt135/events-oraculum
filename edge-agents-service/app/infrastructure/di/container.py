@@ -1,10 +1,12 @@
 """
 Dependency injection container and factory functions.
 """
+from typing import Dict
 
 import redis.asyncio as redis
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from app.config.model_loader import ModelConfig, ModelRegistry
 
 from app.config.settings import settings
 from app.infrastructure.cache.redis_client import RedisCacheClient
@@ -12,7 +14,8 @@ from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.collector_api_client import CollectorApiClient
 from app.llm.base import BaseLLMClient
-from app.llm.clients.factory import create_llm_client
+from app.llm.clients.factory import create_llm_client, create_all_clients
+from app.llm.llm_router import LLMRouter
 
 logger = structlog.get_logger()
 
@@ -28,7 +31,10 @@ class Container:
         self.redis_broker: redis.Redis | None = None
         self.redis_cache_client:  RedisCacheClient | None = None
         self.redis_broker_client: RedisCacheClient | None = None
-        self.llm_clients: BaseLLMClient | None = None
+        self.model_registry: ModelRegistry | None = None
+        self.llm_clients: Dict[str, BaseLLMClient] | None = None
+        self.llm_client: BaseLLMClient | None = None
+        self.llm_router: LLMRouter | None = None
 
 
 def create_container() -> Container:
@@ -70,8 +76,15 @@ def create_container() -> Container:
 
     container.redis_cache_client = RedisCacheClient(raw_redis=container.redis_cache)
     container.redis_broker_client = RedisCacheClient(raw_redis=container.redis_broker)
+    # registry = ModelRegistry(settings.models_config_path)
+    container.model_registry = ModelRegistry(settings.models_config_path)
+    container.llm_client = create_llm_client(settings.active_model_name) # Legacy
+    container.llm_clients = create_all_clients(container.model_registry) # create_llm_client(settings.active_model_name)
+    container.llm_router = LLMRouter(
+        clients=container.llm_clients,
+        default_model=container.model_registry.default_model_name,
+    )
 
-    container.llm_clients = create_llm_client(settings.active_model_name)
 
     return container
 

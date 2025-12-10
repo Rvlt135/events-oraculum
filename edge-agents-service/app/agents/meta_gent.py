@@ -18,6 +18,7 @@ class MetaAgent(BaseAgent):
     """Produces high-level consolidated insights from multiple model outputs."""
     
     name = "meta_agent"
+    model_id = "openai/gpt-4o-mini"
 
     def _build_prompt(self, input_data: AgentInputDTO) -> str:
         """

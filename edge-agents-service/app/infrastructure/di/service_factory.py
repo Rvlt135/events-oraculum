@@ -26,12 +26,9 @@ def create_event_bundle_consumer(container: Container) -> EventBundleConsumer:
                                collector_api_client=container.collector_api_client,
                                catalog_rdb_halper=catalog_rdb_halper)
 
-def create_llm_router(container: Container):
-    return LLMRouter(client=container.llm_clients)
-
 
 def create_agents_pipeline(container: Container) -> AgentsPipeline:
-    llm_router = LLMRouter(client=container.llm_clients)
+    llm_router = container.llm_router
     math_agent = MathAgent(llm=llm_router)
     market_agent = MarketAgent(llm=llm_router)
     main_agent = MainAnalysisAgent(llm_router=llm_router)

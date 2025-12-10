@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Type
+from typing import Dict, Any, Optional, Type, TypeVar
 from uuid import UUID
 from pydantic import BaseModel
 
 from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO
 from app.llm.llm_router import LLMRouter
-
+T = TypeVar("T", bound=BaseModel)
 
 class AgentPrediction(BaseModel):
     event_id: UUID
@@ -18,6 +18,7 @@ class AgentPrediction(BaseModel):
 
 class BaseAgent(ABC):
     name: str = "base"
+    model_id: str = "openai/gpt-4o-mini"
 
     def __init__(self, llm: LLMRouter):
         self.llm = llm
@@ -44,7 +45,7 @@ class BaseAgent(ABC):
     def _build_prompt(self, input_data: AgentInputDTO) -> str:
         raise NotImplementedError
 
-    async def _call_llm(self, prompt: str, schema: Type):
+    async def _call_llm(self, prompt: str, schema: Type[T]) -> T:
         return await self.llm.generate(prompt=prompt, schema=schema)
 
     def _validate(self, schema_output) -> AgentOutputDTO:

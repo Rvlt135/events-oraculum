@@ -12,6 +12,7 @@ class MarketReasoningSchema(BaseModel):
 
 class MarketAgent(BaseAgent):
     name = "market"
+    model_id = "openai/gpt-4o-mini"
 
     def _build_prompt(self, input_data: AgentInputDTO) -> str:
         b = input_data.bundle
