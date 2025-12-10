@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     postgres_user: str = Field(default="postgres")
     postgres_password: str = Field(default="postgres")
     postgres_db: str = Field(default="layerbit")
+    collector_api_key: str = Field(default="")
+    collector_api_url: str = Field(default="http://0.0.0.0:8083")
 
 
     @property

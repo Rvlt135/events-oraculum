@@ -3,7 +3,7 @@ from uuid import UUID
 import structlog
 
 from app.agents.base import Agent, AgentPrediction
-from app.llm.clients.base import BaseLLMClient
+from app.llm.base import BaseLLMClient
 from app.services.prompts.processor import PromptProcessor
 from app.domain.entities.recommendation import RecommendationSchema
 

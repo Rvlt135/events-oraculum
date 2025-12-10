@@ -1,3 +1,3 @@
-from .redis import RecommendationCache
+from .redis import RedisCacheClient, RecommendationCache
 
-__all__ = ["RecommendationCache"]
+__all__ = ["RedisCacheClient", "RecommendationCache"] # TODO: RecommendationCache legacy for remove

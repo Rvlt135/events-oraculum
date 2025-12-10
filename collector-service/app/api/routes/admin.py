@@ -27,6 +27,7 @@ from app.api.schemas.schemas import (
 )
 from app.config.security import verify_admin_token
 from app.domain.entities.data_layer.competition import CompetitionReadDTO
+from app.domain.entities.event_layer.dto import UpcomingEventCatalogDTO
 from app.infrastructure.repositories import NormalizedOddsRepository
 
 # from app.infrastructure.di.services import get_events_service
@@ -152,7 +153,7 @@ async def get_upcoming_events_catalog(
     season: int = Query(..., description="Season year"),
     _auth: None = Depends(verify_admin_token),
     events_service = Depends(get_events_service),
-) -> list:
+) -> list[UpcomingEventCatalogDTO]:
     """
     Get upcoming events catalog for a competition and season.
 
@@ -162,6 +163,8 @@ async def get_upcoming_events_catalog(
     Args:
         competition_id: Competition UUID
         season: Season year
+        events_service: events service
+        _auth: auth token
 
     Returns:
         List of UpcomingEventCatalogDTO (empty if none found)

@@ -91,9 +91,3 @@ class RecommendationCache:
         except Exception as e:
             logger.error("cache_delete_error", event_id=str(event_id), error=str(e))
 
-
-# recommendation_cache = RecommendationCache()
-#
-#
-# async def get_recommendation_cache() -> RecommendationCache:
-#     return recommendation_cache

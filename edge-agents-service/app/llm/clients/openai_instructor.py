@@ -6,7 +6,7 @@ import structlog
 
 from app.config.settings import settings
 from app.config.model_loader import ModelConfig
-from app.llm.clients.base import BaseLLMClient
+from app.llm.base import BaseLLMClient
 
 logger = structlog.get_logger()
 

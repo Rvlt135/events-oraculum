@@ -14,7 +14,7 @@ from app.config.settings import settings
 
 logger = structlog.get_logger()
 
-
+# TODO: legacy for delete
 class AgentRunner:
     def __init__(
         self,

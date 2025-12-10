@@ -17,3 +17,6 @@ class RedisCacheClient:
         payload = json.dumps(value)
         await self.rbd.set(key, payload, ex=ttl)
 
+    async def get_json(self, key: str) -> Optional[dict]:
+        raw = await self.rbd.get(key)
+        return json.loads(raw)

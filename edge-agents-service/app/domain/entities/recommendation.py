@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
+# TODO: legacy code for remove
 class RecommendationCreate(BaseModel):
     event_id: UUID
     league_key: str
@@ -26,7 +26,7 @@ class RecommendationSchema(BaseModel):
     )
     short_explanation: str = Field(
         max_length=200,
-        description="Brief reasoning for the recommendation (max 200 characters)"
+        description="Brief reasoning for the legacy/recommendation (max 200 characters)"
     )
     reasoning: str = Field(
         description="Detailed explanation of why this event and outcome were selected"

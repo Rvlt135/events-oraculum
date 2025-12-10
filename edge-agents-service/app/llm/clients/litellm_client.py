@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import structlog
 
 from app.config.model_loader import ModelConfig
-from app.llm.clients.base import BaseLLMClient
+from app.llm.base import BaseLLMClient
 
 logger = structlog.get_logger()
 

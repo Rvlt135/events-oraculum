@@ -13,7 +13,7 @@ from app.infrastructure.cache import RecommendationCache
 from app.infrastructure.repositories.recommendation import  RecommendationRepository
 logger = structlog.get_logger()
 
-
+# TODO: Legacy delete
 class RecommendationService:
     def __init__(
         self,

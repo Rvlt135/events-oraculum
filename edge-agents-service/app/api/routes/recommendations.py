@@ -9,7 +9,7 @@ from app.api.deps import get_recommendation_service
 from app.infrastructure.db.pg import get_session
 from app.infrastructure.repositories.recommendation import RecommendationRepository
 from app.domain.entities.recommendation import RecommendationResponse
-from app.services.recommendation.service import RecommendationService
+from app.services.legacy.service import RecommendationService
 
 router = APIRouter(prefix="/_agents", tags=["Recommendations"])
 

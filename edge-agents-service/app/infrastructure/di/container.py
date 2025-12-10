@@ -10,6 +10,7 @@ from app.config.settings import settings
 from app.infrastructure.cache.redis_client import RedisCacheClient
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
+from app.infrastructure.http.collector_api_client import CollectorApiClient
 
 logger = structlog.get_logger()
 
@@ -20,6 +21,7 @@ class Container:
     def __init__(self):
         self.engine: AsyncEngine | None = None
         self.session_factory: async_sessionmaker[AsyncSession] | None = None
+        self.collector_api_client: CollectorApiClient | None = None
         self.redis_cache: redis.Redis | None = None
         self.redis_broker: redis.Redis | None = None
         self.redis_cache_client:  RedisCacheClient | None = None
@@ -49,6 +51,11 @@ def create_container() -> Container:
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,
+    )
+
+    container.collector_api_client = CollectorApiClient(
+        api_key=settings.collector_api_key,
+        base_url=settings.collector_api_url,
     )
 
     # Create session factory
