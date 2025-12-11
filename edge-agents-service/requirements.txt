@@ -20,3 +20,5 @@ structlog>=24.4.0
 python-dateutil>=2.9.0
 pyyaml>=6.0.0
 aiolimiter>=1.2.1
+alembic>=1.17.0
+psycopg2-binary>=2.9.11

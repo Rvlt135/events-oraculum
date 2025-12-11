@@ -42,7 +42,7 @@ class BaseAgent(ABC):
         pass
 
     async def _call_llm(self, prompt_data: dict, schema: Type[T]) -> T:
-        return await self.llm.generate(prompt=prompt_data, schema=schema, model_id=self.model_id)
+        return await self.llm.generate(prompt_data=prompt_data, schema=schema, model_id=self.model_id)
 
     def _validate(self, schema_output) -> AgentOutputDTO:
         """Map schema → AgentOutputDTO"""

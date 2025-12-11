@@ -1,7 +1,7 @@
 import asyncio
 import time
 import structlog
-from typing import Type, Any, TypeVar
+from typing import Type, Any, TypeVar, Optional
 from pydantic import BaseModel
 
 from app.llm.base import BaseLLMClient
@@ -16,51 +16,78 @@ class LLMRouter:
 
     async def generate(
         self,
-        prompt: dict,
+        prompt_data: dict,
         schema: Type[T],
-        model_id: str | None = None,
+        model_id: Optional[str] = None,
     ) -> T:
         """
         Generate structured output from prompt using LLM client.
         
         Args:
-            prompt: User prompt text
+            prompt_data: Dictionary with system_prompt, user_prompt, parameters
             schema: Pydantic schema type for structured output
             model_id: Optional model identifier to route to
             
         Returns:
             Validated BaseModel instance matching schema
         """
+        # 1. Extract structured prompt fields
+        try:
+            system_prompt = prompt_data["system_prompt"]
+            user_prompt = prompt_data["user_prompt"]
+            parameters = prompt_data.get("parameters", {})
+        except KeyError as e:
+            raise ValueError(f"invalid_prompt_data: missing required field '{e}'")
+        
+        # 2. Select model backend
         client = self._select_client_if_needed(model_id)
+        selected_model_id = client.get_model_id()
+        logger.debug("model_selected", model_id=selected_model_id)
         
-        payload = self._prepare_request(prompt, schema)
+        # 3. Build payload dictionary
+        payload = {
+            "system_prompt": system_prompt,
+            "prompt": user_prompt,
+            **parameters,
+        }
+        
+        # 4. Apply JSON-mode
         payload = self._apply_json_mode(payload, client)
-        model_id = client.get_model_id()
-
-        logger.debug(
-            "request_initiated", prompt_size=len(prompt), model_id=model_id
-        )
         
+        # 5. Execute LLM call with retries
         raw = None
         latency = 0.0
         for attempt in range(3):
             try:
                 start = time.monotonic()
                 raw = await client.generate(
-                    schema=payload["schema"],
+                    schema=schema,
                     prompt=payload["prompt"],
+                    system_prompt=payload["system_prompt"],
                     json_mode=payload.get("json_mode", False),
+                    temperature=payload.get("temperature"),
+                    max_tokens=payload.get("max_tokens"),
+                    top_p=payload.get("top_p"),
                 )
                 latency = time.monotonic() - start
                 break
             except Exception as e:
+                logger.debug("retry_attempt", attempt=attempt + 1, error=str(e))
                 if attempt == 2:
                     logger.error("generation_failed", error=str(e), error_type=type(e).__name__)
+                    raise
                 await asyncio.sleep(0.5 * (2**attempt))
         
-        result: T = schema.model_validate(raw)
-
-        logger.debug("response_received", tokens=getattr(raw, "tokens", None), latency=latency)
+        # 6. Measure latency and log it
+        logger.debug("response_received", latency=latency, tokens=getattr(raw, "tokens", None))
+        
+        # 7. Validate output using provided schema
+        try:
+            raw_json = raw.model_dump_json()
+            result: T = schema.model_validate_json(raw_json)
+        except Exception as e:
+            logger.error("schema_validation_failed", error=str(e))
+            raise ValueError("schema_validation_failed")
         
         return result
 
