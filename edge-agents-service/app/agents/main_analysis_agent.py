@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Any
 from uuid import UUID
 from pydantic import BaseModel
 import structlog
@@ -75,20 +75,13 @@ class MainAnalysisAgent:
         logger.debug("agent_signals_collected", signals_count=len(agent_signals))
 
         # 3. Generate summary using LLM
-        # prompt = self._build_summary_prompt(
-        #     event_id=input_dto.event_id,
-        #     competition_id=input_dto.competition_id,
-        #     season=input_dto.season,
-        #     aggregated_score=aggregated_score,
-        #     agent_signals=agent_signals,
-        # )
-
-        prompt_data = self.prompt_processor.prepare_prompt(
-            template_name=self.prompt_name,
-            features=features
+        prompt_data = self.build_summary_prompt(
+            aggregated_score=aggregated_score,
+            agent_signals=agent_signals,
+            input_dto=input_dto,
         )
         
-        logger.debug("summary_prompt_built", prompt_length=len(prompt_data))
+        logger.debug("summary_prompt_built", template_name=prompt_data.get("template_name"))
         
         summary_result: SummarySchema = await self.llm.generate(
             prompt=prompt_data,
@@ -109,23 +102,59 @@ class MainAnalysisAgent:
             agents_outputs=agent_outputs,
         )
 
-    def _build_summary_prompt(
+    def build_summary_prompt(
         self,
-        event_id: UUID,
-        competition_id: UUID,
-        season: int,
         aggregated_score: float,
         agent_signals: List[str],
-    ) -> str:
-        """Build prompt for summary generation."""
-        signals_text = "\n".join(f"- {signal}" for signal in agent_signals) if agent_signals else "No signals available"
+        input_dto: AgentInputDTO,
+    ) -> Dict[str, Any]:
+        """
+        Build prompt for summary generation using PromptProcessor.
         
-        return (
-            f"Generate a concise natural-language summary for a betting event analysis.\n\n"
-            f"Event ID: {event_id}\n"
-            f"Competition ID: {competition_id}\n"
-            f"Season: {season}\n"
-            f"Aggregated Score: {aggregated_score:.3f}\n\n"
-            f"Agent Signals:\n{signals_text}\n\n"
-            f"Provide a brief summary (2-3 sentences) of the analysis findings."
+        Args:
+            aggregated_score: Aggregated score from all agents
+            agent_signals: List of signals from all agents
+            input_dto: AgentInputDTO containing event information
+            
+        Returns:
+            Dictionary with system_prompt, user_prompt, parameters, template_name, template_version
+            
+        Raises:
+            ValueError: If template not found
+        """
+        # Convert agent_signals to newline-joined text
+        agent_signals_text = "\n".join(f"- {signal}" for signal in agent_signals) if agent_signals else "No signals available"
+        
+        # Extract fields from input_dto
+        event_id = input_dto.bundle.event_id
+        competition_id = input_dto.competition_id
+        season = input_dto.season
+        
+        # Build context dict matching template placeholders
+        context = {
+            "event_id": str(event_id),
+            "competition_id": str(competition_id),
+            "season": season,
+            "aggregated_score": aggregated_score,
+            "agent_signals_text": agent_signals_text,
+        }
+        
+        logger.debug(
+            "building_summary_prompt",
+            event_id=str(event_id),
+            competition_id=str(competition_id),
+            season=season,
+            aggregated_score=aggregated_score,
+            signals_count=len(agent_signals),
         )
+        
+        prompt_data = self.prompt_processor.prepare_prompt(
+            template_name="main_analysis",
+            context=context,
+        )
+        
+        if prompt_data is None:
+            logger.error("template_not_found", template_name="main_analysis")
+            raise ValueError("Template 'main_analysis' not found")
+        
+        return prompt_data

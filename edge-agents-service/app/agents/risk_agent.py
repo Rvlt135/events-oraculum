@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from pydantic import BaseModel
 import structlog
 
@@ -21,83 +21,92 @@ class RiskAgent(BaseAgent):
     model_id = "openai/gpt-4o-mini"
     prompt_name = "risk_analysis"
 
-    def _build_prompt(self, input_data: AgentInputDTO) -> str:
+    def build_prompt(self, input_data: AgentInputDTO) -> Dict[str, Any]:
         """
-        Build prompt for risk analysis.
+        Build prompt for risk analysis using PromptProcessor.
         
         Args:
             input_data: AgentInputDTO containing risk-related data
             
         Returns:
-            Formatted prompt string with risk indicators
+            Dictionary with system_prompt, user_prompt, parameters, template_name, template_version
+            
+        Raises:
+            ValueError: If template not found
         """
         bundle = input_data.bundle
         edge = input_data.edge
         
-        # Poisson variance indicators
-        poisson = bundle.poisson_event_features
-        lambda_home = poisson.lambda_home
-        lambda_away = poisson.lambda_away
-        lambda_diff = abs(lambda_home - lambda_away)
-        lambda_volatility = abs(lambda_home - lambda_away) / max(lambda_home, lambda_away) if max(lambda_home, lambda_away) > 0 else 0.0
+        # Extract from poisson_event_features
+        poisson_features = bundle.poisson_event_features
+        home_lambda = poisson_features.lambda_home
+        away_lambda = poisson_features.lambda_away
+        lambda_diff = abs(home_lambda - away_lambda)
+        lambda_volatility = abs(home_lambda - away_lambda) / max(home_lambda, away_lambda) if max(home_lambda, away_lambda) > 0 else 0.0
         
-        # Elo uncertainty factor
+        # Extract from elo_output
         elo = bundle.elo_output
-        elo_uncertainty = abs(elo.expected_home - elo.expected_away)
+        expected_home = elo.expected_home or 0.0
+        expected_away = elo.expected_away or 0.0
+        elo_uncertainty = abs(expected_home - expected_away)
         
-        # Market odds gaps
+        # Extract from market_odds
         market = bundle.market_odds
         home_gap = abs(market.home_best - market.home_avg) if market.home_avg > 0 else 0.0
         away_gap = abs(market.away_best - market.away_avg) if market.away_avg > 0 else 0.0
         draw_gap = abs(market.draw_best - market.draw_avg) if market.draw_best and market.draw_avg else 0.0
         
-        # Edge percentages
+        # Extract from edge
         edge_home = edge.edge_home
         edge_away = edge.edge_away
         edge_draw = edge.edge_draw
         negative_edges = sum(1 for e in [edge_home, edge_away, edge_draw] if e < 0)
         
-        # Match history streak volatility
+        # Extract from match_history
         home_form = bundle.match_history_home.form_last_n
         away_form = bundle.match_history_away.form_last_n
         home_volatility = self._calculate_streak_volatility(home_form)
         away_volatility = self._calculate_streak_volatility(away_form)
-
-        prompt = (
-            "You are a betting risk analyst. Evaluate risk factors and model uncertainty.\n\n"
-            "POISSON VARIANCE INDICATORS:\n"
-            f"λ_home: {lambda_home:.3f}\n"
-            f"λ_away: {lambda_away:.3f}\n"
-            f"λ_difference: {lambda_diff:.3f}\n"
-            f"λ_volatility: {lambda_volatility:.3f}\n\n"
-            "ELO UNCERTAINTY:\n"
-            f"expected_home: {elo.expected_home:.3f}\n"
-            f"expected_away: {elo.expected_away:.3f}\n"
-            f"uncertainty_factor: {elo_uncertainty:.3f}\n\n"
-            "MARKET ODDS GAPS (big deviation → high risk):\n"
-            f"Home gap (best vs avg): {home_gap:.3f}\n"
-            f"Away gap (best vs avg): {away_gap:.3f}\n"
-            f"Draw gap (best vs avg): {draw_gap:.3f}\n\n"
-            "EDGE PERCENTAGES (negative or unstable → high risk):\n"
-            f"edge_home: {edge_home:.2f}%\n"
-            f"edge_away: {edge_away:.2f}%\n"
-            f"edge_draw: {edge_draw:.2f}%\n"
-            f"negative_edges_count: {negative_edges}\n\n"
-            "MATCH HISTORY STREAK VOLATILITY:\n"
-            f"Home form: {home_form} (volatility: {home_volatility})\n"
-            f"Away form: {away_form} (volatility: {away_volatility})\n\n"
-            "Analyze risk factors:\n"
-            "- High volatility in Poisson/Elo → high risk\n"
-            "- Large market odds gaps → high risk\n"
-            "- Negative edges → high risk\n"
-            "- Unstable form streaks → high risk\n"
-            "Return a score in range [-1, 1] where:\n"
-            "- Negative values = high risk (uncertain, volatile, negative edge)\n"
-            "- Positive values = low risk (stable, consistent, positive edge)\n"
-            "Include key risk signals as bullet points."
+        
+        # Build context dict matching template placeholders
+        context = {
+            "home_lambda": home_lambda,
+            "away_lambda": away_lambda,
+            "lambda_diff": lambda_diff,
+            "lambda_volatility": lambda_volatility,
+            "expected_home": expected_home,
+            "expected_away": expected_away,
+            "elo_uncertainty": elo_uncertainty,
+            "home_gap": home_gap,
+            "away_gap": away_gap,
+            "draw_gap": draw_gap,
+            "edge_home": edge_home,
+            "edge_away": edge_away,
+            "edge_draw": edge_draw,
+            "negative_edges": negative_edges,
+            "home_form": home_form,
+            "away_form": away_form,
+            "home_volatility": home_volatility,
+            "away_volatility": away_volatility,
+        }
+        
+        logger.debug(
+            "building_risk_prompt",
+            event_id=str(input_data.event_id),
+            home_lambda=home_lambda,
+            away_lambda=away_lambda,
         )
         
-        return prompt
+        prompt_data = self.prompt_processor.prepare_prompt(
+            template_name="risk_analysis",
+            context=context,
+        )
+        
+        if prompt_data is None:
+            logger.error("template_not_found", template_name="risk_analysis")
+            raise ValueError("Template 'risk_analysis' not found")
+        
+        return prompt_data
 
     def _calculate_streak_volatility(self, form: str) -> str:
         """Calculate streak volatility from form string."""
@@ -135,12 +144,12 @@ class RiskAgent(BaseAgent):
             lambda_away=input_data.bundle.poisson_event_features.lambda_away,
         )
 
-        prompt = self._build_prompt(input_data)
+        prompt = self.build_prompt(input_data)
         
-        logger.debug("risk_prompt_built", prompt_length=len(prompt))
+        logger.debug("risk_prompt_built", template_name=prompt.get("template_name"))
 
         result: RiskSchema = await self._call_llm(
-            prompt=prompt,
+            prompt_data=prompt,
             schema=RiskSchema,
         )
 

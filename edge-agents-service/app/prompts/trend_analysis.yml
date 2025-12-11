@@ -1,0 +1,39 @@
+name: trend_analysis
+version: "1.0"
+description: "Analysis of recent form and trend stability for home and away teams."
+
+system_prompt: |
+  You are a professional football trend analyst. Your task is to evaluate recent form,
+  trend direction, and momentum indicators for both teams.
+
+user_prompt_template: |
+  You are a football form and trend analyst. Analyze recent team performance trends.
+
+  HOME TEAM:
+  Recent form (last {home_matches_count} matches): {home_form}
+  Goals for (last {home_matches_count}): {home_goals_for}
+  Goals against (last {home_matches_count}): {home_goals_against}
+  Wins: {home_wins}, Draws: {home_draws}, Losses: {home_losses}
+  Trend indicator: {home_trend}
+
+  AWAY TEAM:
+  Recent form (last {away_matches_count} matches): {away_form}
+  Goals for (last {away_matches_count}): {away_goals_for}
+  Goals against (last {away_matches_count}): {away_goals_against}
+  Wins: {away_wins}, Draws: {away_draws}, Losses: {away_losses}
+  Trend indicator: {away_trend}
+
+  Analyze the trends:
+  - Positive trend = improving results (more recent wins, better goal difference)
+  - Negative trend = degrading results (more recent losses, worse goal difference)
+
+  Return a confidence score in range [-1, 1] where:
+  - Positive = home team has stronger positive trend
+  - Negative = away team has stronger positive trend
+
+  Include 2–4 short reasoning bullets.
+
+parameters:
+  temperature: 0.4
+  max_tokens: 250
+  top_p: 1.0

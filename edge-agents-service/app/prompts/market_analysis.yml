@@ -1,0 +1,35 @@
+name: market_analysis
+version: "1.0"
+description: "LLM-based evaluation of market odds and Poisson fairness"
+
+system_prompt: |
+  You are a professional betting market analyst. You evaluate Poisson fairness,
+  market odds and edge metrics, and produce a confidence score and reasoning.
+
+user_prompt_template: |
+  Poisson model fairness:
+  - fair_home={fair_home}
+  - fair_away={fair_away}
+
+  Market odds:
+  - home_best={market_home}
+  - away_best={market_away}
+
+  Edge metrics:
+  - home_edge={edge_home}
+  - draw_edge={edge_draw}
+  - away_edge={edge_away}
+
+  Task:
+  Return a JSON response with:
+  - confidence_score: number in range [-1, 1]
+  - reasoning: 3–5 bullet points
+
+parameters:
+  temperature: 0.3
+  max_tokens: 400
+  top_p: 1.0
+
+response_format:
+  confidence_score: float
+  reasoning: list[str]

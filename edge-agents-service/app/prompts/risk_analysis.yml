@@ -1,0 +1,57 @@
+name: risk_analysis
+version: "1.0"
+description: "Evaluate model uncertainty, volatility, negative edges and market instability to produce a risk score."
+
+system_prompt: |
+  You are a betting risk analyst. Your goal is to measure uncertainty, volatility,
+  market instability and negative-value indicators. Focus strictly on risk, not predictions.
+
+user_prompt_template: |
+  You are a betting risk analyst. Evaluate risk factors and model uncertainty.
+
+  POISSON VARIANCE INDICATORS:
+    home_lambda: {home_lambda}
+    away_lambda: {away_lambda}
+    lambda_difference: {lambda_diff}
+    lambda_volatility: {lambda_volatility}
+
+  ELO UNCERTAINTY:
+    expected_home: {expected_home}
+    expected_away: {expected_away}
+    elo_uncertainty: {elo_uncertainty}
+
+  MARKET ODDS GAPS (big deviation → high risk):
+    home_gap: {home_gap}
+    away_gap: {away_gap}
+    draw_gap: {draw_gap}
+
+  EDGE PERCENTAGES (negative or unstable → high risk):
+    edge_home: {edge_home}
+    edge_away: {edge_away}
+    edge_draw: {edge_draw}
+    negative_edges_count: {negative_edges}
+
+  MATCH HISTORY STREAK VOLATILITY:
+    home_form: {home_form} (volatility: {home_volatility})
+    away_form: {away_form} (volatility: {away_volatility})
+
+  Analyze risk factors:
+    - High Poisson or Elo volatility → higher risk
+    - Large market odds gaps → higher risk
+    - Negative edges → higher risk
+    - Unstable form streaks → higher risk
+
+  Return:
+    risk_score in range [-1, 1]
+        - Negative → high risk (uncertain, volatile, negative edges)
+        - Positive → low risk (stable, consistent)
+    Provide bullet-point signals explaining key risk drivers.
+
+response_format:
+  risk_score: float
+  reasoning: list[str]
+
+parameters:
+  temperature: 0.3
+  max_tokens: 350
+  top_p: 1.0

@@ -1,0 +1,33 @@
+name: main_analysis
+version: "1.0"
+description: "Generate a concise natural-language summary for final betting event analysis."
+
+system_prompt: |
+  You are a summarization assistant specializing in sports betting analytics.
+  Your task is to convert structured final agent outputs into a short, clear, human-readable summary.
+
+user_prompt_template: |
+  Generate a concise natural-language summary for a betting event analysis.
+
+  Event ID: {event_id}
+  Competition ID: {competition_id}
+  Season: {season}
+
+  Aggregated Score: {aggregated_score}
+
+  Agent Signals:
+  {agent_signals_text}
+
+  Instructions:
+  - Provide a brief summary (2–3 sentences)
+  - Highlight the most important signals
+  - Use neutral, analytical tone
+  - Do NOT make a prediction; summarize insights only.
+
+response_format:
+  summary_text: str
+
+parameters:
+  temperature: 0.4
+  max_tokens: 250
+  top_p: 1.0

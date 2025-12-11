@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from pydantic import BaseModel
 import structlog
 
@@ -21,15 +21,15 @@ class MetaAgent(BaseAgent):
     model_id = "openai/gpt-4o-mini"
     prompt_name = "meta_analysis"
 
-    def _build_prompt(self, input_data: AgentInputDTO) -> str:
+    def build_prompt(self, input_data: AgentInputDTO) -> Dict[str, Any]:
         """
-        Build prompt for meta-level analysis.
+        Build prompt using PromptProcessor with meta analysis template.
         
         Args:
             input_data: AgentInputDTO containing model outputs and features
             
         Returns:
-            Formatted prompt string with meta-level context
+            Dictionary with system_prompt, user_prompt, parameters, template_name, template_version
         """
         bundle = input_data.bundle
         edge = input_data.edge
@@ -60,42 +60,70 @@ class MetaAgent(BaseAgent):
         poisson_home_prob = poisson.p_home if poisson.p_home else 0.0
         elo_home_prob = elo.p_home if elo.p_home else 0.0
         prob_diff = abs(poisson_home_prob - elo_home_prob)
-
-        prompt = (
-            "You are a meta-level betting analyst. Synthesize insights from multiple models.\n\n"
-            "PROBABILISTIC OUTPUTS:\n"
-            "Poisson Model:\n"
-            f"  P(home)={poisson.p_home:.3f}, P(draw)={poisson.p_draw:.3f}, P(away)={poisson.p_away:.3f}\n"
-            f"  Fair odds: home={poisson_fair_home:.2f}, away={poisson_fair_away:.2f}\n"
-            "Elo Model:\n"
-            f"  P(home)={elo.p_home:.3f}, P(draw)={elo.p_draw:.3f}, P(away)={elo.p_away:.3f}\n"
-            f"  Expected: home={elo.expected_home:.3f}, away={elo.expected_away:.3f}\n\n"
-            "MARKET MISPRICING INDICATORS:\n"
-            f"Market odds: home={market.home_best:.2f}, away={market.away_best:.2f}\n"
-            f"Poisson fair: home={poisson_fair_home:.2f}, away={poisson_fair_away:.2f}\n"
-            f"Mispricing: home={market_home_mispricing:.2f}, away={market_away_mispricing:.2f}\n"
-            f"Edge: home={edge.edge_home:.2f}%, away={edge.edge_away:.2f}%, draw={edge.edge_draw:.2f}%\n\n"
-            "RECENT FORM + STREAK INSTABILITY:\n"
-            f"Home form: {home_form} (instability: {home_instability})\n"
-            f"Away form: {away_form} (instability: {away_instability})\n\n"
-            "CONFLICTING SIGNALS:\n"
-            f"Poisson favors: {'home' if poisson_favors_home else 'away'}\n"
-            f"Elo favors: {'home' if elo_favors_home else 'away'}\n"
-            f"Models conflict: {'Yes' if conflict else 'No'}\n"
-            f"Probability difference: {prob_diff:.3f}\n\n"
-            "Your goal: Produce a high-level consolidated insight, not a direct prediction.\n"
-            "Consider:\n"
-            "- Agreement/disagreement between models\n"
-            "- Market efficiency vs model predictions\n"
-            "- Form stability vs model confidence\n"
-            "- Overall meta-confidence in the analysis\n"
-            "Return a meta-confidence score in range [-1, 1] where:\n"
-            "- Positive = high confidence in consolidated insight\n"
-            "- Negative = low confidence, conflicting signals\n"
-            "Include short reasoning bullets."
+        
+        # Build context dict matching template placeholders
+        # Using simple objects for nested access in template
+        class SimpleObj:
+            def __init__(self, **kwargs):
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+        
+        context = {
+            "poisson": SimpleObj(
+                p_home=poisson.p_home or 0.0,
+                p_draw=poisson.p_draw or 0.0,
+                p_away=poisson.p_away or 0.0,
+            ),
+            "poisson_fair_home": poisson_fair_home,
+            "poisson_fair_away": poisson_fair_away,
+            "elo": SimpleObj(
+                p_home=elo.p_home or 0.0,
+                p_draw=elo.p_draw or 0.0,
+                p_away=elo.p_away or 0.0,
+                expected_home=elo.expected_home or 0.0,
+                expected_away=elo.expected_away or 0.0,
+            ),
+            "market": SimpleObj(
+                home_best=market.home_best,
+                away_best=market.away_best,
+            ),
+            "market_home_mispricing": market_home_mispricing,
+            "market_away_mispricing": market_away_mispricing,
+            "edge": SimpleObj(
+                edge_home=edge.edge_home,
+                edge_away=edge.edge_away,
+                edge_draw=edge.edge_draw,
+            ),
+            "home_form": home_form,
+            "home_instability": home_instability,
+            "away_form": away_form,
+            "away_instability": away_instability,
+            "poisson_favors_home": "home" if poisson_favors_home else "away",
+            "elo_favors_home": "home" if elo_favors_home else "away",
+            "conflict": "Yes" if conflict else "No",
+            "prob_diff": prob_diff,
+        }
+        
+        logger.info(
+            "building_meta_prompt",
+            prompt_name=self.prompt_name,
+            event_id=str(input_data.event_id),
         )
         
-        return prompt
+        prompt_data = self.prompt_processor.prepare_prompt(
+            template_name="meta_analysis",
+            context=context,
+        )
+        
+        if prompt_data is None:
+            logger.warning(
+                "template_not_found_or_invalid",
+                template_name="meta_analysis",
+                event_id=str(input_data.event_id),
+            )
+            return {}
+        
+        return prompt_data
 
     def _calculate_instability(self, form: str) -> str:
         """Calculate streak instability from form string."""
@@ -133,12 +161,16 @@ class MetaAgent(BaseAgent):
             elo_home_prob=input_data.bundle.elo_output.p_home,
         )
 
-        prompt = self._build_prompt(input_data)
+        prompt = self.build_prompt(input_data)
         
-        logger.debug("meta_prompt_built", prompt_length=len(prompt))
+        if not prompt:
+            logger.error("meta_prompt_build_failed", event_id=str(input_data.event_id))
+            raise ValueError("Failed to build meta prompt - template not found or invalid")
+        
+        logger.debug("meta_prompt_built", template_name=prompt.get("template_name"))
 
         result: MetaSchema = await self._call_llm(
-            prompt=prompt,
+            prompt_data=prompt,
             schema=MetaSchema,
         )
 

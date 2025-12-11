@@ -1,0 +1,51 @@
+name: meta_analysis
+version: "1.0"
+description: "Meta-level synthesis of probabilistic, market, and form signals."
+
+system_prompt: |
+  You are a meta-level betting analyst. Your task is to synthesize insights from
+  multiple statistical models, market signals, and recent form indicators into one
+  consolidated high-level interpretation. You do not output predictions — only a
+  meta-confidence score and reasoning.
+
+user_prompt_template: |
+  PROBABILISTIC OUTPUTS:
+  Poisson Model:
+    P(home)={poisson.p_home}, P(draw)={poisson.p_draw}, P(away)={poisson.p_away}
+    Fair odds: home={poisson_fair_home}, away={poisson_fair_away}
+
+  Elo Model:
+    P(home)={elo.p_home}, P(draw)={elo.p_draw}, P(away)={elo.p_away}
+    Expected: home={elo.expected_home}, away={elo.expected_away}
+
+  MARKET MISPRICING INDICATORS:
+    Market odds: home={market.home_best}, away={market.away_best}
+    Poisson fair: home={poisson_fair_home}, away={poisson_fair_away}
+    Mispricing: home={market_home_mispricing}, away={market_away_mispricing}
+    Edge: home={edge.edge_home}%, away={edge.edge_away}%, draw={edge.edge_draw}%
+
+  RECENT FORM + STREAK INSTABILITY:
+    Home form: {home_form} (instability: {home_instability})
+    Away form: {away_form} (instability: {away_instability})
+
+  CONFLICTING SIGNALS:
+    Poisson favors: {poisson_favors_home}
+    Elo favors: {elo_favors_home}
+    Models conflict: {conflict}
+    Probability difference: {prob_diff}
+
+  Your goal: Produce a high-level consolidated insight, not a direct prediction.
+  Consider:
+    - Agreement/disagreement between models
+    - Market efficiency vs model predictions
+    - Form stability vs model confidence
+    - Overall meta-confidence in the analysis
+
+  Return:
+    - meta-confidence score in range [-1, 1]
+    - short reasoning bullets
+
+parameters:
+  temperature: 0.4
+  max_tokens: 400
+  top_p: 0.9

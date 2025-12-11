@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from pydantic import BaseModel
 import structlog
 
@@ -21,15 +21,18 @@ class TrendAgent(BaseAgent):
     model_id = "openai/gpt-4o-mini"
     prompt_name = "trend_analysis"
 
-    def _build_prompt(self, input_data: AgentInputDTO) -> str:
+    def build_prompt(self, input_data: AgentInputDTO) -> Dict[str, Any]:
         """
-        Build prompt for trend analysis.
+        Build prompt for trend analysis using PromptProcessor.
         
         Args:
             input_data: AgentInputDTO containing match history data
             
         Returns:
-            Formatted prompt string with team form and trend indicators
+            Dictionary with system_prompt, user_prompt, parameters, template_name, template_version
+            
+        Raises:
+            ValueError: If template not found or prompt generation fails
         """
         bundle = input_data.bundle
         home_history = bundle.match_history_home
@@ -38,31 +41,44 @@ class TrendAgent(BaseAgent):
         # Calculate trend indicators
         home_trend = self._calculate_trend(home_history)
         away_trend = self._calculate_trend(away_history)
-
-        prompt = (
-            "You are a football form and trend analyst. Analyze recent team performance trends.\n\n"
-            f"HOME TEAM:\n"
-            f"Recent form (last {home_history.last_matches_count} matches): {home_history.form_last_n}\n"
-            f"Goals for (last {home_history.last_matches_count}): {home_history.goals_for_last_n}\n"
-            f"Goals against (last {home_history.last_matches_count}): {home_history.goals_against_last_n}\n"
-            f"Wins: {home_history.wins_last_n}, Draws: {home_history.draws_last_n}, Losses: {home_history.losses_last_n}\n"
-            f"Trend: {home_trend}\n\n"
-            f"AWAY TEAM:\n"
-            f"Recent form (last {away_history.last_matches_count} matches): {away_history.form_last_n}\n"
-            f"Goals for (last {away_history.last_matches_count}): {away_history.goals_for_last_n}\n"
-            f"Goals against (last {away_history.last_matches_count}): {away_history.goals_against_last_n}\n"
-            f"Wins: {away_history.wins_last_n}, Draws: {away_history.draws_last_n}, Losses: {away_history.losses_last_n}\n"
-            f"Trend: {away_trend}\n\n"
-            "Analyze the trends:\n"
-            "- Positive trend = improving results (more recent wins, better goal difference)\n"
-            "- Negative trend = degrading results (more recent losses, worse goal difference)\n"
-            "Return a confidence score in range [-1, 1] where:\n"
-            "- Positive values indicate home team has better trend\n"
-            "- Negative values indicate away team has better trend\n"
-            "Include key reasoning signals as bullet points."
+        
+        # Build context dict matching template placeholders
+        context = {
+            "home_matches_count": home_history.last_matches_count,
+            "home_form": home_history.form_last_n,
+            "home_goals_for": home_history.goals_for_last_n,
+            "home_goals_against": home_history.goals_against_last_n,
+            "home_wins": home_history.wins_last_n,
+            "home_draws": home_history.draws_last_n,
+            "home_losses": home_history.losses_last_n,
+            "home_trend": home_trend,
+            "away_matches_count": away_history.last_matches_count,
+            "away_form": away_history.form_last_n,
+            "away_goals_for": away_history.goals_for_last_n,
+            "away_goals_against": away_history.goals_against_last_n,
+            "away_wins": away_history.wins_last_n,
+            "away_draws": away_history.draws_last_n,
+            "away_losses": away_history.losses_last_n,
+            "away_trend": away_trend,
+        }
+        
+        logger.debug(
+            "building_trend_prompt",
+            event_id=str(input_data.event_id),
+            home_matches_count=home_history.last_matches_count,
+            away_matches_count=away_history.last_matches_count,
         )
         
-        return prompt
+        prompt_data = self.prompt_processor.prepare_prompt(
+            template_name="trend_analysis",
+            context=context,
+        )
+        
+        if prompt_data is None:
+            logger.error("template_not_found", template_name="trend_analysis")
+            raise ValueError("Template 'trend_analysis' not found or prompt generation failed")
+        
+        return prompt_data
 
     def _calculate_trend(self, history) -> str:
         """Calculate trend indicator from match history."""
@@ -108,12 +124,12 @@ class TrendAgent(BaseAgent):
             away_matches=input_data.bundle.match_history_away.last_matches_count,
         )
 
-        prompt = self._build_prompt(input_data)
+        prompt = self.build_prompt(input_data)
         
-        logger.debug("trend_prompt_built", prompt_length=len(prompt))
+        logger.debug("trend_prompt_built", template_name=prompt.get("template_name"))
 
         llm_result: TrendSchema = await self._call_llm(
-            prompt=prompt,
+            prompt_data=prompt,
             schema=TrendSchema,
         )
 
