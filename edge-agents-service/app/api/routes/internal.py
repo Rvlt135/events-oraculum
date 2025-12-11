@@ -2,7 +2,7 @@ from typing import Dict
 from fastapi import APIRouter
 import structlog
 
-from app.services.prompts.processor import PromptProcessor
+from app.prompts.processor import PromptProcessor
 
 logger = structlog.get_logger()
 

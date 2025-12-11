@@ -16,7 +16,7 @@ class LLMRouter:
 
     async def generate(
         self,
-        prompt: str,
+        prompt: dict,
         schema: Type[T],
         model_id: str | None = None,
     ) -> T:
@@ -114,7 +114,7 @@ class LLMRouter:
         return self.clients[self.default_model]
 
     def _prepare_request(
-        self, prompt: str, schema: Type[BaseModel]
+        self, prompt: dict, schema: Type[BaseModel]
     ) -> dict[str, Any]:
         """
         Prepare request payload with prompt and schema.

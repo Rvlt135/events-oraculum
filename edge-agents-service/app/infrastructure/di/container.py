@@ -6,7 +6,7 @@ from typing import Dict
 import redis.asyncio as redis
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
-from app.config.model_loader import ModelConfig, ModelRegistry
+from app.config.model_loader import ModelRegistry
 
 from app.config.settings import settings
 from app.infrastructure.cache.redis_client import RedisCacheClient
@@ -16,6 +16,7 @@ from app.infrastructure.http.collector_api_client import CollectorApiClient
 from app.llm.base import BaseLLMClient
 from app.llm.clients.factory import create_llm_client, create_all_clients
 from app.llm.llm_router import LLMRouter
+from app.prompts.processor import PromptProcessor
 
 logger = structlog.get_logger()
 
@@ -35,6 +36,7 @@ class Container:
         self.llm_clients: Dict[str, BaseLLMClient] | None = None
         self.llm_client: BaseLLMClient | None = None
         self.llm_router: LLMRouter | None = None
+        self.prompt_processor: PromptProcessor | None = None
 
 
 def create_container() -> Container:
@@ -77,13 +79,14 @@ def create_container() -> Container:
     container.redis_cache_client = RedisCacheClient(raw_redis=container.redis_cache)
     container.redis_broker_client = RedisCacheClient(raw_redis=container.redis_broker)
     # registry = ModelRegistry(settings.models_config_path)
-    container.model_registry = ModelRegistry(settings.models_config_path)
+    container.model_registry = ModelRegistry(settings.models_config_full_path)
     container.llm_client = create_llm_client(settings.active_model_name) # Legacy
     container.llm_clients = create_all_clients(container.model_registry) # create_llm_client(settings.active_model_name)
     container.llm_router = LLMRouter(
         clients=container.llm_clients,
         default_model=container.model_registry.default_model_name,
     )
+    container.prompt_processor = PromptProcessor(settings.prompts_config_full_path)
 
 
     return container

@@ -1,9 +1,11 @@
 # app/agents/market_agent.py
-from typing import Type
 from pydantic import BaseModel
 
 from app.agents.base import BaseAgent
 from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO
+from app.llm.llm_router import LLMRouter
+from app.prompts.processor import PromptProcessor
+
 
 class MarketReasoningSchema(BaseModel):
     score: float
@@ -13,6 +15,10 @@ class MarketReasoningSchema(BaseModel):
 class MarketAgent(BaseAgent):
     name = "market"
     model_id = "openai/gpt-4o-mini"
+    prompt_name = "market_analysis"
+
+    def __init__(self, llm: LLMRouter, prompt_processor: PromptProcessor):
+        super().__init__(llm, prompt_processor)
 
     def _build_prompt(self, input_data: AgentInputDTO) -> str:
         b = input_data.bundle

@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 import structlog
 
-from app.services.prompts.loader import PromptLoader, PromptTemplate
+from app.prompts.loader import PromptLoader
 
 logger = structlog.get_logger()
 
@@ -20,7 +20,7 @@ class PromptProcessor:
             return None
 
         try:
-            context = self._prepare_context(features)
+            context = self.prepare_context(features)
 
             user_prompt = template.format_user_prompt(**context)
 
@@ -48,7 +48,7 @@ class PromptProcessor:
             logger.error("prompt_preparation_failed", template=template_name, error=str(e))
             return None
 
-    def _prepare_context(self, features: Dict[str, Any]) -> Dict[str, Any]:
+    def prepare_context(self, features: Dict[str, Any]) -> Dict[str, Any]:
         context = {
             "league_name": features.get("league_name", "N/A"),
             "home_team": features.get("home_team", "N/A"),

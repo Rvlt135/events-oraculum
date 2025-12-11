@@ -19,6 +19,7 @@ class RiskAgent(BaseAgent):
     
     name = "risk_agent"
     model_id = "openai/gpt-4o-mini"
+    prompt_name = "risk_analysis"
 
     def _build_prompt(self, input_data: AgentInputDTO) -> str:
         """

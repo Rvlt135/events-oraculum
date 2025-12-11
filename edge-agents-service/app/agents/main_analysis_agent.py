@@ -3,9 +3,9 @@ from uuid import UUID
 from pydantic import BaseModel
 import structlog
 
-from app.agents.base import BaseAgent
 from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO, MainAnalysisOutputDTO
 from app.llm.llm_router import LLMRouter
+from app.prompts.processor import PromptProcessor
 
 logger = structlog.get_logger()
 
@@ -20,10 +20,12 @@ class MainAnalysisAgent:
     """Aggregates outputs from multiple agents and generates final analysis."""
     
     name = "main_analysis"
+    prompt_name = "main_analysis"
 
-    def __init__(self, llm_router: LLMRouter):
+    def __init__(self, llm_router: LLMRouter, prompt_processor: PromptProcessor):
         self.llm = llm_router
         self.model_id = "openai/gpt-4o-mini"
+        self.prompt_processor = prompt_processor
 
     async def analyze(self, input_data: AgentInputDTO) -> AgentOutputDTO:
         """Not used for MainAnalysisAgent - use aggregate() instead."""
@@ -73,18 +75,23 @@ class MainAnalysisAgent:
         logger.debug("agent_signals_collected", signals_count=len(agent_signals))
 
         # 3. Generate summary using LLM
-        prompt = self._build_summary_prompt(
-            event_id=input_dto.event_id,
-            competition_id=input_dto.competition_id,
-            season=input_dto.season,
-            aggregated_score=aggregated_score,
-            agent_signals=agent_signals,
+        # prompt = self._build_summary_prompt(
+        #     event_id=input_dto.event_id,
+        #     competition_id=input_dto.competition_id,
+        #     season=input_dto.season,
+        #     aggregated_score=aggregated_score,
+        #     agent_signals=agent_signals,
+        # )
+
+        prompt_data = self.prompt_processor.prepare_prompt(
+            template_name=self.prompt_name,
+            features=features
         )
         
-        logger.debug("summary_prompt_built", prompt_length=len(prompt))
+        logger.debug("summary_prompt_built", prompt_length=len(prompt_data))
         
         summary_result: SummarySchema = await self.llm.generate(
-            prompt=prompt,
+            prompt=prompt_data,
             schema=SummarySchema,
             model_id=self.model_id,
         )

@@ -13,8 +13,14 @@ class PromptTemplate:
         self.description = data.get("description", "")
         self.system_prompt = data.get("system_prompt", "")
         self.user_prompt_template = data.get("user_prompt_template", "")
-        self.response_format = data.get("response_format", {})
         self.parameters = data.get("parameters", {})
+        self.model_preference = data.get("model_preference")
+        raw_params = data.get("parameters", {})
+        self.parameters = {
+            "temperature": float(raw_params.get("temperature", 0.7)),
+            "max_tokens": int(raw_params.get("max_tokens", 500)),
+            "top_p": float(raw_params.get("top_p", 1.0)),
+        }
 
     def format_user_prompt(self, **kwargs: Any) -> str:
         try:
@@ -24,13 +30,13 @@ class PromptTemplate:
             raise ValueError(f"Missing template variable: {e}")
 
     def get_temperature(self) -> float:
-        return self.parameters.get("temperature", 0.7)
+        return self.parameters.get("temperature", 0.4)
 
     def get_max_tokens(self) -> int:
         return self.parameters.get("max_tokens", 500)
 
     def get_top_p(self) -> float:
-        return self.parameters.get("top_p", 1.0)
+        return self.parameters.get("top_p", 0.1)
 
 
 class PromptLoader:

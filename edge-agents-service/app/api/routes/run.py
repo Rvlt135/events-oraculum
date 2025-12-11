@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Query
 from pydantic import BaseModel
 import structlog
 
-from app.tasks.run_batch import run_batch_task
+# from app.tasks.run_batch import run_batch_task
 
 router = APIRouter(prefix="/_agents", tags=["Run"])
 
@@ -28,17 +28,17 @@ async def run_batch(request: RunBatchRequest) -> dict:
         prompt_template=request.prompt_template
     )
 
-    task = await run_batch_task.kiq(
-        event_ids=request.event_ids,
-        league=request.league,
-        from_date=request.from_date,
-        to_date=request.to_date,
-        prompt_template=request.prompt_template
-    )
+    # task = await run_batch_task.kiq(
+    #     event_ids=request.event_ids,
+    #     league=request.league,
+    #     from_date=request.from_date,
+    #     to_date=request.to_date,
+    #     prompt_template=request.prompt_template
+    # )
 
     return {
         "status": "enqueued",
         "message": "Batch analysis task has been queued",
-        "job_id": str(task.task_id),
+        # "job_id": str(task.task_id),
         "timestamp": datetime.utcnow().isoformat()
     }

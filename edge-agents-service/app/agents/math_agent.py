@@ -5,6 +5,7 @@ from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO
 class MathAgent(BaseAgent):
     name = "math_agent"
     model_id = "openai/gpt-4o-mini"
+    prompt_name = "math_analysis"
 
     async def analyze(self, input_data: AgentInputDTO) -> AgentOutputDTO:
         poisson = input_data.bundle.poisson_event_features

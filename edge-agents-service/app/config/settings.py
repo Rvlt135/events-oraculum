@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     llm_client: Literal["instructor", "langchain", "litellm"] = Field(default="instructor")
 
+    cache_ttl_competitions_sec: int = Field(default=86400)
     openrouter_api_key: str = Field(default="")
     openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1")
     openrouter_max_retries: int = Field(default=3)
@@ -47,6 +48,7 @@ class Settings(BaseSettings):
     openrouter_app_title: str = Field(default="Layerbit Oraculum AI")
 
     models_config_path: str = Field(default="app/config/models.yaml")
+    prompts_config_path: str = Field(default="app/config/prompts/")
     active_model_name: str = Field(default="gpt-4o-mini")
 
     llm_timeout: int = Field(default=30)
@@ -57,6 +59,10 @@ class Settings(BaseSettings):
     @property
     def models_config_full_path(self) -> Path:
         return Path(self.models_config_path)
+
+    @property
+    def prompts_config_full_path(self) -> Path:
+        return Path(self.prompts_config_path)
 
 
 settings = Settings()
