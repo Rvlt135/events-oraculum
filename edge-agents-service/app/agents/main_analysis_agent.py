@@ -84,7 +84,7 @@ class MainAnalysisAgent:
         logger.debug("summary_prompt_built", template_name=prompt_data.get("template_name"))
         
         summary_result: SummarySchema = await self.llm.generate(
-            prompt=prompt_data,
+            prompt_data=prompt_data,
             schema=SummarySchema,
             model_id=self.model_id,
         )
