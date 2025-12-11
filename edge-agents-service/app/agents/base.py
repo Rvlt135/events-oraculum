@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO
-from app.llm.llm_router import LLMRouter
+from app.llm.router import LLMRouter
 from app.prompts.processor import PromptProcessor
 
 T = TypeVar("T", bound=BaseModel)
@@ -26,14 +26,6 @@ class BaseAgent(ABC):
     def __init__(self, llm: LLMRouter, prompt_processor: PromptProcessor):
         self.llm = llm
         self.prompt_processor = prompt_processor
-
-    # @abstractmethod
-    # async def analyze(self, event_features: Dict[str, Any]) -> Optional[AgentPrediction]:
-    #     pass
-    #
-    # @abstractmethod
-    # def get_model_version(self) -> str:
-    #     pass
 
     @abstractmethod
     async def analyze(self, input_data: AgentInputDTO) -> AgentOutputDTO:

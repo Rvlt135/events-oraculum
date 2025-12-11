@@ -15,7 +15,7 @@ from app.infrastructure.db.session import make_session_factory
 from app.infrastructure.http.collector_api_client import CollectorApiClient
 from app.llm.base import BaseLLMClient
 from app.llm.clients.factory import create_llm_client, create_all_clients
-from app.llm.llm_router import LLMRouter
+from app.llm.router import LLMRouter
 from app.prompts.processor import PromptProcessor
 
 logger = structlog.get_logger()

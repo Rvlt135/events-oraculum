@@ -18,6 +18,6 @@ def create_agents_pipeline(container: Container) -> AgentsPipeline:
     llm_router = container.llm_router
     math_agent = MathAgent(llm=llm_router, prompt_processor=container.prompt_processor)
     market_agent = MarketAgent(llm=llm_router, prompt_processor=container.prompt_processor)
-    main_agent = MainAnalysisAgent(llm_router=llm_router)
+    main_agent = MainAnalysisAgent(llm_router=llm_router, prompt_processor=container.prompt_processor)
     agents_pipeline = AgentsPipeline([math_agent, market_agent], main_agent)
     return agents_pipeline

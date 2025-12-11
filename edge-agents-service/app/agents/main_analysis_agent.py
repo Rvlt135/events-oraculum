@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import structlog
 
 from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO, MainAnalysisOutputDTO
-from app.llm.llm_router import LLMRouter
+from app.llm.router import LLMRouter
 from app.prompts.processor import PromptProcessor
 
 logger = structlog.get_logger()

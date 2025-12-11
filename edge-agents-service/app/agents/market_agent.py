@@ -4,7 +4,7 @@ import structlog
 
 from app.agents.base import BaseAgent
 from app.domain.entities.agents.dto import AgentInputDTO, AgentOutputDTO
-from app.llm.llm_router import LLMRouter
+from app.llm.router import LLMRouter
 from app.prompts.processor import PromptProcessor
 
 logger = structlog.get_logger()
