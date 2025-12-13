@@ -70,9 +70,9 @@ class CollectorApiClient:
             logger.error("upcoming_events_http_failed", error=str(exc))
             raise HTTPError("Failed to fetch upcoming events from external API") from exc
 
-        if not isinstance(raw_json, dict):
+        if not isinstance(raw_json, list):
             logger.error("upcoming_events_unexpected_type", type=type(raw_json).__name__)
-            raise ValueError("Upcoming events API must return a dict")
+            raise ValueError("Upcoming events API must return a list")
 
         try:
             response = UpcomingEventCatalogResponse(events=[UpcomingEventCatalogDTO(**item) for item in raw_json])
@@ -93,9 +93,9 @@ class CollectorApiClient:
             logger.error("events_bundles_http_failed", error=str(exc))
             raise HTTPError("Failed to fetch events bundles from external API") from exc
 
-        if not isinstance(raw_json, dict):
+        if not isinstance(raw_json, list):
             logger.error("events_bundles_unexpected_type", type=type(raw_json).__name__)
-            raise ValueError("Events bundles API must return a dict")
+            raise ValueError("Events bundles API must return a list")
 
         try:
             response = [EventFeatureBundleDTO.model_validate(ev) for ev in raw_json]
@@ -116,9 +116,9 @@ class CollectorApiClient:
             logger.error("events_edge_http_failed", error=str(exc))
             raise HTTPError("Failed to fetch events edge from external API") from exc
 
-        if not isinstance(raw_json, dict):
+        if not isinstance(raw_json, list):
             logger.error("events_edge_unexpected_type", type=type(raw_json).__name__)
-            raise ValueError("Events edge API must return a dict")
+            raise ValueError("Events edge API must return a list")
 
         try:
             response = [EventEdgeDTO.model_validate(ev) for ev in raw_json]

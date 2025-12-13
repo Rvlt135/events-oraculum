@@ -5,6 +5,8 @@ import structlog
 
 from app.agents.base import BaseAgent
 from app.agents.main_analysis_agent import MainAnalysisAgent
+from app.infrastructure.cache.events.event_analysis import EventAnalysisCache
+from app.infrastructure.repositories.agents_output import AgentsOutputRepository
 from app.domain.entities.agents.dto import AgentOutputDTO, AgentInputDTO, MainAnalysisOutputDTO
 
 logger = structlog.get_logger()
@@ -27,5 +29,5 @@ class AgentsPipeline:
     async def run_final(self, agent_outputs: dict[str, AgentOutputDTO], input_dto: AgentInputDTO) -> MainAnalysisOutputDTO:
         return await self.main_agent.aggregate(agent_outputs, input_dto)
 
-    async def _run_anlyse_agent(self, agent: BaseAgent, input_dto):
+    async def _run_anlyse_agent(self, agent: BaseAgent, input_dto: AgentInputDTO):
         return await agent.analyze(input_dto)

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.domain.entities.recommendation import RecommendationResponse, RecommendationCreate
-from app.domain.entities.agents.dto import AgentOutputDTO
+from app.domain.entities.agents.dto import AgentOutputDTO, MainAnalysisOutputDTO
 from app.infrastructure.db.orm.recommendation import RecommendationORM
 from app.infrastructure.db.orm.agent_analysis_outputs import AgentAnalysisOutputsORM
 
@@ -21,31 +21,23 @@ class AgentsOutputRepository:
     async def upsert_agent_analysis_outputs(
         self,
         event_id: UUID,
-        outputs: Dict[str, AgentOutputDTO]
+        main_output: MainAnalysisOutputDTO
     ) -> None:
         """
         Upsert agent analysis outputs for an event.
         
         Args:
             event_id: UUID of the event
-            outputs: Dictionary mapping agent names to their output DTOs
+            main_output: MainAnalysisOutputDTO containing aggregated analysis results
         """
         # Extract upsert payload
         outputs_json: Dict[str, Any] = {
-            agent_name: output.model_dump(mode="json") 
-            for agent_name, output in outputs.items()
+            name: dto.model_dump(mode="json") 
+            for name, dto in main_output.agents_outputs.items()
         }
         
-        main_output = outputs.get("main")
-        if not main_output:
-            raise ValueError("Missing 'main' output in outputs dict")
-        
-        main_score: float = main_output.score
-        if main_score is None:
-            raise ValueError("main output score is None")
-        
-        # Get decision from main output (decision or summary field)
-        decision: Optional[str] = getattr(main_output, "decision", None) or getattr(main_output, "summary", None)
+        main_score: float = main_output.aggregated_score
+        decision: str = main_output.summary
         
         # Execute SQLAlchemy insert with on_conflict_do_update
         insert_stmt = insert(AgentAnalysisOutputsORM).values(
@@ -53,11 +45,10 @@ class AgentsOutputRepository:
             outputs_json=outputs_json,
             main_score=main_score,
             decision=decision,
-            updated_at=func.now(),
         )
         
         stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["event_id"],
+            index_elements=[AgentAnalysisOutputsORM.event_id],
             set_={
                 "outputs_json": insert_stmt.excluded.outputs_json,
                 "main_score": insert_stmt.excluded.main_score,

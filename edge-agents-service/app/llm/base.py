@@ -6,14 +6,29 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class BaseLLMClient(ABC):
+
+
     @abstractmethod
     async def generate(
         self,
         schema: Type[T],
         prompt: str,
         system_prompt: str = "",
-        **kwargs: Any
+        json_mode: bool | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
     ) -> T:
+        """
+        Args:
+            schema: Pydantic model to validate the response
+            prompt: Prompt to generate the response
+            system_prompt: System prompt
+            json_mode: JSON mode
+            temperature: Temperature
+            max_tokens: Max tokens
+            top_p: Top-p
+        """
         pass
 
     @abstractmethod

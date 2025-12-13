@@ -25,7 +25,10 @@ class LangChainClient(BaseLLMClient):
         schema: Type[T],
         prompt: str,
         system_prompt: str = "",
-        **kwargs: Any
+        json_mode: bool | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
     ) -> T:
         logger.warning(
             "langchain_generation_not_implemented",

@@ -5,6 +5,8 @@ description: "Evaluate model uncertainty, volatility, negative edges and market 
 system_prompt: |
   You are a betting risk analyst. Your goal is to measure uncertainty, volatility,
   market instability and negative-value indicators. Focus strictly on risk, not predictions.
+  The result MUST be returned strictly as a JSON object.
+  The JSON response must match the required schema.
 
 user_prompt_template: |
   You are a betting risk analyst. Evaluate risk factors and model uncertainty.

@@ -57,7 +57,7 @@ class LLMRouter:
         # 5. Execute LLM call with retries
         raw = None
         latency = 0.0
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 start = time.monotonic()
                 raw = await client.generate(
@@ -76,7 +76,7 @@ class LLMRouter:
                 if attempt == 2:
                     logger.error("generation_failed", error=str(e), error_type=type(e).__name__)
                     raise
-                await asyncio.sleep(0.5 * (2**attempt))
+                await asyncio.sleep(1 * (2**attempt))
         
         # 6. Measure latency and log it
         logger.debug("response_received", latency=latency, tokens=getattr(raw, "tokens", None))

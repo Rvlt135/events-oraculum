@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8082)
 
-    redis_cache_url: str = Field(default="redis://localhost:6379/0")
-    redis_broker_url: str = Field(default="redis://localhost:6379/1")
+    redis_cache_url: str = Field(default="redis://localhost:6379/1")
+    redis_broker_url: str = Field(default="redis://localhost:6379/0")
 
     postgres_host: str = Field(default="0.0.0.0")
     postgres_port: int = Field(default=5432)
@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     collector_api_key: str = Field(default="")
     collector_api_url: str = Field(default="http://0.0.0.0:8083")
 
+    admin_token: str = Field(default="")
 
     @property
     def postgres_url(self) -> str:
@@ -41,14 +42,15 @@ class Settings(BaseSettings):
     llm_client: Literal["instructor", "langchain", "litellm"] = Field(default="instructor")
 
     cache_ttl_competitions_sec: int = Field(default=86400)
+    AGENT_OUTPUT_TTL_SECONDS: int = Field(default=86400)
     openrouter_api_key: str = Field(default="")
     openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1")
-    openrouter_max_retries: int = Field(default=3)
+    openrouter_max_retries: int = Field(default=0)
     openrouter_referer: str = Field(default="https://layerbit-oraculum.ai")
     openrouter_app_title: str = Field(default="Layerbit Oraculum AI")
 
     models_config_path: str = Field(default="app/config/models.yaml")
-    prompts_config_path: str = Field(default="app/config/prompts/")
+    prompts_config_path: str = Field(default="app/prompts")
     active_model_name: str = Field(default="gpt-4o-mini")
 
     llm_timeout: int = Field(default=30)

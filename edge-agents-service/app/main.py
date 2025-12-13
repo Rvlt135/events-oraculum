@@ -3,12 +3,14 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from app.config.settings import settings
 from app.infrastructure.db.pg import init_db, engine
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter, CollectorRegistry
 
-from app.api.routes import recommendations, internal
+from app.api.routes import agent_analyze, internal
 from app.api.routes import health, run
 from fastapi.openapi.utils import get_openapi
 
@@ -23,6 +25,19 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+class MetricsMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        route_type = "admin" if request.url.path.startswith(settings.admin_prefix) else "public"
+        # стараемся брать шаблон маршрута (/items/{id}) вместо фактического пути
+        path_label = getattr(request.scope.get("route"), "path", request.url.path)
+
+        request.app.state.http_requests_total.labels(
+            method=request.method,
+            path=path_label,
+            route_type=route_type
+        ).inc()
+
+        return await call_next(request)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -108,8 +123,7 @@ def create_app(env: str = "development") -> FastAPI:
     )
 
     app.include_router(health.router)
-    app.include_router(run.router)
-    app.include_router(recommendations.router)
+    app.include_router(agent_analyze.router)
     app.include_router(internal.router)
 
     @app.get("/")

@@ -1,4 +1,6 @@
 from typing import Type, TypeVar, Any
+
+from openai.types import ResponseFormatJSONObject
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 import instructor
@@ -41,10 +43,13 @@ class OpenAIInstructorClient(BaseLLMClient):
         schema: Type[T],
         prompt: str,
         system_prompt: str = "",
-        **kwargs: Any
+        json_mode: bool | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
     ) -> T:
-        temperature = kwargs.get("temperature", self.model_config.temperature_default)
-        max_tokens = kwargs.get("max_tokens", self.model_config.max_tokens_default)
+        temperature = temperature or self.model_config.temperature_default
+        max_tokens = max_tokens or self.model_config.max_tokens_default
 
         messages = []
         if system_prompt:
@@ -59,13 +64,16 @@ class OpenAIInstructorClient(BaseLLMClient):
         )
 
         try:
-            if self.model_config.supports_json_mode:
+            logger.debug("instructor_request", model=self.model_config.model_id)
+
+            if json_mode and self.model_config.supports_json_mode:
                 response = await self.instructor_client.chat.completions.create(
                     model=self.model_config.model_id,
                     messages=messages,
                     response_model=schema,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    response_format=ResponseFormatJSONObject(type='json_object'),
                 )
             else:
                 response = await self.instructor_client.chat.completions.create(
@@ -76,6 +84,7 @@ class OpenAIInstructorClient(BaseLLMClient):
                     max_tokens=max_tokens,
                 )
 
+            logger.debug("instructor_response", model=self.model_config.model_id)
             logger.info(
                 "generation_successful",
                 model=self.model_config.model_id,
@@ -86,7 +95,7 @@ class OpenAIInstructorClient(BaseLLMClient):
 
         except Exception as e:
             logger.error(
-                "generation_failed",
+                "instructor_generation_failed",
                 model=self.model_config.model_id,
                 error=str(e),
             )

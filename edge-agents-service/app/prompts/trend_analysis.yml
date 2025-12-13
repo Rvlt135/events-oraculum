@@ -5,6 +5,8 @@ description: "Analysis of recent form and trend stability for home and away team
 system_prompt: |
   You are a professional football trend analyst. Your task is to evaluate recent form,
   trend direction, and momentum indicators for both teams.
+  The result MUST be returned strictly as a JSON object.
+  The JSON response must match the required schema.
 
 user_prompt_template: |
   You are a football form and trend analyst. Analyze recent team performance trends.
@@ -37,3 +39,7 @@ parameters:
   temperature: 0.4
   max_tokens: 250
   top_p: 1.0
+
+response_format:
+  confidence_score: float
+  reasoning: list[str]

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.config.model_loader import ModelRegistry
 
 from app.config.settings import settings
+from app.infrastructure.cache.redis_broker import RedisBrokerClient
 from app.infrastructure.cache.redis_client import RedisCacheClient
 from app.infrastructure.db.engine import create_engine
 from app.infrastructure.db.session import make_session_factory
@@ -31,7 +32,7 @@ class Container:
         self.redis_cache: redis.Redis | None = None
         self.redis_broker: redis.Redis | None = None
         self.redis_cache_client:  RedisCacheClient | None = None
-        self.redis_broker_client: RedisCacheClient | None = None
+        self.redis_broker_client: RedisBrokerClient | None = None
         self.model_registry: ModelRegistry | None = None
         self.llm_clients: Dict[str, BaseLLMClient] | None = None
         self.llm_client: BaseLLMClient | None = None
@@ -77,11 +78,10 @@ def create_container() -> Container:
     container.redis_cache = redis.from_url(settings.redis_cache_url, decode_responses=True)
 
     container.redis_cache_client = RedisCacheClient(raw_redis=container.redis_cache)
-    container.redis_broker_client = RedisCacheClient(raw_redis=container.redis_broker)
-    # registry = ModelRegistry(settings.models_config_path)
+    container.redis_broker_client = RedisBrokerClient(redis=container.redis_broker)
     container.model_registry = ModelRegistry(settings.models_config_full_path)
-    container.llm_client = create_llm_client(settings.active_model_name) # Legacy
-    container.llm_clients = create_all_clients(container.model_registry) # create_llm_client(settings.active_model_name)
+    # container.llm_client = create_llm_client(settings.active_model_name) # Legacy
+    container.llm_clients = create_all_clients(container.model_registry, settings.llm_client)
     container.llm_router = LLMRouter(
         clients=container.llm_clients,
         default_model=container.model_registry.default_model_name,

@@ -7,6 +7,8 @@ system_prompt: |
   multiple statistical models, market signals, and recent form indicators into one
   consolidated high-level interpretation. You do not output predictions — only a
   meta-confidence score and reasoning.
+  The result MUST be returned strictly as a JSON object.
+  The JSON response must match the required schema.
 
 user_prompt_template: |
   PROBABILISTIC OUTPUTS:

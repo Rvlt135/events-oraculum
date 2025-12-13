@@ -1,0 +1,31 @@
+name: math_analysis
+version: "1.0"
+description: "UNUSED — placeholder for future LLM-based mathematical analysis. Safe template to keep loader consistent."
+
+system_prompt: |
+  You are a mathematical analysis assistant.
+  This template is currently UNUSED.
+  In future, the agent may analyze Poisson lambda values, variance,
+  probability distributions, or other numeric model outputs.
+  The result MUST be returned strictly as a JSON object.
+  The JSON response must match the required schema.
+
+user_prompt_template: |
+  Mathematical model inputs:
+  - lambda_home={lambda_home}
+  - lambda_away={lambda_away}
+  - lambda_diff={lambda_diff}
+  - lambda_volatility={lambda_volatility}
+
+  Task:
+  Since this is an UNUSED placeholder, do not perform real analysis.
+  Simply return neutral default fields.
+
+parameters:
+  temperature: 0.0
+  max_tokens: 200
+  top_p: 1.0
+
+response_format:
+  confidence_score: float
+  reasoning: list[str]

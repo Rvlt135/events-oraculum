@@ -11,13 +11,13 @@ from app.infrastructure.di.container import Container
 from app.infrastructure.di.service_factory import create_event_bundle_consumer
 from app.services.event_bundle_consumer import EventBundleConsumer
 from app.tasks.broker import broker
-from app.tasks.events_analyze.analyze_event_task import analyze_event_task
+from app.tasks.analyze_event_task import analyze_event_task
 
 logger = structlog.get_logger()
 
-collection_duration = Histogram("event_analysis_collection_duration_seconds", "Time spent building event analysis")
-events_processed_total = Counter("event_analysis_events_processed_total", "Total number of event analysis events processed")
-collection_errors_total = Counter("event_analysis_collection_errors_total", "Total number of collection errors")
+collection_duration = Histogram("start_event_analysis_collection_duration_seconds", "Time spent building event analysis")
+events_processed_total = Counter("start_event_analysis_events_processed_total", "Total number of event analysis events processed")
+collection_errors_total = Counter("start_event_analysis_collection_errors_total", "Total number of collection errors")
 
 @broker.task()
 async def start_event_analysis_task() -> Dict[str, Any]:

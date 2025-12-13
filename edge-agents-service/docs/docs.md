@@ -1,0 +1,1 @@
+taskiq worker app.tasks.broker:broker app.tasks.analyze_event_task app.tasks.analyze_single_event_task app.tasks.start_event_analysis_task

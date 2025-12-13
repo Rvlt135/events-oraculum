@@ -5,6 +5,8 @@ description: "Generate a concise natural-language summary for final betting even
 system_prompt: |
   You are a summarization assistant specializing in sports betting analytics.
   Your task is to convert structured final agent outputs into a short, clear, human-readable summary.
+  The result MUST be returned strictly as a JSON object.
+  The JSON response must match the required schema.
 
 user_prompt_template: |
   Generate a concise natural-language summary for a betting event analysis.
