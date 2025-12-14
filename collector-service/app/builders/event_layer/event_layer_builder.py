@@ -2,6 +2,7 @@
 Builder for building event layer features
 """
 import json
+from typing import Literal
 from uuid import UUID
 
 import structlog
@@ -15,6 +16,8 @@ from app.domain.entities.statistics.dto.fixtures_dto import UpcomingFixtureDTO
 from app.infrastructure.db.orm.event_leayer.event_feature_bundle import EventFeatureBundleORM
 
 logger = structlog.get_logger()
+
+EdgeSource = Literal["elo", "poisson", "none"] # TODO: May be externalized to policy/config in future.
 
 
 class EventLayerBuilder:
@@ -229,11 +232,21 @@ class EventLayerBuilder:
         logger.debug("parsed_bundles_completed", total=len(result))
         return result
 
-    def compute_edges(self, bundles: dict[UUID, EventFeatureBundleDTO]) -> dict[UUID, EventEdgeDTO]:
+    def compute_edges(
+        self,
+        bundles: dict[UUID, EventFeatureBundleDTO],
+        edge_source: EdgeSource,
+    ) -> dict[UUID, EventEdgeDTO]:
         """Compute betting edges from event feature bundles.
+        
+        Uses bundle.market_odds as source-of-truth and computes edges based on
+        model fair odds (elo or poisson). Acts as pure edge calculator without
+        modifying market odds or fetching data separately.
         
         Args:
             bundles: Dictionary mapping event_id to EventFeatureBundleDTO.
+            edge_source: Explicit edge source to use ("poisson", "elo", or "none").
+                        TODO: May be externalized to policy/config in future.
             
         Returns:
             Dictionary mapping event_id to EventEdgeDTO containing fair odds, edges, and value candidates.
@@ -241,46 +254,89 @@ class EventLayerBuilder:
         if not bundles:
             return {}
         
-        logger.debug("compute_edges_called", bundles_count=len(bundles))
+        # If edge_source is "none", skip edge computation entirely
+        if edge_source == "none":
+            logger.debug("compute_edges_skipped", edge_source=edge_source, bundles_count=len(bundles))
+            return {}
+        
+        logger.debug("compute_edges_called", bundles_count=len(bundles), edge_source=edge_source)
         
         result: dict[UUID, EventEdgeDTO] = {}
         
         for bundle in bundles.values():
-            # Compute fair odds from probabilities
-            fair_home = 1.0 / bundle.elo_output.p_home
-            fair_draw = 1.0 / bundle.elo_output.p_draw
-            fair_away = 1.0 / bundle.elo_output.p_away
+            event_id = bundle.event_id
+            fair_home: float = 0.0
+            fair_draw: float = 0.0
+            fair_away: float = 0.0
             
-            # Compute edge percentages
-            edge_home = (bundle.market_odds.home_best - fair_home) / fair_home
-            edge_draw = (bundle.market_odds.draw_best - fair_draw) / fair_draw if bundle.market_odds.draw_best is not None else 0.0
-            edge_away = (bundle.market_odds.away_best - fair_away) / fair_away
+            # Use provided edge_source (no auto-detection or fallback)
+            if edge_source == "poisson":
+                # Use ONLY bundle.poisson_output.fair_*
+                if (not bundle.poisson_output or
+                    bundle.poisson_output.fair_home is None or
+                    bundle.poisson_output.fair_draw is None or
+                    bundle.poisson_output.fair_away is None):
+                    logger.debug(
+                        "edge_skipped_missing_source_data",
+                        event_id=str(event_id),
+                        edge_source=edge_source,
+                    )
+                    continue
+                
+                fair_home = bundle.poisson_output.fair_home
+                fair_draw = bundle.poisson_output.fair_draw
+                fair_away = bundle.poisson_output.fair_away
+            
+            elif edge_source == "elo":
+                # Compute fair odds ONLY from bundle.elo_output.p_*
+                if (not bundle.elo_output or
+                    bundle.elo_output.p_home <= 0 or
+                    bundle.elo_output.p_draw <= 0 or
+                    bundle.elo_output.p_away <= 0):
+                    logger.debug(
+                        "edge_skipped_missing_source_data",
+                        event_id=str(event_id),
+                        edge_source=edge_source,
+                    )
+                    continue
+                
+                fair_home = 1.0 / bundle.elo_output.p_home
+                fair_draw = 1.0 / bundle.elo_output.p_draw
+                fair_away = 1.0 / bundle.elo_output.p_away
+            
+            # Read market_odds from bundle (source-of-truth, never recompute)
+            market_odds = bundle.market_odds
+            
+            # Compute edge using single invariant formula: edge = (market_odds - fair_odds) / fair_odds
+            edge_home = (market_odds.home_best - fair_home) / fair_home
+            edge_draw = (market_odds.draw_best - fair_draw) / fair_draw if market_odds.draw_best is not None else 0.0
+            edge_away = (market_odds.away_best - fair_away) / fair_away
             
             # Build value candidates for each selection
             value_candidates: list[ValueCandidateDTO] = [
                 ValueCandidateDTO(
                     selection="home",
                     fair_odds=fair_home,
-                    market_odds=bundle.market_odds.home_best,
+                    market_odds=market_odds.home_best,
                     edge_percent=edge_home,
                 ),
                 ValueCandidateDTO(
                     selection="draw",
                     fair_odds=fair_draw,
-                    market_odds=bundle.market_odds.draw_best if bundle.market_odds.draw_best is not None else 0.0,
+                    market_odds=market_odds.draw_best if market_odds.draw_best is not None else 0.0,
                     edge_percent=edge_draw,
                 ),
                 ValueCandidateDTO(
                     selection="away",
                     fair_odds=fair_away,
-                    market_odds=bundle.market_odds.away_best,
+                    market_odds=market_odds.away_best,
                     edge_percent=edge_away,
                 ),
             ]
             
             # Build EventEdgeDTO
             edge = EventEdgeDTO(
-                event_id=bundle.event_id,
+                event_id=event_id,
                 fair_home=fair_home,
                 fair_draw=fair_draw,
                 fair_away=fair_away,
@@ -290,8 +346,14 @@ class EventLayerBuilder:
                 value_candidates=value_candidates,
             )
             
-            result[bundle.event_id] = edge
-            logger.debug("edge_computed", event_id=str(bundle.event_id), edge_count=len(value_candidates))
+            result[event_id] = edge
+            
+            # Minimal debug logging
+            logger.debug(
+                "edge_computed",
+                event_id=str(event_id),
+                edge_source=edge_source,
+            )
         
         logger.debug("compute_edges_completed", total_edges=len(result))
         return result

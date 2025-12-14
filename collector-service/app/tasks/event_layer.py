@@ -211,8 +211,8 @@ async def collect_event_edges_task() -> Dict[str, str]:
                 # Load bundles (cache + repo)
                 bundles = await service_event_layer.load_enriched_bundles(event_ids)
 
-                # Compute edges
-                edges_dict = service_event_layer.el_builder.compute_edges(bundles)
+                # Compute edges (explicit edge_source - TODO: may be externalized to policy/config)
+                edges_dict = service_event_layer.el_builder.compute_edges(bundles, edge_source="poisson")
 
                 # Persist edges (DB + Cache)
                 saved = await service_event_layer.save_edge_bundles(

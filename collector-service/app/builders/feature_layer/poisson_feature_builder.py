@@ -3,6 +3,7 @@ Builder for building poisson features
 """
 from typing import List
 from uuid import UUID
+import math
 
 import structlog
 
@@ -14,10 +15,23 @@ from app.domain.entities.statistics.dto.fixtures_dto import FixtureHistoryRowDTO
 logger = structlog.get_logger()
 
 
+def clamp(value: float, min_val: float, max_val: float) -> float:
+    """Clamp value between min and max."""
+    return max(min_val, min(max_val, value))
+
+
 class PoissonFeaturesBuilder:
     """Builder for Poisson distribution features for football fixtures."""
     
-    def __init__(self, home_advantage: float = 1.1):
+    # Global baseline constants (temporary "average league" baselines)
+    BASE_GOALS_HOME = 1.35
+    BASE_GOALS_AWAY = 1.05
+    
+    # Global averages for attack/defense normalization
+    AVG_GF = 1.35
+    AVG_GA = 1.35
+    
+    def __init__(self, home_advantage: float = 1.08):
         """Initialize builder with home advantage factor.
         
         Args:
@@ -55,25 +69,64 @@ class PoissonFeaturesBuilder:
             home_mf = match_features[fixture.home_team_id]
             away_mf = match_features[fixture.away_team_id]
             
-            # Compute initial lambda values
-            lambda_home = home_tf.goals_for_avg
-            lambda_away = away_tf.goals_for_avg
-            mu_home = home_tf.goals_against_avg
-            mu_away = away_tf.goals_against_avg
+            # Start from global baselines (not from goals_for_avg)
+            lambda_home = self.BASE_GOALS_HOME
+            lambda_away = self.BASE_GOALS_AWAY
             
-            # Adjust lambda with form
-            lambda_home *= (1 + home_mf.avg_goals_for_last_n / 10)
-            lambda_away *= (1 + away_mf.avg_goals_for_last_n / 10)
+            # Compute attack/defense factors (mild multiplicative, capped)
+            attack_home = clamp(home_tf.goals_for_avg / self.AVG_GF, 0.7, 1.3)
+            def_away = clamp(away_tf.goals_against_avg / self.AVG_GA, 0.7, 1.3)
+            attack_away = clamp(away_tf.goals_for_avg / self.AVG_GF, 0.7, 1.3)
+            def_home = clamp(home_tf.goals_against_avg / self.AVG_GA, 0.7, 1.3)
             
-            # Apply home advantage
+            # Apply attack/defense factors
+            lambda_home *= attack_home * def_away
+            lambda_away *= attack_away * def_home
+            
+            # Apply mild symmetric strength factor (log-scaled and capped)
+            raw_strength_ratio = home_tf.strength_initial / max(away_tf.strength_initial, 1e-6)
+            strength_ratio = clamp(raw_strength_ratio, 0.5, 2.0)
+            log_ratio = math.log(strength_ratio)
+            strength_mult_home = clamp(1.0 + 0.10 * log_ratio, 0.85, 1.15)
+            strength_mult_away = clamp(1.0 - 0.10 * log_ratio, 0.85, 1.15)
+            lambda_home *= strength_mult_home
+            lambda_away *= strength_mult_away
+            
+            # Apply form/history adjustment (mild, capped, symmetric)
+            delta_home = clamp(
+                (home_mf.avg_goals_for_last_n - home_tf.goals_for_avg) / 10,
+                -0.10, 0.10
+            )
+            delta_away = clamp(
+                (away_mf.avg_goals_for_last_n - away_tf.goals_for_avg) / 10,
+                -0.10, 0.10
+            )
+            lambda_home *= (1.0 + delta_home)
+            lambda_away *= (1.0 + delta_away)
+            
+            # Apply home advantage once (only to home)
             lambda_home *= self.home_advantage
             
-            # Apply strength ratio
-            strength_ratio = home_tf.strength_initial / max(away_tf.strength_initial, 1)
-            lambda_home *= strength_ratio
-            lambda_away /= strength_ratio
+            # Track raw values before clamping for logging
+            raw_lambda_home = lambda_home
+            raw_lambda_away = lambda_away
             
-            # Expected goals
+            # Final clamps (must-have for realistic λ range)
+            lambda_home = clamp(lambda_home, 0.2, 3.5)
+            lambda_away = clamp(lambda_away, 0.2, 3.5)
+            
+            # Minimal logging if clamp was applied or raw lambda exceeds 3.5
+            if raw_lambda_home != lambda_home or raw_lambda_away != lambda_away or raw_lambda_home > 3.5 or raw_lambda_away > 3.5:
+                logger.debug(
+                    "poisson_lambda_sanity",
+                    event_id=fixture.event_id,
+                    lambda_home=lambda_home,
+                    lambda_away=lambda_away,
+                    home_strength=home_tf.strength_initial,
+                    away_strength=away_tf.strength_initial,
+                )
+            
+            # Expected goals mirror lambda
             expected_goals_home = lambda_home
             expected_goals_away = lambda_away
             
