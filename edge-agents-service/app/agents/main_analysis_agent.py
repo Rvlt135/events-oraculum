@@ -1,4 +1,4 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Literal, Tuple
 from uuid import UUID
 from pydantic import BaseModel
 import structlog
@@ -66,7 +66,21 @@ class MainAnalysisAgent:
             aggregated_score = 0.0
             logger.debug("no_scores_available", aggregated_score=aggregated_score)
 
-        # 2. Collect agent signals
+        # 2. Derive decision from aggregated_score and agent signals
+        decision, decision_team_id = self._derive_decision(
+            aggregated_score=aggregated_score,
+            input_dto=input_dto,
+        )
+        
+        logger.debug(
+            "decision_computed",
+            event_id=str(input_dto.event_id),
+            decision=decision,
+            decision_team_id=decision_team_id,
+            aggregated_score=aggregated_score,
+        )
+
+        # 3. Collect agent signals
         agent_signals = []
         for agent_name, output in agent_outputs.items():
             if output.signals:
@@ -74,10 +88,12 @@ class MainAnalysisAgent:
         
         logger.debug("agent_signals_collected", signals_count=len(agent_signals))
 
-        # 3. Generate summary using LLM
+        # 4. Generate summary using LLM
         prompt_data = self.build_summary_prompt(
             aggregated_score=aggregated_score,
             agent_signals=agent_signals,
+            decision=decision,
+            decision_team_id=decision_team_id,
             input_dto=input_dto,
         )
         
@@ -91,7 +107,7 @@ class MainAnalysisAgent:
         
         logger.debug("summary_generated", summary_length=len(summary_result.summary))
 
-        # 4. Return MainAnalysisOutputDTO
+        # 5. Return MainAnalysisOutputDTO
         return MainAnalysisOutputDTO(
             event_id=input_dto.event_id,
             competition_id=input_dto.competition_id,
@@ -99,6 +115,8 @@ class MainAnalysisAgent:
             match_date=input_dto.match_date,
             aggregated_score=aggregated_score,
             summary=summary_result.summary,
+            decision=decision,
+            decision_team_id=decision_team_id,
             agents_outputs=agent_outputs,
         )
 
@@ -106,6 +124,8 @@ class MainAnalysisAgent:
         self,
         aggregated_score: float,
         agent_signals: List[str],
+        decision: Literal["home_win", "draw", "away_win", "no_bet"],
+        decision_team_id: UUID | None,
         input_dto: AgentInputDTO,
     ) -> Dict[str, Any]:
         """
@@ -115,7 +135,8 @@ class MainAnalysisAgent:
             aggregated_score: Aggregated score from all agents
             agent_signals: List of signals from all agents
             input_dto: AgentInputDTO containing event information
-            
+            decision: Decision based on aggregated_score
+            decision_team_id: ID of the team to bet on
         Returns:
             Dictionary with system_prompt, user_prompt, parameters, template_name, template_version
             
@@ -137,6 +158,8 @@ class MainAnalysisAgent:
             "season": season,
             "aggregated_score": aggregated_score,
             "agent_signals_text": agent_signals_text,
+            "decision": decision,
+            "decision_team_id": str(decision_team_id),
         }
         
         logger.debug(
@@ -158,3 +181,44 @@ class MainAnalysisAgent:
             raise ValueError("Template 'main_analysis' not found")
         
         return prompt_data
+
+    def _derive_decision(
+        self,
+        aggregated_score: float,
+        input_dto: AgentInputDTO,
+    ) -> Tuple[Literal["home_win", "draw", "away_win", "no_bet"], UUID | None]:
+        """
+        Derive decision from aggregated_score and agent signals.
+        
+        Args:
+            aggregated_score: Aggregated score from all agents
+            input_dto: AgentInputDTO containing event information
+            
+        Returns:
+            Tuple of (decision, decision_team_id)
+        """
+        # Confidence threshold - if absolute score is below this, use "no_bet"
+        CONFIDENCE_THRESHOLD = 0.1
+        
+        # Absolute value of score represents confidence
+        confidence = abs(aggregated_score)
+        
+        # If confidence is too low, return "no_bet"
+        if confidence < CONFIDENCE_THRESHOLD:
+            return ("no_bet", None)
+        
+        # Determine outcome based on score sign
+        if aggregated_score > 0:
+            # Positive score favors home team
+            decision: Literal["home_win", "draw", "away_win", "no_bet"] = "home_win"
+            decision_team_id = input_dto.bundle.home_team.team_id
+        elif aggregated_score < 0:
+            # Negative score favors away team
+            decision = "away_win"
+            decision_team_id = input_dto.bundle.away_team.team_id
+        else:
+            # Score is exactly 0, treat as draw
+            decision = "draw"
+            decision_team_id = None
+        
+        return decision, decision_team_id

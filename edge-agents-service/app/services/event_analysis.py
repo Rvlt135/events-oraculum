@@ -55,8 +55,7 @@ class EventAnalysisService:
         )
         
         logger.debug(
-            "save_agent_analysis_outputs",
+            "agent_analysis_saved",
             event_id=str(event_id),
-            main_score=main_output.aggregated_score,
-            agents_count=len(main_output.agents_outputs),
+            decision=main_output.decision,
         )

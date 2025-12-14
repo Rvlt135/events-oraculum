@@ -31,13 +31,11 @@ class AgentsOutputRepository:
             main_output: MainAnalysisOutputDTO containing aggregated analysis results
         """
         # Extract upsert payload
-        outputs_json: Dict[str, Any] = {
-            name: dto.model_dump(mode="json") 
-            for name, dto in main_output.agents_outputs.items()
-        }
+        # outputs_json contains full MainAnalysisOutputDTO (with decision fields)
+        outputs_json: Dict[str, Any] = main_output.model_dump(mode="json")
         
         main_score: float = main_output.aggregated_score
-        decision: str = main_output.summary
+        decision: str | None = main_output.decision
         
         # Execute SQLAlchemy insert with on_conflict_do_update
         insert_stmt = insert(AgentAnalysisOutputsORM).values(
@@ -64,4 +62,5 @@ class AgentsOutputRepository:
             "upsert_agent_analysis_outputs",
             event_id=str(event_id),
             main_score=main_score,
+            decision=decision,
         )

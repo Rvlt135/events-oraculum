@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 
 from app.domain.entities.collector_api.event_layer_dto import EventFeatureBundleDTO, EventEdgeDTO
 
@@ -36,6 +36,9 @@ class MainAnalysisOutputDTO(BaseModel):
 
     # краткое текстовое резюме (агрегатор формирует)
     summary: str
+
+    decision: Literal["home_win", "draw", "away_win", "no_bet"]
+    decision_team_id: UUID | None
 
     # результаты всех агентов
     agents_outputs: Dict[str, AgentOutputDTO]

@@ -1,5 +1,5 @@
 name: main_analysis
-version: "1.0"
+version: "1.1"
 description: "Generate a concise natural-language summary for final betting event analysis."
 
 system_prompt: |
@@ -16,7 +16,9 @@ user_prompt_template: |
   Season: {season}
 
   Aggregated Score: {aggregated_score}
-
+  Decision: {decision}
+  Decision Team ID: {decision_team_id}
+  
   Agent Signals:
   {agent_signals_text}
 
