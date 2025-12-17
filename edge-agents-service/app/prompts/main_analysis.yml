@@ -7,6 +7,8 @@ system_prompt: |
   Your task is to convert structured final agent outputs into a short, clear, human-readable summary.
   The result MUST be returned strictly as a JSON object.
   The JSON response must match the required schema.
+  The language of the summary MUST strictly reflect the confidence implied by aggregated_score.
+  The assistant must not exaggerate certainty when the score is moderate or low.
 
 user_prompt_template: |
   Generate a concise natural-language summary for a betting event analysis.
@@ -16,15 +18,34 @@ user_prompt_template: |
   Season: {season}
 
   Aggregated Score: {aggregated_score}
+  
   Decision: {decision}
   Decision Team ID: {decision_team_id}
   
   Agent Signals:
   {agent_signals_text}
 
+  Confidence rules:
+  - If |Aggregated Score| < 0.4:
+    - Use only moderate or cautious phrasing.
+    - Allowed examples:
+      - 'moderate advantage'
+      - 'leans towards the away side'
+      - 'with notable uncertainty'
+      - 'despite conflicting signals'
+    - Forbidden words:
+      - 'strong'
+      - 'clear'
+      - 'high confidence'
+      - 'dominant'
+
+  - If |Aggregated Score| >= 0.4:
+    - Stronger wording is allowed, but must still be analytical.
+
   Instructions:
   - Provide a brief summary (2–3 sentences)
-  - Highlight the most important signals
+  - The summary wording MUST comply with the Confidence rules above.
+  - Violating these rules is considered an incorrect response.
   - Use neutral, analytical tone
   - Do NOT make a prediction; summarize insights only.
 

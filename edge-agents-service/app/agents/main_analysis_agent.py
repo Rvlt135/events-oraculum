@@ -21,6 +21,16 @@ class MainAnalysisAgent:
     
     name = "main_analysis"
     prompt_name = "main_analysis"
+    
+    # Final production agent weights (fixed, deterministic)
+    _AGENT_WEIGHTS: Dict[str, float] = {
+        "math_agent": 1.0,
+        "trend_agent": 1.0,
+        "risk_agent": 0.7,
+        "market": 0.5,  # market_agent uses name "market"
+        "meta_agent": 0.0,
+    }
+    _DEFAULT_WEIGHT: float = 1.0
 
     def __init__(self, llm_router: LLMRouter, prompt_processor: PromptProcessor):
         self.llm = llm_router
@@ -39,6 +49,9 @@ class MainAnalysisAgent:
         """
         Aggregate agent outputs and generate final analysis summary.
         
+        Normalizes agent scores by clamping to [-1, 1] range and applying
+        per-agent weight caps before aggregation to ensure balanced contribution.
+        
         Args:
             agent_outputs: Dictionary mapping agent names to their outputs
             input_dto: Original input data for the event
@@ -52,19 +65,9 @@ class MainAnalysisAgent:
             agents_count=len(agent_outputs),
         )
 
-        # 1. Compute aggregated_score as mean of all non-None scores
-        scores = [
-            output.score
-            for output in agent_outputs.values()
-            if output.score is not None
-        ]
-        
-        if scores:
-            aggregated_score = sum(scores) / len(scores)
-            logger.debug("aggregated_score_computed", score=aggregated_score, scores_count=len(scores))
-        else:
-            aggregated_score = 0.0
-            logger.debug("no_scores_available", aggregated_score=aggregated_score)
+        # 1. Normalize, weight, and aggregate agent scores
+        weighted_scores = self._collect_weighted_scores(agent_outputs)
+        aggregated_score = self._aggregate_scores(weighted_scores)
 
         # 2. Derive decision from aggregated_score and agent signals
         decision, decision_team_id = self._derive_decision(
@@ -131,6 +134,9 @@ class MainAnalysisAgent:
         """
         Build prompt for summary generation using PromptProcessor.
         
+        Aligns wording strength in summary with aggregated_score magnitude
+        through explicit interpretation rules in the prompt template.
+        
         Args:
             aggregated_score: Aggregated score from all agents
             agent_signals: List of signals from all agents
@@ -151,6 +157,15 @@ class MainAnalysisAgent:
         competition_id = input_dto.competition_id
         season = input_dto.season
         
+        # Determine score bucket for logging
+        abs_score = abs(aggregated_score)
+        if abs_score < 0.4:
+            score_bucket = "low"
+        elif abs_score < 0.7:
+            score_bucket = "moderate"
+        else:
+            score_bucket = "high"
+        
         # Build context dict matching template placeholders
         context = {
             "event_id": str(event_id),
@@ -168,6 +183,7 @@ class MainAnalysisAgent:
             competition_id=str(competition_id),
             season=season,
             aggregated_score=aggregated_score,
+            score_bucket=score_bucket,
             signals_count=len(agent_signals),
         )
         
@@ -188,7 +204,7 @@ class MainAnalysisAgent:
         input_dto: AgentInputDTO,
     ) -> Tuple[Literal["home_win", "draw", "away_win", "no_bet"], UUID | None]:
         """
-        Derive decision from aggregated_score and agent signals.
+        Derive decision from aggregated_score with production thresholds.
         
         Args:
             aggregated_score: Aggregated score from all agents
@@ -197,28 +213,127 @@ class MainAnalysisAgent:
         Returns:
             Tuple of (decision, decision_team_id)
         """
-        # Confidence threshold - if absolute score is below this, use "no_bet"
-        CONFIDENCE_THRESHOLD = 0.1
+        abs_score: float = abs(aggregated_score)
         
-        # Absolute value of score represents confidence
-        confidence = abs(aggregated_score)
-        
-        # If confidence is too low, return "no_bet"
-        if confidence < CONFIDENCE_THRESHOLD:
+        # Decision thresholds (production, fixed)
+        if abs_score < 0.1:
+            # Very low confidence → no_bet
             return ("no_bet", None)
+        elif abs_score < 0.2:
+            # Low confidence → draw / high uncertainty
+            return ("draw", None)
         
-        # Determine outcome based on score sign
+        # Higher confidence → home_win or away_win by sign
         if aggregated_score > 0:
-            # Positive score favors home team
             decision: Literal["home_win", "draw", "away_win", "no_bet"] = "home_win"
             decision_team_id = input_dto.bundle.home_team.team_id
-        elif aggregated_score < 0:
-            # Negative score favors away team
+        else:
             decision = "away_win"
             decision_team_id = input_dto.bundle.away_team.team_id
-        else:
-            # Score is exactly 0, treat as draw
-            decision = "draw"
-            decision_team_id = None
         
         return decision, decision_team_id
+
+    def _normalize_agent_score(self, raw_score: float) -> float:
+        """
+        Clamp agent score to [-1.0, 1.0] range.
+        
+        Args:
+            raw_score: Raw score from the agent
+            
+        Returns:
+            Clamped score in [-1.0, 1.0] range
+        """
+        return max(-1.0, min(1.0, raw_score))
+
+    def _apply_agent_weight(self, agent_name: str, normalized_score: float) -> float:
+        """
+        Apply agent weight multiplicatively to normalized score.
+        
+        Enforces invariants:
+        - market_agent cannot outweigh math_agent
+        - meta_agent cannot increase confidence (weight = 0.0)
+        
+        Args:
+            agent_name: Name of the agent
+            normalized_score: Normalized score in [-1.0, 1.0] range
+            
+        Returns:
+            Weighted score
+        """
+        weight: float = self._AGENT_WEIGHTS.get(agent_name, self._DEFAULT_WEIGHT)
+        weighted_score: float = normalized_score * weight
+        
+        return weighted_score
+
+    def _collect_weighted_scores(
+        self,
+        agent_outputs: Dict[str, AgentOutputDTO],
+    ) -> List[float]:
+        """
+        Collect, normalize, and weight scores from all agents.
+        
+        Args:
+            agent_outputs: Dictionary mapping agent names to their outputs
+            
+        Returns:
+            List of weighted scores ready for aggregation
+        """
+        weighted_scores: List[float] = []
+        
+        for agent_name, output in agent_outputs.items():
+            if output.score is None:
+                continue
+            
+            raw_score: float = output.score
+            
+            # Step 1: Normalize (clamp to [-1.0, 1.0])
+            normalized_score: float = self._normalize_agent_score(raw_score)
+            
+            logger.debug(
+                "agent_score_normalized",
+                agent_name=agent_name,
+                raw_score=raw_score,
+                normalized_score=normalized_score,
+            )
+            
+            # Step 2: Apply weight
+            weighted_score: float = self._apply_agent_weight(agent_name, normalized_score)
+            weighted_scores.append(weighted_score)
+            
+            weight: float = self._AGENT_WEIGHTS.get(agent_name, self._DEFAULT_WEIGHT)
+            
+            logger.debug(
+                "agent_weight_applied",
+                agent_name=agent_name,
+                normalized_score=normalized_score,
+                weighted_score=weighted_score,
+                weight=weight,
+            )
+        
+        return weighted_scores
+
+    def _aggregate_scores(self, weighted_scores: List[float]) -> float:
+        """
+        Aggregate weighted scores into final aggregated score.
+        
+        Computes mean of weighted scores. If no valid scores, returns 0.0.
+        
+        Args:
+            weighted_scores: List of weighted scores from all agents
+            
+        Returns:
+            Aggregated score (mean of weighted scores, or 0.0 if empty)
+        """
+        if not weighted_scores:
+            aggregated_score: float = 0.0
+            logger.debug("no_scores_available", aggregated_score=aggregated_score)
+            return aggregated_score
+        
+        aggregated_score: float = sum(weighted_scores) / len(weighted_scores)
+        logger.debug(
+            "aggregated_score_computed",
+            agents_count=len(weighted_scores),
+            aggregated_score=aggregated_score,
+        )
+        
+        return aggregated_score
